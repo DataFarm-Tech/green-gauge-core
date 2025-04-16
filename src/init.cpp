@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "init.h"
+#include <Arduino.h>
 
 /**
  * @brief This thread is the first to run and initializes the system.
