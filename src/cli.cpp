@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "cli.h"
+#include "config.h"
 
 #define CLI_BUFFER_SIZE 128
 
@@ -17,30 +18,35 @@ uint8_t cli_pos = 0;
  */
 void read_serial_cli(void *param) 
 {
+    printf("%s> ", ID); // Initial prompt
+
     while (1)
     {
         while (Serial.available()) 
         {
             char c = Serial.read();
-      
+
             if (c == '\b' && cli_pos > 0) 
             {
                 cli_pos--;
                 continue;
             }
-        
+
             if (c == '\n' || c == '\r') 
             {
                 cli_buffer[cli_pos] = '\0';  // Null-terminate
                 handleCommand(cli_buffer); 
                 cli_pos = 0;
+
+                // Reprint the prompt
+                printf("%s> ", ID);
             } 
             else if (cli_pos < CLI_BUFFER_SIZE - 1) 
             {
                 cli_buffer[cli_pos++] = c;
             }
         }
-        
+
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
