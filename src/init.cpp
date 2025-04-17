@@ -9,10 +9,13 @@
  * @param parameter - The parameter passed to the task
  * @return None
  */
-void init_p(void* param)
+void init_p()
 {
     printf("init_p: Starting initialization...\n");
-    //Call threads here
 
-    vTaskDelete(NULL);
+    //Call threads: CLI
+    //Interupt, check state
+    //Depending on state, start threads
+    //LoRa, HTTP
+
 }
