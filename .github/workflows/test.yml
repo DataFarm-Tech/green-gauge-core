@@ -3,9 +3,7 @@ name: CI Developer Branch
 on:
   push:
     branches:
-      - lucasV2
-      - mohnish
-      - lawind2
+      - '**'
 
 jobs:
   build:
