@@ -33,7 +33,7 @@ action=$1
 if [ "$action" == "flash" ]; then
     echo "Performing flash operation..."
     sudo pio run -e flash --target upload
-    sudo pio device monitor -b 115200 -p /dev/ttyUSB1
+    sudo pio device monitor -b 115200 -p /dev/ttyUSB0
 
 elif [ "$action" == "compile" ]; then
     echo "Performing compile operation..."
