@@ -5,7 +5,7 @@
 
 typedef enum {
   SENSOR_STATE = 1,
-  CONTROLLER_STATE = 2,
+  CONTROLLER_STATE = 2
 } device_state_t;
 
 // Function declarations

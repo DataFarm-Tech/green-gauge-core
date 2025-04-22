@@ -3,26 +3,11 @@
 
 #define ID "UNDEFINED" //if ID is never defined in compilation process, it will be set to "UNDEFINED"
 //TODO: add better var naming docs
-#define INT_STATE_PIN 32
-#define INT_STATE_PIN_2 33
 #define BAUD_RATE 115200
 
-// All other definitions remain unchanged
-#define RS485_STATUS_OK 9
-#define RS485_STATUS_ERROR 10
-#define RS485_RX 16
-#define RS485_TX 17
-#define RS485_RTS 4
-#define RS485_BAUD 4800
-#define RFM95_NSS 5 // NSS/CS P
-#define RFM95_RST 14 // RST
-#define RFM95_INT 27 // Interrupt/DIO0
-#define RFM95_MOSI 23
-#define RFM95_MISO 19
-#define RFM95_SCK 18
-#define RF95_FREQ 915.0 // DO NOT CHANGE FROM 915MHZ
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
+
 #define ADDRESS_SIZE 6
 #define MEMORY_CMP_SUCCESS 0
 #define LORA_DATA_LEN 21

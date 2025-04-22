@@ -1,8 +1,10 @@
 #include <Arduino.h>
-#include "cli_data.h"
+
+#include "cli_th.h"
 #include "init.h"
 #include "interrupts.h"
 #include "config.h"
+#include "hw.h"
 
 TaskHandle_t read_serial_cli_th; //thread handler for CLI thread
 TaskHandle_t process_state_ch_th;
@@ -17,12 +19,20 @@ volatile device_state_t current_state = CONTROLLER_STATE;
  */
 void init_p()
 {
+  int sensor_pin = 0;
+  int controller_pin = 0;
+
   Serial.begin(BAUD_RATE);
   sleep(5);
   printf("init_p: Starting initialization...\n");
 
-  pinMode(INT_STATE_PIN, INPUT); 
+  pinMode(INT_STATE_PIN, INPUT);
   pinMode(INT_STATE_PIN_2, INPUT);
+
+  sensor_pin = digitalRead(INT_STATE_PIN);
+  controller_pin = digitalRead(INT_STATE_PIN_2);
+  
+  switch_state(sensor_pin, controller_pin); //force a check on the switch state
 
   // Attach interrupts to both pins to monitor state changes
   attachInterrupt(digitalPinToInterrupt(INT_STATE_PIN), has_state_changed, CHANGE);

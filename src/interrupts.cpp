@@ -1,7 +1,10 @@
+#include <Arduino.h>
+
 #include "interrupts.h"
 #include "init.h"
 #include "utils.h"
-#include <Arduino.h>
+#include "hw.h"
+
 
 volatile unsigned long last_interrupt_time = 0;
 volatile bool state_change_detected = false;
@@ -52,16 +55,35 @@ void process_state_change(void *param) {
  */
 void switch_state(const int sensor_pin, const int controller_pin)
 {
+  /**
+   * Can we trigger a interrupt by default on startup?
+   * This ensures that all the init related functions are called, on startup even if
+   * the state has not changed???
+   */
+  
   if (sensor_pin == LOW && controller_pin == HIGH) 
   {
     if(current_state == SENSOR_STATE) return;
     PRINT_INFO("Switching to sensor state\n");
     current_state = SENSOR_STATE;
+    
+    //delete all threads, except CLI and state change thread
+
+    //do rs485 pin setup
+    
   } 
   else 
   {
     if(current_state == CONTROLLER_STATE) return;
     PRINT_INFO("Switching to controller state\n");
     current_state = CONTROLLER_STATE;
+
+    //delete all threads, except CLI and state change thread
+
+    //create http thread
+    //create main_app thread
+    
   }  
+  rfm95w_setup();
+  //create lora listener thread
 }
