@@ -30,9 +30,6 @@ void init_p()
   
   xTaskCreatePinnedToCore(process_state_change, "process_state_change", 10000, NULL, 1, &process_state_ch_th, 0);
   
-  // Start in controller mode by default
-  switch_to_controller_state();
-  
   //CLI Thread creation.
   print_motd();
   xTaskCreatePinnedToCore(read_serial_cli, "read_serial_cli", 10000, NULL, 1, &read_serial_cli_th, 1);
