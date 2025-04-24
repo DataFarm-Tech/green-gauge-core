@@ -42,11 +42,7 @@ void handle_cmd(const char* cmd)
 
     if (strncmp(token, "help", sizeof(token)) == 0) 
     {
-        cli_printf("Available commands:\n");
-        cli_printf("  help - Show this help message\n");
-        cli_printf("  exit - Exit the CLI\n");
-        cli_printf("  reboot - Reboot This Device\n");
-        cli_printf("  stop-cli - Stop the CLI thread\n");
+        print_help();
         return;
     }
 
@@ -146,7 +142,17 @@ void read_serial_cli(void *param)
 void print_motd()
 {
     cli_printf("Welcome to the DataFarm CLI!\n");
-    cli_printf("Type 'help' for a list of commands.\n");
-    cli_printf("Type 'exit' to exit the CLI.\n");
     cli_printf("\n");
+}
+
+/**
+ * @brief A function to print the help text
+ */
+void print_help()
+{
+    cli_printf("Available commands:\n");
+    cli_printf("  help - Show this help message\n");
+    cli_printf("  exit - Exit the CLI\n");
+    cli_printf("  reboot - Reboot This Device\n");
+    cli_printf("  stop-cli - Stop the CLI thread\n");
 }
