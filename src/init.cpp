@@ -14,9 +14,6 @@ The logic does not understand what state it is in.
 */
 volatile device_state_t current_state = UNDEFINED_STATE;
 
-int sensor_pin = 0;
-int controller_pin = 0;
-
 /**
  * @brief This thread is the first to run and initializes the system.
  * It sets up the hardware and starts the other threads. Depending on the active state
@@ -33,10 +30,7 @@ void init_p()
     pinMode(INT_STATE_PIN, INPUT);
     pinMode(INT_STATE_PIN_2, INPUT);
 
-    sensor_pin = digitalRead(INT_STATE_PIN);
-    controller_pin = digitalRead(INT_STATE_PIN_2);
-
-    switch_state(sensor_pin, controller_pin); //force a check on the switch state
+    switch_state(digitalRead(INT_STATE_PIN), digitalRead(INT_STATE_PIN_2)); //force a check on the switch state
 
     // Attach interrupts to both pins to monitor state changes
     attachInterrupt(digitalPinToInterrupt(INT_STATE_PIN), has_state_changed, CHANGE);

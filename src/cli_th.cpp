@@ -47,6 +47,9 @@ void handle_cmd(const char* cmd)
     if (strncmp(token, "exit", sizeof(token)) == 0)
     {
         cli_print("Exiting CLI...\n");
+        delay(1000);
+        delete_th(read_serial_cli_th); // Delete the CLI thread
+        // ESP.restart();
         return;
     }
 
@@ -60,15 +63,18 @@ void handle_cmd(const char* cmd)
         return;
     }
 
-    /* I have added this command, to check whether delete_th can work.*/
-    if (strncmp(token, "stop-cli", sizeof(token)) == 0)
+    //Ping functionality (check if google.com)
+    //clear
+    //view queue & size of queue
+    //what threads are running?
+    //view node-list
+    //
+
+    if (strncmp(token, "ping", sizeof(token)) == 0)
     {
-        cli_print("CLI stopping...\n");
-        delay(1000);
-        delete_th(read_serial_cli_th); // Delete the CLI thread
-        // ESP.restart();
-        return;
+        /* code */
     }
+    
 }
 
 /**
@@ -149,5 +155,4 @@ void print_help()
     cli_printf("  help - Show this help message\n");
     cli_printf("  exit - Exit the CLI\n");
     cli_printf("  reboot - Reboot This Device\n");
-    cli_printf("  stop-cli - Stop the CLI thread\n");
 }

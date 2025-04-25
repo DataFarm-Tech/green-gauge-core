@@ -44,8 +44,8 @@ void delete_th(TaskHandle_t th)
 {
     if (th != NULL) 
     {
-        PRINT_INFO("Thread deleted");
         vTaskDelete(th);
+        PRINT_INFO("Thread deleted");
 
         th = NULL; // Set the pointer to NULL after deletion
     }

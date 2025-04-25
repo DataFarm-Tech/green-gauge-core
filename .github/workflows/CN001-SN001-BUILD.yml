@@ -1,9 +1,9 @@
-name: CI Developer Branch
+name: CI/CD CN001/SN001 Build/Test
 
 on:
   push:
     branches:
-      - '**'
+      - '**' ## On all branches
 
 jobs:
   build:
