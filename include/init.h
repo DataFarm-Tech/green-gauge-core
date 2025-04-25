@@ -4,9 +4,9 @@
 #include <Arduino.h>
 
 typedef enum {
-  SENSOR_STATE = 1,
-  CONTROLLER_STATE = 2,
-  UNDEFINED_STATE = 3
+    UNDEFINED_STATE = 0,
+    SENSOR_STATE = 1,
+    CONTROLLER_STATE = 2,
 } device_state_t;
 
 // Function declarations

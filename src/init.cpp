@@ -5,13 +5,13 @@
 #include "interrupts.h"
 #include "config.h"
 #include "hw.h"
+#include "th_handler.h"
 
-TaskHandle_t read_serial_cli_th; //thread handler for CLI thread
-TaskHandle_t process_state_ch_th;
+/*
+The current state must be undefined when initialising.
+The logic does not understand what state it is in.
+*/
 volatile device_state_t current_state = UNDEFINED_STATE;
-
-int sensor_pin = 0;
-int controller_pin = 0;
 
 /**
  * @brief This thread is the first to run and initializes the system.
@@ -22,25 +22,22 @@ int controller_pin = 0;
  */
 void init_p()
 {
-  Serial.begin(BAUD_RATE);
-  sleep(5);
-  printf("init_p: Starting initialization...\n");
+    Serial.begin(BAUD_RATE);
+    sleep(5);
+    printf("init_p: Starting initialization...\n");
 
-  pinMode(INT_STATE_PIN, INPUT);
-  pinMode(INT_STATE_PIN_2, INPUT);
+    pinMode(INT_STATE_PIN, INPUT);
+    pinMode(INT_STATE_PIN_2, INPUT);
 
-  sensor_pin = digitalRead(INT_STATE_PIN);
-  controller_pin = digitalRead(INT_STATE_PIN_2);
-  
-  switch_state(sensor_pin, controller_pin); //force a check on the switch state
+    switch_state(digitalRead(INT_STATE_PIN), digitalRead(INT_STATE_PIN_2)); //force a check on the switch state
 
-  // Attach interrupts to both pins to monitor state changes
-  attachInterrupt(digitalPinToInterrupt(INT_STATE_PIN), has_state_changed, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(INT_STATE_PIN_2), has_state_changed, CHANGE);
-  
-  xTaskCreatePinnedToCore(process_state_change, "process_state_change", 10000, NULL, 1, &process_state_ch_th, 0);
-  
-  //CLI Thread creation.
-  print_motd();
-  xTaskCreatePinnedToCore(read_serial_cli, "read_serial_cli", 10000, NULL, 1, &read_serial_cli_th, 1);
+    // Attach interrupts to both pins to monitor state changes
+    attachInterrupt(digitalPinToInterrupt(INT_STATE_PIN), has_state_changed, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(INT_STATE_PIN_2), has_state_changed, CHANGE);
+
+    create_th(process_state_change, "process_state_change", PROC_CS_TH_STACK_SIZE, &process_state_ch_th, 0);
+
+    //CLI Thread creation.
+    print_motd();
+    create_th(read_serial_cli, "read_serial_cli", READ_SERIAL_CLI_TH_STACK_SIZE, &read_serial_cli_th, 1);
 }

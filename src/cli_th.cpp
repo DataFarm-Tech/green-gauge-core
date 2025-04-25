@@ -2,9 +2,8 @@
 
 #include "cli_th.h"
 #include "config.h"
-
-#define cli_printf Serial.printf
-#define cli_print Serial.print
+#include "th_handler.h"
+#include "utils.h"
 
 #define CLI_BUFFER_SIZE 128
 
@@ -41,16 +40,16 @@ void handle_cmd(const char* cmd)
 
     if (strncmp(token, "help", sizeof(token)) == 0) 
     {
-        cli_printf("Available commands:\n");
-        cli_printf("  help - Show this help message\n");
-        cli_printf("  exit - Exit the CLI\n");
-        cli_printf("  reboot - Reboot This Device\n");
+        print_help();
         return;
     }
 
     if (strncmp(token, "exit", sizeof(token)) == 0)
     {
         cli_print("Exiting CLI...\n");
+        delay(1000);
+        delete_th(read_serial_cli_th); // Delete the CLI thread
+        // ESP.restart();
         return;
     }
 
@@ -63,9 +62,19 @@ void handle_cmd(const char* cmd)
         ESP.restart();
         return;
     }
-    
 
-    cli_printf("Unknown command: %s\n", token);
+    //Ping functionality (check if google.com)
+    //clear
+    //view queue & size of queue
+    //what threads are running?
+    //view node-list
+    //
+
+    if (strncmp(token, "ping", sizeof(token)) == 0)
+    {
+        /* code */
+    }
+    
 }
 
 /**
@@ -134,7 +143,16 @@ void read_serial_cli(void *param)
 void print_motd()
 {
     cli_printf("Welcome to the DataFarm CLI!\n");
-    cli_printf("Type 'help' for a list of commands.\n");
-    cli_printf("Type 'exit' to exit the CLI.\n");
     cli_printf("\n");
+}
+
+/**
+ * @brief A function to print the help text
+ */
+void print_help()
+{
+    cli_printf("Available commands:\n");
+    cli_printf("  help - Show this help message\n");
+    cli_printf("  exit - Exit the CLI\n");
+    cli_printf("  reboot - Reboot This Device\n");
 }
