@@ -41,7 +41,4 @@ void init_p()
     //CLI Thread creation.
     print_motd();
     create_th(read_serial_cli, "read_serial_cli", READ_SERIAL_CLI_TH_STACK_SIZE, &read_serial_cli_th, 1);
-
-    //HTTP Thread creation.
-    create_th(http_send, "http_th", HTTP_TH_STACK_SIZE, &http_th, 0); //core 0 is used for network related tasks
 }

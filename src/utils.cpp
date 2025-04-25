@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include "utils.h"
 #include "config.h"
-#include "types.h"
 
 /**
  * @brief Constructs the endpoint URL.

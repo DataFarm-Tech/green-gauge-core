@@ -1,13 +1,14 @@
-#ifndef UTILS_H
-#define UTILS_H
+#pragma once
 
 #include <Arduino.h>
+#include <stdio.h>
 
 #include "config.h"
-#include <stdio.h>
 
 #define cli_printf Serial.printf
 #define cli_print Serial.print
+
+#define BUFFER_SIZE 128
 
 char* constr_endp(const char* endpoint);
 
@@ -19,6 +20,3 @@ char* constr_endp(const char* endpoint);
 #define PRINT_INFO(to_print) printf("[INFO]: %s\n", to_print)
 #define PRINT_WARNING(to_print) printf("[WARNING]: %s\n", to_print)
 #define PRINT_ERROR(to_print) printf("[ERROR]: %s\n", to_print)
-
-
-#endif // UTILS_H

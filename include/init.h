@@ -1,5 +1,4 @@
-#ifndef INIT_H
-#define INIT_H
+#pragma once
 
 #include <Arduino.h>
 
@@ -14,5 +13,3 @@ void init_p();
 
 // External variables
 extern volatile device_state_t current_state;
-
-#endif // INIT_H

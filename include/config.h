@@ -1,5 +1,4 @@
-#ifndef CONFIG_H
-#define CONFIG_H
+#pragma once
 
 #define ID "87hDDD" //if ID is never defined in compilation process, it will be set to "UNDEFINED"
 #define BAUD_RATE 115200
@@ -15,5 +14,3 @@
 #define ADDRESS_SIZE 6
 #define MEMORY_CMP_SUCCESS 0
 #define LORA_DATA_LEN 21
-
-#endif // CONFIG_H

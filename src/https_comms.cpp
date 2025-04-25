@@ -6,7 +6,7 @@
 
 #include "config.h"
 #include "https_comms.h"
-#include "queue_m.h"
+#include "msg_queue.h"
 #include "utils.h"
 
 /******************* Hash Defines *****************/
@@ -46,13 +46,6 @@ void http_send(void* parameter)
 {
     msg cur_msg;
 
-    // display the core on which the thread is running
-    int core = xPortGetCoreID();
-    Serial.print("HTTP thread is running on Core ");
-    Serial.println(core);
-
-    
-
     while(1) 
     {
         // Lock the mutex before accessing the queue
@@ -65,15 +58,13 @@ void http_send(void* parameter)
             // Unlock the mutex after accessing the queue
             queue_mutex.unlock();
 
-            PRINT_STR("executing api post request");
-            printf("\tsrc_node: %s    des_node: %s\n", cur_msg.src_node, cur_msg.des_node);
             node_id = cur_msg.src_node;
             send_data(cur_msg.data);
-        }else {
-
+        }
+        else 
+        {
             // If queue was empty, don't forget to unlock!
             queue_mutex.unlock();
-            Serial.println("Queue is empty, waiting...");
         }
         
         vTaskDelay(pdMS_TO_TICKS(1000));
@@ -141,20 +132,10 @@ int init_http_client(const String& url)
  */
 int post_request(const String& type, uint8_t data)
 {
-    char * url;
     int http_code;
     String json_payload;
-
-    url = constr_endp(TX_POST_ENDPOINT);
-
-    if (url == NULL)
-    {
-        PRINT_STR("URL is NULL");
-        DEBUG();
-        return HOST_FAILED_PING;
-    }
     
-    init_http_client(url);
+    init_http_client("badendpoint"); //Change this to the actual endpoint
 
     json_payload = "{\"node_id\":\"" + node_id + "\","
                           "\"level1\":\"" + data + "\","

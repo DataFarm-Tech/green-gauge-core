@@ -1,5 +1,4 @@
-#ifndef HW_H
-#define HW_H
+#pragma once
 /*
 * RS485 module pin definitions
 */
@@ -22,6 +21,3 @@
 #define RF95_FREQ 915.0 // DO NOT CHANGE FROM 915MHZ
 
 void rfm95w_setup();
-
-
-#endif // HW_H
