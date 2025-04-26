@@ -4,6 +4,8 @@
 #include "msg_queue.h"
 #include "th_handler.h"
 #include "utils.h"
+#include <WiFi.h>
+#include <ESP32Ping.h>
 
 
 void cmd_help() {
@@ -20,6 +22,32 @@ void cmd_exit() {
     delay(1000);
     delete_th(read_serial_cli_th);
     // ESP.restart(); // if needed
+}
+
+void cmd_ping(const char* host)
+{
+    //TODO
+    // Ensure WiFi is connected
+    // Connect to Wi-Fi
+    WiFi.begin("MyWifi6E", "ExpZZLN9U8V2");
+
+    
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        printf(".");
+        delay(1000);
+    
+    }
+
+    Serial.println("Connected to WiFi");
+
+    Serial.printf("[PING] Pinging %s...\n", host);
+
+    if (Ping.ping(host)) {
+        Serial.printf("[PING] Success! Avg time: %d ms\n", Ping.averageTime());
+    } else {
+        Serial.println("[PING] Failed.");
+    }
 }
 
 void cmd_reboot() {
@@ -51,9 +79,4 @@ void cmd_queue() {
     }
 
     queue_mutex.unlock();
-}
-
-
-void cmd_ping() {
-    cli_print("Ping functionality not yet implemented.\n");
 }

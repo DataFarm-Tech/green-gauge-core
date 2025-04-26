@@ -34,14 +34,19 @@ void handle_cmd(const char* cmd) {
 
     trim_newline(token);
 
+    // Get the second argument (e.g., for "ping google.com", this will be "google.com")
+    char* arg = strtok(nullptr, " ");
+    if (arg) trim_newline(arg);
+
     if (strcmp(token, "help") == 0) return cmd_help();
     if (strcmp(token, "exit") == 0) return cmd_exit();
     if (strcmp(token, "reboot") == 0) return cmd_reboot();
     if (strcmp(token, "queue") == 0) return cmd_queue();
-    if (strcmp(token, "ping") == 0) return cmd_ping();
+    if (strcmp(token, "ping") == 0) return cmd_ping(arg);
 
     cli_printf("Unknown command: %s\n", token);
 }
+
 
 void read_serial_cli(void* param) {
     print_prompt();

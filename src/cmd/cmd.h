@@ -6,4 +6,4 @@ void cmd_help();
 void cmd_exit();
 void cmd_reboot();
 void cmd_queue();
-void cmd_ping();
+void cmd_ping(const char* host);

@@ -17,7 +17,7 @@ void switch_state(const int sensor_pin, const int controller_pin);
 void tear_down();
 
 /**
- * @brief Interrupt service routine for state change detection
+ * @brief Interrupt service routinprocess_state_changee for state change detection
  * Keeps processing minimal to ensure quick execution
  */
 void IRAM_ATTR has_state_changed() {
