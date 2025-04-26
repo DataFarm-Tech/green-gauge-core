@@ -1,5 +1,4 @@
-#ifndef TH_HANDLER_H
-#define TH_HANDLER_H
+#pragma once
 
 #include <Arduino.h>
 #include "freertos/FreeRTOS.h"
@@ -20,5 +19,3 @@ extern TaskHandle_t http_th;
 //Function definitions
 void create_th(TaskFunction_t func, const char* name, int stack_size, TaskHandle_t* th, int core);
 void delete_th(TaskHandle_t th);
-
-#endif // TH_HANDLER_H
