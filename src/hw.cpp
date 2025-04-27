@@ -41,18 +41,34 @@ void rfm95w_setup()
   return;
 }
 
-/** Change this to WiFi manager. */
+/**
+ * Will change to wifi manager
+ */
 void wifi_connect() 
 {
+    if (WiFi.status() == WL_CONNECTED) {
+        PRINT_INFO("Already connected to WiFi");
+        return;
+    }
+
     const char *ssid = "MyWifi6E";
     const char *password = "ExpZZLN9U8V2";
 
+    PRINT_INFO("Connecting to WiFi...");
+
     WiFi.begin(ssid, password);
 
-    PRINT_INFO("Connecting to WiFi");
+    unsigned long startAttemptTime = millis();
 
-    while (WiFi.status() != WL_CONNECTED) {
+    // Wait for connection or timeout after 10 seconds
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
         printf(".");
         delay(500);
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+        PRINT_INFO("WiFi connected!");
+    } else {
+        PRINT_WARNING("Failed to connect to WiFi.");
     }
 }

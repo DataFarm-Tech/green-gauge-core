@@ -9,3 +9,4 @@ void cmd_queue();
 void cmd_ping(const char* host);
 void cmd_clear();
 void cmd_threads();
+void cmd_time();

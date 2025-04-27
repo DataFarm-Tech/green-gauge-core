@@ -18,6 +18,7 @@ typedef enum {
     CMD_PING,
     CMD_CLEAR,
     CMD_THREADS,
+    CMD_TIME,
     CMD_UNKNOWN
 } cli_cmd;
 
@@ -36,6 +37,7 @@ cli_cmd parse_command(const char* token)
     if (strncmp(token, "queue", sizeof(token)) == 0) return CMD_QUEUE;
     if (strncmp(token, "ping", sizeof(token)) == 0) return CMD_PING;
     if (strncmp(token, "threads", sizeof(token)) == 0) return CMD_THREADS;
+    if (strncmp(token, "time", sizeof(token)) == 0) return CMD_TIME;
     if (strncmp(token, "clear", sizeof(token)) == 0) return CMD_CLEAR;
     return CMD_UNKNOWN;
 }
@@ -95,6 +97,9 @@ void handle_cmd(const char* cmd) {
             break;
         case CMD_THREADS:
             cmd_threads();
+            break;
+        case CMD_TIME:
+            cmd_time();
             break;
             
         case CMD_UNKNOWN:

@@ -5,6 +5,7 @@
 #include "utils.h"
 #include <WiFi.h>
 #include <ESP32Ping.h>
+#include "ntp/ntp.h"
 
 
 void cmd_help() {
@@ -32,6 +33,20 @@ void cmd_clear() {
     }
 }
 
+
+void cmd_time()
+{
+    uint32_t currentTime;
+
+    if (!get_sys_time(&currentTime))
+    {
+        printf("Unable to get sys time\n");
+        return;
+    }
+
+    printf("time: %d\n", currentTime);
+    
+}
 void cmd_threads()
 {
         cli_printf("=== Thread Status ===\n");

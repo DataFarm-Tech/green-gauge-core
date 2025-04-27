@@ -11,22 +11,15 @@ uint32_t last_run_time = 0;  // Store the last execution time in epoch format
 
 void main_app(void *parm)
 {
-    /**
-     * Will move this into a function, when http stuff
-     * is needed to be done.
-     */
-    WiFi.begin("MyWifi6E", "ExpZZLN9U8V2");
-
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(1000);
-    }
-
-    time_client.begin();
+    uint32_t currentTime;
 
     while (1)
     {
-        time_client.update(); //update the time every iteration
-        uint32_t currentTime = time_client.getEpochTime();  // Get current time in seconds
+        while (!get_sys_time(&currentTime)) //must safely get the sys time
+        {
+            PRINT_ERROR("Unable to get sys time\n");
+            sleep(2);
+        }
         
         if (!exec_flag)
         {
@@ -46,9 +39,8 @@ void main_app(void *parm)
             }
         }
         
-        sleep(5);
+        sleep(1);
     }
-    
 }
 
 
