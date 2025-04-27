@@ -8,8 +8,37 @@
 #include "msg_queue.h"
 #include "cmd/cmd.h"
 
+
+// 1. Define the enum
+typedef enum {
+    CMD_HELP,
+    CMD_EXIT,
+    CMD_REBOOT,
+    CMD_QUEUE,
+    CMD_PING,
+    CMD_CLEAR,
+    CMD_THREADS,
+    CMD_UNKNOWN
+} cli_cmd;
+
+
+
+
+
 char cli_buffer[BUFFER_SIZE];
 uint8_t cli_pos = 0;
+
+cli_cmd parse_command(const char* token) 
+{
+    if (strncmp(token, "help", sizeof(token)) == 0) return CMD_HELP;
+    if (strncmp(token, "exit", sizeof(token)) == 0) return CMD_EXIT;
+    if (strncmp(token, "reboot", sizeof(token)) == 0) return CMD_REBOOT;
+    if (strncmp(token, "queue", sizeof(token)) == 0) return CMD_QUEUE;
+    if (strncmp(token, "ping", sizeof(token)) == 0) return CMD_PING;
+    if (strncmp(token, "threads", sizeof(token)) == 0) return CMD_THREADS;
+    if (strncmp(token, "clear", sizeof(token)) == 0) return CMD_CLEAR;
+    return CMD_UNKNOWN;
+}
 
 void trim_newline(char* str) {
     size_t len = strlen(str);
@@ -34,14 +63,48 @@ void handle_cmd(const char* cmd) {
 
     trim_newline(token);
 
-    if (strcmp(token, "help") == 0) return cmd_help();
-    if (strcmp(token, "exit") == 0) return cmd_exit();
-    if (strcmp(token, "reboot") == 0) return cmd_reboot();
-    if (strcmp(token, "queue") == 0) return cmd_queue();
-    if (strcmp(token, "ping") == 0) return cmd_ping();
+    cli_cmd cmd_input = parse_command(token);
 
-    cli_printf("Unknown command: %s\n", token);
+    // Get the second argument (e.g., for "ping google.com", this will be "google.com")
+    char* arg = strtok(nullptr, " ");
+    if (arg) trim_newline(arg);
+
+    switch (cmd_input) 
+    {
+        case CMD_HELP:
+            cmd_help();
+            break;
+        case CMD_EXIT:
+            cmd_exit();
+            break;
+        case CMD_REBOOT:
+            cmd_reboot();
+            break;
+        case CMD_QUEUE:
+            cmd_queue();
+            break;
+        case CMD_PING:
+            if (arg == NULL) {
+                cli_printf("Error: ping requires a host argument.\n");
+            } else {
+                cmd_ping(arg);
+            }
+            break;
+        case CMD_CLEAR:
+            cmd_clear();
+            break;
+        case CMD_THREADS:
+            cmd_threads();
+            break;
+            
+        case CMD_UNKNOWN:
+        default:
+            cli_printf("Unknown command: %s\n", token);
+            break;
+    }
 }
+
+
 
 void read_serial_cli(void* param) {
     print_prompt();

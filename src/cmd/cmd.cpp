@@ -1,9 +1,10 @@
-
 #include <Arduino.h>
 #include "cmd.h"
 #include "msg_queue.h"
 #include "th_handler.h"
 #include "utils.h"
+#include <WiFi.h>
+#include <ESP32Ping.h>
 
 
 void cmd_help() {
@@ -12,7 +13,9 @@ void cmd_help() {
     cli_printf("  exit    - Exit the CLI\n");
     cli_printf("  reboot  - Reboot this device\n");
     cli_printf("  queue   - Print contents of internal message queue\n");
-    cli_printf("  ping    - Ping functionality placeholder\n");
+    cli_printf("  ping [host]  - Ping a host\n");
+    cli_printf("  clear - Clears the screen\n");
+    cli_printf(" threads - Shows the active threads\n");
 }
 
 void cmd_exit() {
@@ -20,6 +23,62 @@ void cmd_exit() {
     delay(1000);
     delete_th(read_serial_cli_th);
     // ESP.restart(); // if needed
+}
+
+
+void cmd_clear() {
+    for (int i = 0; i < 50; i++) {
+        cli_print("\n");
+    }
+}
+
+void cmd_threads()
+{
+        cli_printf("=== Thread Status ===\n");
+    
+        if (read_serial_cli_th != NULL) {
+            cli_printf("read_serial_cli_th: Running\n");
+        }
+    
+        if (process_state_ch_th != NULL) {
+            cli_printf("process_state_ch_th: Running\n");
+        }
+    
+        if (lora_listener_th != NULL) {
+            cli_printf("lora_listener_th: Running\n");
+        }
+    
+        if (main_app_th != NULL) {
+            cli_printf("main_app_th: Running\n");
+        }
+    
+        if (http_th != NULL) {
+            cli_printf("http_th: Running\n");
+        }
+    
+}
+
+
+void cmd_ping(const char* host)
+{
+
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        printf("Not connected to Wifi...\n");
+        return;
+    }
+    
+    
+    printf("\n[PING]: Pinging %s...\n", host);
+
+    if (Ping.ping(host), 5) 
+    {
+        printf("[PING] Success! Avg time: %d ms\n", Ping.averageTime());
+    } 
+    else 
+    {
+        printf("[PING] Failed.\n");
+    }
 }
 
 void cmd_reboot() {
@@ -51,9 +110,4 @@ void cmd_queue() {
     }
 
     queue_mutex.unlock();
-}
-
-
-void cmd_ping() {
-    cli_print("Ping functionality not yet implemented.\n");
 }

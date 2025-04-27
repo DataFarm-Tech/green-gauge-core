@@ -17,7 +17,7 @@ void switch_state(const int sensor_pin, const int controller_pin);
 void tear_down();
 
 /**
- * @brief Interrupt service routine for state change detection
+ * @brief Interrupt service routinprocess_state_changee for state change detection
  * Keeps processing minimal to ensure quick execution
  */
 void IRAM_ATTR has_state_changed() {
@@ -79,6 +79,8 @@ void switch_state(const int sensor_pin, const int controller_pin)
     {
       PRINT_INFO("Switching to controller state\n");
       current_state = CONTROLLER_STATE;
+
+      wifi_connect();
 
 
       create_th(main_app, "main_app", MAIN_APP_TH_STACK_SIZE, &main_app_th, 1);
