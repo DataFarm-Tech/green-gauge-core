@@ -3,6 +3,7 @@
 #include "ntp/ntp.h"
 #include <Arduino.h>
 #include <WiFi.h>
+#include "th/th_handler.h"
 
 #define CONTROLLER_INTERVAL_SEC 28800 //change me to 60 for testing
 
@@ -11,16 +12,24 @@ uint32_t last_run_time = 0;  // Store the last execution time in epoch format
 
 void main_app(void *parm)
 {
+    sleep(5);
     uint32_t currentTime;
+
+    if (!start_sys_time()) 
+    {
+        delete_th(&main_app_th);
+        PRINT_ERROR("Unable to start sys time killing thread!");
+        
+    } 
+
+    if (!get_sys_time(&currentTime))
+    {
+        PRINT_ERROR("Unable to get sys time killing thread!");
+        delete_th(&main_app_th);
+    }
 
     while (1)
     {
-        while (!get_sys_time(&currentTime)) //must safely get the sys time
-        {
-            PRINT_ERROR("Unable to get sys time\n");
-            sleep(2);
-        }
-        
         if (!exec_flag)
         {
             exec_flag = true;

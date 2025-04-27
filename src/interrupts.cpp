@@ -96,20 +96,14 @@ void switch_state(const int sensor_pin, const int controller_pin)
             PRINT_INFO("Switching to controller state\n");
             current_state = CONTROLLER_STATE;
 
-            wifi_connect();
+            // wifi_connect();
+
+            init_mutex(current_state);
+            create_th(main_app, "main_app", MAIN_APP_TH_STACK_SIZE, &main_app_th, 1);
 
             create_th(http_send, "http_th", HTTP_TH_STACK_SIZE, &http_th, 0); // core 0 is used for network related tasks
 
-            init_mutex(current_state);
             
-            if (!start_sys_time()) 
-            {
-                PRINT_ERROR("Unable to spawn main_app thread");
-            } 
-            else 
-            {
-                create_th(main_app, "main_app", MAIN_APP_TH_STACK_SIZE, &main_app_th, 1);
-            }
         }
     }
 
