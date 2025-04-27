@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include "ntp.h"
 #include "utils.h"
+#include "mh/mutex_h.h"
 
 #define TIMEZONE_OFFSET 0 //UTC timezone
 #define UPDATE_INTERVAL 60000
@@ -10,15 +11,14 @@
 #define TIMEOUT_MS 60000
 
 typedef enum {
-    UNDEFINED_STATE = 0,
+    UNDEFINED_STATE_SYS = 0,
     START_STATE = 1,
     STOP_STATE = 2
 } sys_time_state_t;
 
 WiFiUDP udp;
 NTPClient time_client(udp, NTP_SERVER_POOL, TIMEZONE_OFFSET, UPDATE_INTERVAL);  // define and init ntp client
-sys_time_state_t active_time_state = UNDEFINED_STATE;
-SemaphoreHandle_t time_client_mutex;  // Mutex handle
+sys_time_state_t active_time_state = UNDEFINED_STATE_SYS;
 
 /**
  * @brief The following function starts the sys time. This time is used
@@ -34,12 +34,12 @@ bool start_sys_time()
         }
         
         // Lock the mutex before starting the time_client
-        if (xSemaphoreTake(time_client_mutex, portMAX_DELAY) == pdTRUE)
+        if (xSemaphoreTake(ntp_client_mh, portMAX_DELAY) == pdTRUE)
         {
             time_client.begin();
             active_time_state = START_STATE;
 
-            xSemaphoreGive(time_client_mutex); // Release the mutex
+            xSemaphoreGive(ntp_client_mh); // Release the mutex
         }
     
         return true;
@@ -59,7 +59,7 @@ bool get_sys_time(uint32_t * currentTime)
     switch (active_time_state)
     {
         case STOP_STATE:
-        case UNDEFINED_STATE:
+        case UNDEFINED_STATE_SYS:
             printf("Unable to retrieve NTP time\n");
             return false;
             break;
@@ -70,11 +70,11 @@ bool get_sys_time(uint32_t * currentTime)
             }
 
              // Lock the mutex before updating the time
-             if (xSemaphoreTake(time_client_mutex, portMAX_DELAY) == pdTRUE)
+             if (xSemaphoreTake(ntp_client_mh, portMAX_DELAY) == pdTRUE)
              {
                  time_client.update();
                  *currentTime = time_client.getEpochTime();
-                 xSemaphoreGive(time_client_mutex); // Release the mutex
+                 xSemaphoreGive(ntp_client_mh); // Release the mutex
              }
             return true;
             break;
@@ -95,26 +95,13 @@ void close_sys_time()
     if (active_time_state == START_STATE)
     {
         // Lock the mutex before stopping the time_client
-        if (xSemaphoreTake(time_client_mutex, portMAX_DELAY) == pdTRUE)
+        if (xSemaphoreTake(ntp_client_mh, portMAX_DELAY) == pdTRUE)
         {
             udp.stop();
             PRINT_INFO("Closing NTP time");
             active_time_state = STOP_STATE;
 
-            xSemaphoreGive(time_client_mutex); // Release the mutex
+            xSemaphoreGive(ntp_client_mh); // Release the mutex
         }
-    }
-}
-
-/**
- * @brief This function initializes the mutex.
- */
-void init_time_client_mutex()
-{
-    // Create the mutex for protecting time_client
-    time_client_mutex = xSemaphoreCreateMutex();
-    if (time_client_mutex == NULL)
-    {
-        PRINT_ERROR("Failed to create mutex for time_client");
     }
 }

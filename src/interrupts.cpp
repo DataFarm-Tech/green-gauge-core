@@ -9,6 +9,7 @@
 #include "https_comms.h"
 #include "msg_queue.h"
 #include "ntp/ntp.h"
+#include "mh/mutex_h.h"
 
 /**
  * Adding this macro to en/dis for development
@@ -99,7 +100,7 @@ void switch_state(const int sensor_pin, const int controller_pin)
 
             create_th(http_send, "http_th", HTTP_TH_STACK_SIZE, &http_th, 0); // core 0 is used for network related tasks
 
-            init_time_client_mutex();
+            init_mutex(current_state);
             
             if (!start_sys_time()) 
             {
