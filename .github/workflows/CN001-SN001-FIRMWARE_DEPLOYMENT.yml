@@ -1,39 +1,37 @@
-name: CI Production Build
+name: CI/CD CN001/SN001 Firmware Deployment Procedure
 
 on:
   push:
     branches:
-      - mesh
+      - 'testing'
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Python ##install latest version of python
-        uses: actions/setup-python@v2
-
-      - name: Install PlatformIO
+      - uses: actions/checkout@v2
+        with:
+          submodules: "true"
+      
+      - name: Set up Python
+        uses: actions/setup-python@v1
+      
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           sudo pip install platformio
-
-      - name: Install PlatformIO Libraries
+      
+      - name: Install platformIO libraries
         run: sudo pio lib install
-
+      
       - name: Run PlatformIO
         run: ./flash.sh compile
-
+      
       - name: Archive Firmware
         run: |
-          ls .pio/build/compile/.
           mkdir -p firmware
           cp .pio/build/compile/firmware.bin firmware/firmware.bin
-          ls firmware/firmware.bin
-
 
       - name: Set release date
         run: |
@@ -48,6 +46,7 @@ jobs:
         with:
           tag_name: v${{ env.RELEASE_DATE }}
           release_name: ${{ env.RELEASE_DATE }}
+      
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
@@ -57,4 +56,3 @@ jobs:
           asset_path: firmware/firmware.bin
           asset_name: site-v${{ github.run_number }}.bin
           asset_content_type: application/octet
-
