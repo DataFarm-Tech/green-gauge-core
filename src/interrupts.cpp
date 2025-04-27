@@ -8,6 +8,7 @@
 #include "main_app.h"
 #include "https_comms.h"
 #include "msg_queue.h"
+#include "lora/lora_listener.h"
 
 
 volatile unsigned long last_interrupt_time = 0;
@@ -89,9 +90,8 @@ void switch_state(const int sensor_pin, const int controller_pin)
     }
     
   }
-
-//   rfm95w_setup();
-  //create lora listener thread
+    // rfm95w_setup();
+    create_th(lora_listener, "lora_listener", LORA_LISTENER_TH_STACK_SIZE, &lora_listener_th, 1);
 }
 
 /**

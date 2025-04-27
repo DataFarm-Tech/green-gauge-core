@@ -6,9 +6,7 @@
 #include "config.h"
 #include "hw.h"
 #include "utils.h"
-
-
-RH_RF95 rf95(RFM95_NSS, RFM95_INT); // Create the rf95 obj
+#include "lora/lora_listener.h"
 
 /**
  * @brief This function initializes the hardware for the RFM95W module.
@@ -23,23 +21,37 @@ void rfm95w_setup()
   digitalWrite(RFM95_RST, HIGH);
   delay(10);
 
-  while (!rf95.init())
+  // Create the mutex
+  rf95_mutex = xSemaphoreCreateMutex();
+  if (rf95_mutex == NULL) 
   {
-    PRINT_ERROR("rfm95w module init failed...");
-    sleep(5); //output red LED
+      PRINT_ERROR("Failed to create rf95 mutex!");
+      return; // exit if mutex not created
   }
 
-  if (!rf95.setFrequency(RF95_FREQ))
+  if (xSemaphoreTake(rf95_mutex, portMAX_DELAY) == pdTRUE)
   {
-    PRINT_ERROR("unable to set frequency for rfm95w module...");
-    sleep(5); //output red LED
-  }
+      while (!rf95.init())
+      {
+          PRINT_ERROR("rfm95w module init failed...");
+          sleep(5); //output red LED
+      }
 
-  rf95.setTxPower(23, false);
-  rf95.setModemConfig(RH_RF95::Bw125Cr48Sf4096);
+      if (!rf95.setFrequency(RF95_FREQ))
+      {
+          PRINT_ERROR("unable to set frequency for rfm95w module...");
+          sleep(5); //output red LED
+      }
+
+      rf95.setTxPower(23, false);
+      rf95.setModemConfig(RH_RF95::Bw125Cr48Sf4096);
+
+      xSemaphoreGive(rf95_mutex); // release the lock when done
+  }
 
   return;
 }
+
 
 /** Change this to WiFi manager. */
 void wifi_connect() 
