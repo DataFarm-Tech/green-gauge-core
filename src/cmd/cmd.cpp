@@ -7,7 +7,9 @@
 #include <ESP32Ping.h>
 #include "ntp/ntp.h"
 
-
+/**
+ * @brief A command to show the help text
+ */
 void cmd_help() {
     cli_printf("Available commands:\n");
     cli_printf("  help    - Show this help message\n");
@@ -19,6 +21,9 @@ void cmd_help() {
     cli_printf(" threads - Shows the active threads\n");
 }
 
+/**
+ * @brief A command to exit the CLI (deleting the CLI thread)
+ */
 void cmd_exit() {
     cli_print("Exiting CLI...\n");
     delay(1000);
@@ -26,7 +31,10 @@ void cmd_exit() {
     // ESP.restart(); // if needed
 }
 
-
+/**
+ * @brief A command to clear the screen. A bit of a hack
+ * Only does 50 carraige returns.
+ */
 void cmd_clear() {
     for (int i = 0; i < 50; i++) {
         cli_print("\n");
@@ -34,6 +42,10 @@ void cmd_clear() {
 }
 
 
+/**
+ * @brief A command to show the current sys time.
+ * This time is the NTP time, being retrieved by the NTP client.
+ */
 void cmd_time()
 {
     uint32_t currentTime;
@@ -47,6 +59,9 @@ void cmd_time()
     printf("time: %d\n", currentTime);
     
 }
+/**
+ * @brief The following cmd shows all the active threads
+ */
 void cmd_threads()
 {
         cli_printf("=== Thread Status ===\n");
@@ -73,35 +88,52 @@ void cmd_threads()
     
 }
 
-
+/**
+ * @brief the following command pings a given host
+ */
 void cmd_ping(const char* host)
 {
-
     if (WiFi.status() != WL_CONNECTED)
     {
         printf("Not connected to Wifi...\n");
         return;
     }
-    
-    
-    printf("\n[PING]: Pinging %s...\n", host);
 
-    if (Ping.ping(host), 5) 
+    // Try to resolve the host name to an IP address
+    IPAddress resolved_ip;
+    if (!WiFi.hostByName(host, resolved_ip))
+    {
+        printf("[PING] DNS Failed for %s\n", host);
+        return;
+    }
+
+    printf("\n[PING]: Pinging %s (%s)...\n", host, resolved_ip.toString().c_str());
+
+    // Try pinging the resolved IP address 5 times
+    if (Ping.ping(resolved_ip, 5)) 
     {
         printf("[PING] Success! Avg time: %d ms\n", Ping.averageTime());
     } 
     else 
     {
-        printf("[PING] Failed.\n");
+        printf("[PING] Failed to reach %s.\n", host);
     }
 }
 
+
+/**
+ * @brief This command reboots the esp32
+ */
 void cmd_reboot() {
     cli_print("CLI Triggered Reboot\n");
     delay(1000);
     ESP.restart();
 }
 
+/**
+ * @brief This command shows the size of the queue and the elements
+ * in it.
+ */
 void cmd_queue() {
     queue_mutex.lock();
     
