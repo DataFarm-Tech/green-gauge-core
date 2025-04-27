@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <RH_RF95.h>
 #include <SPI.h>
+#include <WiFi.h>
 
 #include "config.h"
 #include "hw.h"
@@ -38,4 +39,20 @@ void rfm95w_setup()
   rf95.setModemConfig(RH_RF95::Bw125Cr48Sf4096);
 
   return;
+}
+
+/** Change this to WiFi manager. */
+void wifi_connect() 
+{
+    const char *ssid = "MyWifi6E";
+    const char *password = "ExpZZLN9U8V2";
+
+    WiFi.begin(ssid, password);
+
+    PRINT_INFO("Connecting to WiFi");
+
+    while (WiFi.status() != WL_CONNECTED) {
+        printf(".");
+        delay(500);
+    }
 }

@@ -14,7 +14,7 @@ void cmd_help() {
     cli_printf("  exit    - Exit the CLI\n");
     cli_printf("  reboot  - Reboot this device\n");
     cli_printf("  queue   - Print contents of internal message queue\n");
-    cli_printf("  ping    - Ping functionality placeholder\n");
+    cli_printf("  ping [host]  - Ping a host\n");
 }
 
 void cmd_exit() {
@@ -26,27 +26,23 @@ void cmd_exit() {
 
 void cmd_ping(const char* host)
 {
-    //TODO
-    // Ensure WiFi is connected
-    // Connect to Wi-Fi
-    WiFi.begin("MyWifi6E", "ExpZZLN9U8V2");
 
-    
-    while (WiFi.status() != WL_CONNECTED)
+    if (WiFi.status() != WL_CONNECTED)
     {
-        printf(".");
-        delay(1000);
-    
+        printf("Not connected to Wifi...\n");
+        return;
     }
+    
+    
+    printf("\n[PING]: Pinging %s...\n", host);
 
-    Serial.println("Connected to WiFi");
-
-    Serial.printf("[PING] Pinging %s...\n", host);
-
-    if (Ping.ping(host)) {
-        Serial.printf("[PING] Success! Avg time: %d ms\n", Ping.averageTime());
-    } else {
-        Serial.println("[PING] Failed.");
+    if (Ping.ping(host), 5) 
+    {
+        printf("[PING] Success! Avg time: %d ms\n", Ping.averageTime());
+    } 
+    else 
+    {
+        printf("[PING] Failed.\n");
     }
 }
 

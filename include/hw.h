@@ -21,3 +21,4 @@
 #define RF95_FREQ 915.0 // DO NOT CHANGE FROM 915MHZ
 
 void rfm95w_setup();
+void wifi_connect();
