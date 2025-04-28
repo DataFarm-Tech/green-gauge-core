@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include "th/th_handler.h"
-
+#include "interrupts.h"
 #define CONTROLLER_INTERVAL_SEC 28800 //change me to 60 for testing
 
 bool exec_flag = false;
@@ -12,21 +12,22 @@ uint32_t last_run_time = 0;  // Store the last execution time in epoch format
 
 void main_app(void *parm)
 {
-    sleep(5);
     uint32_t currentTime;
 
-    if (!start_sys_time()) 
+    if (!start_sys_time() || !get_sys_time(&currentTime)) 
     {
-        delete_th(&main_app_th);
-        PRINT_ERROR("Unable to start sys time killing thread!");
+        PRINT_ERROR("Unable to interface sys time killing main_app thread!");
         
+        /**
+         * This portion of code doesnt make any sense
+         * But it still works??
+         * Calling the delete_th function removes it, but doesnt 
+         * show the removal in the threads cmd.
+         * Will find a work around.
+         */
+        main_app_th = NULL;
+        vTaskDelete(NULL);
     } 
-
-    if (!get_sys_time(&currentTime))
-    {
-        PRINT_ERROR("Unable to get sys time killing thread!");
-        delete_th(&main_app_th);
-    }
 
     while (1)
     {

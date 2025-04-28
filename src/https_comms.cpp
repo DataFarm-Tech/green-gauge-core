@@ -8,6 +8,7 @@
 #include "https_comms.h"
 #include "msg_queue.h"
 #include "utils.h"
+#include "th/th_handler.h"
 
 /******************* Hash Defines *****************/
 
@@ -44,6 +45,16 @@ const char* labels[] = {
  */
 void http_send(void* parameter)
 {
+    /**
+     * This portion of code doesnt make any sense
+     * But it still works??
+     * Calling the delete_th function removes it, but doesnt 
+     * show the removal in the threads cmd.
+     * Will find a work around.
+     */
+    http_th = NULL;
+    vTaskDelete(NULL);
+
     msg cur_msg;
 
     while(1) 
