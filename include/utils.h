@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <stdio.h>
+#include <ESP32Ping.h>
 
 #include "config.h"
 
@@ -11,6 +12,7 @@
 #define BUFFER_SIZE 128
 
 char* constr_endp(const char* endpoint);
+void checkInternet();
 
 #define DEBUG() printf("%s: %d: %s\n", __func__, __LINE__, __FILE__)
 
