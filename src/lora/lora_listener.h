@@ -7,7 +7,4 @@
 // Declare rf95 as an external object
 extern RH_RF95 rf95;
 
-// Declare a mutex for protecting rf95
-extern SemaphoreHandle_t rf95_mutex;
-
 void lora_listener(void * param);

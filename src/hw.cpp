@@ -22,7 +22,7 @@ void rfm95w_setup()
   digitalWrite(RFM95_RST, HIGH);
   delay(10);
 
-  if (xSemaphoreTake(rf95_mutex, portMAX_DELAY) == pdTRUE)
+  if (xSemaphoreTake(rf95_mh, portMAX_DELAY) == pdTRUE)
   {
       while (!rf95.init())
       {
@@ -39,7 +39,7 @@ void rfm95w_setup()
       rf95.setTxPower(23, false);
       rf95.setModemConfig(RH_RF95::Bw125Cr48Sf4096);
 
-      xSemaphoreGive(rf95_mutex); // release the lock when done
+      xSemaphoreGive(rf95_mh); // release the lock when done
   }
 
   return;

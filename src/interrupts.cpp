@@ -17,7 +17,7 @@
  * reasons, since there is no interupt pins on the 
  * devices with LoRa modules.
  */
-#define LORA_EN 0
+#define LORA_EN 1
 
 volatile unsigned long last_interrupt_time = 0;
 volatile bool state_change_detected = false;
@@ -74,13 +74,8 @@ void switch_state(const int sensor_pin, const int controller_pin)
 {
     tear_down();
 
-    #if LORA_EN == 1
-        rfm95w_setup();
-        create_th(lora_listener, "lora_listener", LORA_LISTENER_TH_STACK_SIZE, &lora_listener_th, 1);
-        //start lora thread
-    #endif
-
-  
+    
+    
     if (sensor_pin == LOW && controller_pin == HIGH) 
     {
         if (current_state != SENSOR_STATE) 
@@ -97,17 +92,24 @@ void switch_state(const int sensor_pin, const int controller_pin)
         {
             PRINT_INFO("Switching to controller state\n");
             current_state = CONTROLLER_STATE;
-
+            
             wifi_connect();
-
-            init_mutex(current_state);
+            
             create_th(main_app, "main_app", MAIN_APP_TH_STACK_SIZE, &main_app_th, 1);
-
+            
             create_th(http_send, "http_th", HTTP_TH_STACK_SIZE, &http_th, 0); // core 0 is used for network related tasks
-
+            
             
         }
     }
+    
+    init_mutex(current_state);
+
+    #if LORA_EN == 1
+        // rfm95w_setup();
+        create_th(lora_listener, "lora_listener", LORA_LISTENER_TH_STACK_SIZE, &lora_listener_th, 1);
+        //start lora thread
+    #endif
 }
 
 /**

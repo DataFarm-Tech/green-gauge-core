@@ -8,7 +8,7 @@ SemaphoreHandle_t rf95_mh;  // Mutex handle
 void init_mutex(device_state_t state)
 {
     rf95_mh = xSemaphoreCreateMutex();
-    if (rf95_mh == NULL)
+    if (rf95_mh  == NULL)
     {
         DEBUG();
         PRINT_ERROR("Failed to create mutex for rf95");
