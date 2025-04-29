@@ -6,7 +6,7 @@
 #include "utils.h"
 #include "hw.h"
 #include "main_app/main_app.h"
-#include "https_comms.h"
+#include "http/https_comms.h"
 #include "msg_queue.h"
 #include "lora/lora_listener.h"
 #include "ntp/ntp.h"
