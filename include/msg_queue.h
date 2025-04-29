@@ -24,4 +24,4 @@ typedef struct {
 
 extern std::queue<msg> internal_msg_q;  // declare the queue here
 
-// void add_msg_to_queue();
+void add_msg_to_queue();

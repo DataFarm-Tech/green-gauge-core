@@ -14,29 +14,22 @@
 /* HTTP / Controller HTTP Error Codes*/
 #define HTTP_200_OK 200
 #define HTTP_201_CREATED 201
-#define HOST_FAILED_PING -1
-#define RSSI_LOW_STRENGTH -2
+#define HTTP_404_UNAUTH 404
+#define HTTP_500_ERROR 500
+#define HTTP_409_DUPLICATE 409
+
+#define PING_NUM 5
 
 /******************* Function Prototypes *****************/
-int post_request(String jsonPayload);
-void http_send(void* parameter);
-void send_data(msg message);
-void checkInternet();
+int post_request(String json_payload);
+void http_send(void* param);
+String construct_json_payload(msg message);
+void check_internet();
 char* constr_endp(const char* endpoint);
 
 /******************* Globals *****************/
 HTTPClient client;
 String node_id;
-
-const char* labels[] = {
-    "moisture", 
-    "temperature", 
-    "conductivity", 
-    "nitrogen", 
-    "potassium", 
-    "phosphorus", 
-    "ph"
-};
 
 /******************* Function Definitions *****************/
 /**
@@ -44,7 +37,7 @@ const char* labels[] = {
  * @param parameter - The parameter passed to the task
  * @return None
  */
-void http_send(void* parameter)
+void http_send(void* param)
 {
     /**
      * This portion of code doesnt make any sense
@@ -57,13 +50,10 @@ void http_send(void* parameter)
     // vTaskDelete(NULL);
 
     msg cur_msg;
+    String json_payload;
+    int success;
     //check internet connection
     // add_msg_to_queue();
-
-    // display the core on which the thread is running
-    int core = xPortGetCoreID();
-    // Serial.print("HTTP thread is running on Core ");
-    Serial.println(core);
 
     while(1) 
     {
@@ -71,28 +61,36 @@ void http_send(void* parameter)
         if (xSemaphoreTake(msg_queue_mh, portMAX_DELAY) == pdTRUE) 
         {
             if (!internal_msg_q.empty())
-        {
-            cur_msg = internal_msg_q.front();
-            internal_msg_q.pop();
-            // Unlock the mutex after accessing the queue
-            xSemaphoreGive(msg_queue_mh); // Release the mutex
+            {
+                cur_msg = internal_msg_q.front();
+                internal_msg_q.pop();
+                xSemaphoreGive(msg_queue_mh); // Release the mutex
 
-            // PRINT_STR("executing api post request");
-            // printf("\tsrc_node: %s    des_node: %s\n", cur_msg.src_node, cur_msg.des_node);
+                // PRINT_STR("executing api post request");
+                // printf("\tsrc_node: %s    des_node: %s\n", cur_msg.src_node, cur_msg.des_node);
+                json_payload = construct_json_payload(cur_msg);
 
-            node_id = cur_msg.src_node;
-            send_data(cur_msg);
-        }
-        else 
-        {
-            // If queue was empty, unlock the mutex and wait
-            xSemaphoreGive(msg_queue_mh); // Release the mutex
-            Serial.println("Queue is empty, waiting...");
-        }
-        vTaskDelay(pdMS_TO_TICKS(3000));
-        }
+                success = post_request(json_payload); // You'll need to modify your post_request function
+                
+                while (success != HTTP_201_CREATED) 
+                {
+                    PRINT_INFO("POST request failed");
+                    // Check if the host is reachable
+                    check_internet();
+                    success = post_request(json_payload);
+                }
 
-        
+                // PRINT_STR("POST request sent successfully");
+
+            }
+            else 
+            {
+                xSemaphoreGive(msg_queue_mh); // Release the mutex
+                // Serial.println("Queue is empty, waiting...");
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(3000));
+        }
     }
 
     vTaskDelete(NULL);
@@ -103,18 +101,21 @@ void http_send(void* parameter)
  * @param message - The data to be sent to the controller API
  * @return None
  */
-void send_data(msg message) {
+String construct_json_payload(msg message) 
+{
     // Create a JSON document
     JsonDocument doc; // Adjust size as needed
+    String json_payload;
+    JsonArray data;
   
     // Add node_id (src_node)
     doc["node_id"] = message.src_node;
   
     // Create the data array
-    JsonArray data = doc["data"].to<JsonArray>();
+    data = doc["data"].to<JsonArray>();
   
     // Helper function to add sensor data objects
-    auto addSensorData = [&data](const char* type, float value) {
+    auto add_sensor_data = [&data](const char* type, float value) {
         JsonObject obj = data.add<JsonObject>();
         obj["type"] = type;
         obj["level1"] = value;
@@ -123,32 +124,17 @@ void send_data(msg message) {
     };
   
     // Add all sensor data
-    addSensorData("moisture", message.data.rs485_humidity / 1.0f);
-    addSensorData("ph", message.data.rs485_ph / 1.0f);
-    addSensorData("temperature", message.data.rs485_temp / 1.0f);
-    addSensorData("conductivity", message.data.rs485_con / 1.0f);
-    addSensorData("nitrogen", message.data.rs485_nit / 1.0f);
-    addSensorData("phosphorus", message.data.rs485_phos / 1.0f);
-    addSensorData("potassium", message.data.rs485_pot / 1.0f);
+    add_sensor_data("moisture", message.data.rs485_humidity / 1.0f);
+    add_sensor_data("ph", message.data.rs485_ph / 1.0f);
+    add_sensor_data("temperature", message.data.rs485_temp / 1.0f);
+    add_sensor_data("conductivity", message.data.rs485_con / 1.0f);
+    add_sensor_data("nitrogen", message.data.rs485_nit / 1.0f);
+    add_sensor_data("phosphorus", message.data.rs485_phos / 1.0f);
+    add_sensor_data("potassium", message.data.rs485_pot / 1.0f);
   
     // Serialize JSON to string
-    String jsonStr;
-    serializeJson(doc, jsonStr);
-
-    // Debug output
-    // Serial.println("Sending JSON:");
-    // Serial.println(jsonStr);
-  
-    // Send the POST request with the complete JSON
-    int success = post_request(jsonStr); // You'll need to modify your post_request function
-    
-    while (success == -1 || success == -2) {
-      PRINT_STR("POST request failed");
-      // Check if the host is reachable
-      checkInternet();
-      success = post_request(jsonStr);
-    }
-    PRINT_STR("POST request sent successfully");
+    serializeJson(doc, json_payload);
+    return json_payload;
   }
 
 
@@ -180,71 +166,61 @@ int init_http_client(const String& url)
  * @param jsonPayload - The json payload  to be sent
  * @return int - The HTTP status code of the request
  */
-int post_request(String jsonPayload)
+int post_request(String json_payload)
 {
     char * url;
     int http_code;
-    String json_payload;
 
     url = constr_endp(TX_POST_ENDPOINT); 
-
-    //TODO: check if url is NULL and handle it properly
-    if (url == NULL)
-    {
-        PRINT_STR("URL is NULL");
-        DEBUG();
-        return HOST_FAILED_PING;
-    }
     
     init_http_client(url);
-
-    // printf("URL: %s\n", url);
-    // Check if the client is connected to the host
-    
-    // Send the POST request with the JSON payload & close client connection.
-    // http_code = client.POST(json_payload);
-    http_code = client.POST(jsonPayload);
-
-    //mock http_code for testing purposes
-    // http_code = HTTP_201_CREATED; //TODO: remove this line when testing is done
-    // Serial.print("POSTING FROM NODE:");
-    // Serial.print(" " +node_id);
-    // PRINT_STR(json_payload);
+    http_code = client.POST(json_payload);
     client.end();
 
     return http_code;
 }
 
 
-
-void checkInternet() {
-    const char* googleDNS = "google.com"; // Google DNS for internet check
+/**
+ * @brief The following function pings google.com to check internet
+ * connectivity. If that succeeds then it pings the API.
+ */
+void check_internet() 
+{
+    const char* google_dns = "google.com"; // Google DNS for internet check
 
     // 1. Loop until WiFi connects
-    while (WiFi.status() != WL_CONNECTED) {
-        Serial.println("WiFi disconnected. Reconnecting...");
+    while (WiFi.status() != WL_CONNECTED) 
+    {
+        printf("WiFi disconnected. Reconnecting...\n");
         WiFi.reconnect();
         delay(3000); // Prevents watchdog trigger
     }
 
     // 2. Loop until Google pings (confirms internet)
-    while (true) {
-        Serial.println("Pinging Google...");
-        if (Ping.ping(googleDNS, 5)) {
+    while (1) 
+    {
+        printf("Pinging Google...\n");
+        if (Ping.ping(google_dns, PING_NUM)) 
+        {
             break;
         }
-        Serial.println("Google ping failed. Retrying in 3s...");
+
+        printf("Google ping failed. Retrying in 3s...\n");
         delay(3000);
     }
 
     // 3. Loop until your server pings
-    while (true) {
-        Serial.println("Pinging df server server...");
-        if (Ping.ping(API_HOST, 5)) {
-            Serial.println("Server ping successful.");
+    while (1) 
+    {
+        printf("Pinging API...\n");
+
+        if (Ping.ping(API_HOST, PING_NUM)) 
+        {
+            // Serial.println("Server ping successful.");
             break;
         }
-        Serial.println("Server ping failed. Retrying in 3s...");
+        printf("Server ping failed. Retrying in 3s...\n");
         delay(3000);
     }
 }

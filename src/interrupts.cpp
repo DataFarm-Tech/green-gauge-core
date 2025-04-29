@@ -101,10 +101,6 @@ void switch_state(const int sensor_pin, const int controller_pin)
             
         }
     }
-    
-    //TODO we have to initialize the mutexes before creating the threads instead after, since 
-    //threads access the mutexes before they are created.
-    // init_mutex(current_state);
 
     #if LORA_EN == 1
         // rfm95w_setup();
@@ -125,14 +121,15 @@ void tear_down()
     delete_th(&lora_listener_th);      
     delete_th(&main_app_th);
     delete_th(&http_th);
-    
-    //lock the queue mutex
-    // if (xSemaphoreTake(msg_queue_mh, portMAX_DELAY) == pdTRUE) {
-    //     while (!internal_msg_q.empty()) internal_msg_q.pop();
-    //     xSemaphoreGive(msg_queue_mh);
-    // }
-    //point the lora rfm object's mutex to NULL
-    
+
+    if (msg_queue_mh != NULL)
+    {
+        if (xSemaphoreTake(msg_queue_mh, portMAX_DELAY) == pdTRUE) {
+            while (!internal_msg_q.empty()) internal_msg_q.pop();
+            xSemaphoreGive(msg_queue_mh);
+        }
+    }
+
     sleep(2);
     return;
 }
