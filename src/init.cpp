@@ -6,8 +6,6 @@
 #include "config.h"
 #include "hw.h"
 #include "th/th_handler.h"
-#include "https_comms.h"
-
 /*
 The current state must be undefined when initialising.
 The logic does not understand what state it is in.

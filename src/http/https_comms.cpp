@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include <WiFi.h>
 #include <Update.h>
 
 #include "config.h"
@@ -52,8 +51,11 @@ void http_send(void* parameter)
      * show the removal in the threads cmd.
      * Will find a work around.
      */
-    http_th = NULL;
-    vTaskDelete(NULL);
+    // http_th = NULL;
+    // vTaskDelete(NULL);
+
+    //check internet connection
+    checkInternet();
 
     msg cur_msg;
 
@@ -70,7 +72,7 @@ void http_send(void* parameter)
             queue_mutex.unlock();
 
             node_id = cur_msg.src_node;
-            send_data(cur_msg.data);
+            // send_data(cur_msg.data);
         }
         else 
         {
