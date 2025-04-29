@@ -7,6 +7,11 @@
 #include <ESP32Ping.h>
 #include "ntp/ntp.h"
 #include "interrupts.h"
+#include <queue>
+#include <mutex>
+#include <Arduino.h>
+#include "config.h"
+#include "mh/mutex_h.h"
 
 /**
  * @brief A command to show the help text
@@ -204,5 +209,29 @@ void cmd_queue()
     
         xSemaphoreGive(msg_queue_mh);
     }
+}
 
+void cmd_add_queue()
+{
+    msg new_message;
+    new_message.src_node = "tnode1";
+    new_message.des_node = "controller";
+    
+    // Generate some sensor data (you can replace with real sensor readings)
+    new_message.data = {
+        .rs485_humidity = uint8_t(random(30, 60)),
+        .rs485_temp = uint8_t(random(20, 30)),
+        .rs485_con = uint8_t(random(20, 40)),
+        .rs485_ph = uint8_t(random(5, 9)),
+        .rs485_nit = uint8_t(random(40, 60)),
+        .rs485_phos = uint8_t(random(30, 50)),
+        .rs485_pot = uint8_t(random(25, 45))
+    };
+
+    if (xSemaphoreTake(msg_queue_mh, portMAX_DELAY) == pdTRUE)
+    {
+        internal_msg_q.push(new_message); 
+        xSemaphoreGive(msg_queue_mh);
+    }
+    
 }

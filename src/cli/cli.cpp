@@ -27,6 +27,7 @@ cli_cmd get_best_enum(const char* token)
     if (strncmp(token, "time", sizeof(token)) == 0) return CMD_TIME;
     if (strncmp(token, "teardown", sizeof(token)) == 0) return CMD_TEARDOWN;
     if (strncmp(token, "ipconfig", sizeof(token)) == 0) return CMD_IPCONFIG;
+    if (strncmp(token, "q_add", sizeof(token)) == 0) return CMD_QADD;
     if (strncmp(token, "clear", sizeof(token)) == 0) return CMD_CLEAR;
     return CMD_UNKNOWN;
 }
@@ -93,6 +94,9 @@ void handle_cmd(char* cmd)
             break;
         case CMD_IPCONFIG:
             cmd_ipconfig();
+            break;
+        case CMD_QADD:
+            cmd_add_queue();
             break;
             
         case CMD_UNKNOWN:
