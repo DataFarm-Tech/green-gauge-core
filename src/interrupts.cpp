@@ -10,6 +10,7 @@
 #include "msg_queue.h"
 #include "lora/lora_listener.h"
 #include "ntp/ntp.h"
+#include "eeprom/eeprom.h"
 #include "mh/mutex_h.h"
 
 /**
@@ -65,6 +66,10 @@ void process_state_change(void *param)
     vTaskDelete(NULL); // Delete the task when done
 }
 
+bool is_key_set() {
+    return config.api_key[0] != '\0';  // Check if the first character is not the null terminator
+}
+
 /**
  * @brief Switch the state of the system based on pin readings
  * @param sensor_pin - The state of the sensor pin
@@ -72,8 +77,9 @@ void process_state_change(void *param)
  */
 void switch_state(const int sensor_pin, const int controller_pin) 
 {
-    //TODO teardown clears the queue before the mutexes are intialized
-    tear_down();
+    tear_down(); //teardown clears the queue before the mutexes are intialized
+    init_eeprom_int(); //init eeprom interface
+    read_config(); //read current saved config
     
     if (sensor_pin == LOW && controller_pin == HIGH) 
     {
@@ -93,6 +99,16 @@ void switch_state(const int sensor_pin, const int controller_pin)
             current_state = CONTROLLER_STATE;
             
             wifi_connect();
+            
+            if (!is_key_set())
+            {
+
+                activate_controller();
+            }
+
+            printf("key: %s \n", config.api_key);
+            
+            
 
             init_mutex(current_state);
             

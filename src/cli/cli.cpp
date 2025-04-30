@@ -3,6 +3,7 @@
 
 #include "cli/cli.h"
 #include "config.h"
+#include "eeprom/eeprom.h"
 #include "th/th_handler.h"
 #include "utils.h"
 #include "msg_queue.h"
@@ -28,6 +29,9 @@ cli_cmd get_best_enum(const char* token)
     if (strncmp(token, "teardown", sizeof(token)) == 0) return CMD_TEARDOWN;
     if (strncmp(token, "ipconfig", sizeof(token)) == 0) return CMD_IPCONFIG;
     if (strncmp(token, "q_add", sizeof(token)) == 0) return CMD_QADD;
+    if (strncmp(token, "apply", sizeof(token)) == 0) return CMD_APPLY;
+    if (strncmp(token, "key", sizeof(token)) == 0) return CMD_KEY;
+
     if (strncmp(token, "clear", sizeof(token)) == 0) return CMD_CLEAR;
     return CMD_UNKNOWN;
 }
@@ -97,6 +101,12 @@ void handle_cmd(char* cmd)
             break;
         case CMD_QADD:
             cmd_add_queue();
+            break;
+        case CMD_APPLY:
+            save_config();
+            break;
+        case CMD_KEY:
+            cmd_key();
             break;
             
         case CMD_UNKNOWN:

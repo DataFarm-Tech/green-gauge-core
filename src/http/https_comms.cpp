@@ -2,6 +2,8 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Update.h>
+#include "eeprom/eeprom.h"
+#include <EEPROM.h>
 
 #include "config.h"
 #include "https_comms.h"
@@ -19,6 +21,7 @@
 #define HTTP_409_DUPLICATE 409
 
 #define PING_NUM 5
+#define EEPROM_ADDR 0
 
 /******************* Function Prototypes *****************/
 int post_request(String json_payload);
@@ -29,7 +32,79 @@ char* constr_endp(const char* endpoint);
 
 /******************* Globals *****************/
 HTTPClient client;
-String node_id;
+
+
+/**
+ * activate_controller:
+ *      //Retrieve api_key from EEPROM
+ *      //If not in mem:
+ *      //  call activate_controller, then save api_key to eeprom
+ *      //  
+ */
+
+ 
+ void update_key(const char* new_key) {
+    // Save the key to EEPROM (make sure it's null-terminated)
+    strncpy(config.api_key, new_key, sizeof(config.api_key) - 1);  // Avoid buffer overflow
+    config.api_key[sizeof(config.api_key) - 1] = '\0';  // Ensure null-termination
+    EEPROM.put(EEPROM_ADDR, config);  // Write struct to EEPROM
+    EEPROM.commit();  // Commit changes on ESP8266/ESP32
+    Serial.println("API key updated and saved to EEPROM.");
+}
+
+
+/**
+ * @brief The following function calls the activate_controller endpoint, it then 
+ * returns an api_key. It provides a username and password in the body.
+ */
+void activate_controller()
+{   
+    char * url;
+    int http_code;
+    String json_payload;
+    String response;
+    JsonDocument doc;            // Size adjusted for request payload
+    JsonDocument response_doc;   // Size adjusted for expected response
+    const char* api_key;
+
+    doc["controller_id"] = ID;
+    doc["username"] = "admin";
+    doc["password"] = "admin";
+
+    serializeJson(doc, json_payload);
+
+    url = constr_endp(TX_ACT_ENDPOINT);
+
+    client.begin(url);
+    client.addHeader("Content-Type", "application/json");
+    http_code = client.POST(json_payload);
+
+    switch (http_code)
+    {
+        case HTTP_200_OK:
+            response = client.getString();
+            deserializeJson(response_doc, response);
+            api_key = response_doc["access_token"];
+
+            if (api_key != nullptr) 
+            {
+                update_key(api_key);
+            } 
+            else 
+            {
+                PRINT_ERROR("access_token not found in response");
+            }
+
+            break;
+
+        default:
+            printf("HTTP POST failed with status code: %d\n", http_code);
+            break;
+    }
+
+    client.end();
+}
+
 
 /******************* Function Definitions *****************/
 /**
@@ -52,8 +127,6 @@ void http_send(void* param)
     msg cur_msg;
     String json_payload;
     int success;
-    //check internet connection
-    // add_msg_to_queue();
 
     while(1) 
     {
@@ -65,28 +138,19 @@ void http_send(void* param)
                 cur_msg = internal_msg_q.front();
                 internal_msg_q.pop();
                 xSemaphoreGive(msg_queue_mh); // Release the mutex
-
-                // PRINT_STR("executing api post request");
-                // printf("\tsrc_node: %s    des_node: %s\n", cur_msg.src_node, cur_msg.des_node);
                 json_payload = construct_json_payload(cur_msg);
-
-                success = post_request(json_payload); // You'll need to modify your post_request function
+                success = post_request(json_payload);
                 
                 while (success != HTTP_201_CREATED) 
                 {
                     PRINT_INFO("POST request failed");
-                    // Check if the host is reachable
                     check_internet();
                     success = post_request(json_payload);
                 }
-
-                // PRINT_STR("POST request sent successfully");
-
             }
             else 
             {
                 xSemaphoreGive(msg_queue_mh); // Release the mutex
-                // Serial.println("Queue is empty, waiting...");
             }
 
             vTaskDelay(pdMS_TO_TICKS(3000));
@@ -136,7 +200,6 @@ String construct_json_payload(msg message)
     serializeJson(doc, json_payload);
     return json_payload;
   }
-
 
 /**
  * @brief This function initializes the HTTP client with the given URL and adds the necessary headers.

@@ -11,6 +11,7 @@
 #include <mutex>
 #include <Arduino.h>
 #include "config.h"
+#include "eeprom/eeprom.h"
 #include "mh/mutex_h.h"
 
 /**
@@ -235,4 +236,10 @@ void cmd_add_queue()
         xSemaphoreGive(msg_queue_mh);
     }
     
+}
+
+
+void cmd_key()
+{
+    cli_printf("Key: %s\n", config.api_key);
 }
