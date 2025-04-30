@@ -2,7 +2,7 @@
 #include "eeprom.h"
 
 #define EEPROM_SIZE sizeof(device_config)
-#define EEPROM_ADDR 0
+#define EEPROM_ADDR 0 //start writing eeprom from the start of mem
 
 device_config config;
 
@@ -30,11 +30,7 @@ void save_config()
  * @brief The following function reads all the data from EEPROM and saves 
  * it into the config variable.
  */
-void read_config() {
+void read_config() 
+{
     EEPROM.get(EEPROM_ADDR, config);  // Load the configuration from EEPROM
-    if (config.api_key[0] == '\0') {
-        Serial.println("API Key not set in EEPROM.");
-    } else {
-        Serial.println("API Key found in EEPROM.");
-    }
 }

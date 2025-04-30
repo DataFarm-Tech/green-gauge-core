@@ -3,7 +3,6 @@
 #include <ArduinoJson.h>
 #include <Update.h>
 #include "eeprom/eeprom.h"
-#include <EEPROM.h>
 
 #include "config.h"
 #include "https_comms.h"
@@ -21,7 +20,6 @@
 #define HTTP_409_DUPLICATE 409
 
 #define PING_NUM 5
-#define EEPROM_ADDR 0
 
 /******************* Function Prototypes *****************/
 int post_request(String json_payload);
@@ -29,27 +27,21 @@ void http_send(void* param);
 String construct_json_payload(msg message);
 void check_internet();
 char* constr_endp(const char* endpoint);
+void update_key(const char* new_key);
+void activate_controller();
 
 /******************* Globals *****************/
 HTTPClient client;
 
-
 /**
- * activate_controller:
- *      //Retrieve api_key from EEPROM
- *      //If not in mem:
- *      //  call activate_controller, then save api_key to eeprom
- *      //  
+ * @brief The following function takes a new key,
+ * and updates it as the new key in the EEPROM.
  */
-
- 
- void update_key(const char* new_key) {
-    // Save the key to EEPROM (make sure it's null-terminated)
+void update_key(const char* new_key) 
+{
     strncpy(config.api_key, new_key, sizeof(config.api_key) - 1);  // Avoid buffer overflow
     config.api_key[sizeof(config.api_key) - 1] = '\0';  // Ensure null-termination
-    EEPROM.put(EEPROM_ADDR, config);  // Write struct to EEPROM
-    EEPROM.commit();  // Commit changes on ESP8266/ESP32
-    Serial.println("API key updated and saved to EEPROM.");
+    save_config();
 }
 
 
@@ -63,15 +55,15 @@ void activate_controller()
     int http_code;
     String json_payload;
     String response;
-    JsonDocument doc;            // Size adjusted for request payload
-    JsonDocument response_doc;   // Size adjusted for expected response
+    JsonDocument doc;
+    JsonDocument response_doc;
     const char* api_key;
 
     doc["controller_id"] = ID;
     doc["username"] = "admin";
     doc["password"] = "admin";
 
-    serializeJson(doc, json_payload);
+    serializeJson(doc, json_payload); //convert into a string
 
     url = constr_endp(TX_ACT_ENDPOINT);
 
@@ -114,16 +106,6 @@ void activate_controller()
  */
 void http_send(void* param)
 {
-    /**
-     * This portion of code doesnt make any sense
-     * But it still works??
-     * Calling the delete_th function removes it, but doesnt 
-     * show the removal in the threads cmd.
-     * Will find a work around.
-     */
-    // http_th = NULL;
-    // vTaskDelete(NULL);
-
     msg cur_msg;
     String json_payload;
     int success;
@@ -179,7 +161,8 @@ String construct_json_payload(msg message)
     data = doc["data"].to<JsonArray>();
   
     // Helper function to add sensor data objects
-    auto add_sensor_data = [&data](const char* type, float value) {
+    auto add_sensor_data = [&data](const char* type, float value) 
+    {
         JsonObject obj = data.add<JsonObject>();
         obj["type"] = type;
         obj["level1"] = value;

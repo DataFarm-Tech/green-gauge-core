@@ -105,11 +105,7 @@ void switch_state(const int sensor_pin, const int controller_pin)
 
                 activate_controller();
             }
-
-            printf("key: %s \n", config.api_key);
             
-            
-
             init_mutex(current_state);
             
             create_th(main_app, "main_app", MAIN_APP_TH_STACK_SIZE, &main_app_th, 1);
