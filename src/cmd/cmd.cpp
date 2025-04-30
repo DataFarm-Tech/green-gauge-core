@@ -29,6 +29,7 @@ void cmd_help()
     cli_printf(" ipconfig - Shows the network config\n");
     cli_printf(" time - Shows the current NTP time\n");
     cli_printf(" teardown - Removes all threads and clears queue\n");
+    cli_printf(" q_add - Adds an element to the queue\n");
 }
 
 /**
