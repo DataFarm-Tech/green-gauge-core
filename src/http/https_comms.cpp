@@ -29,9 +29,12 @@ void check_internet();
 char* constr_endp(const char* endpoint);
 void update_key(const char* new_key);
 void activate_controller();
+bool get_nodes_list();
 
 /******************* Globals *****************/
 HTTPClient client;
+
+/******************* Function Definitions *****************/
 
 /**
  * @brief The following function takes a new key,
@@ -97,8 +100,78 @@ void activate_controller()
     client.end();
 }
 
+/**
+ * @brief The following function calls the /user/get/node endpoint to retrieve 
+ *        the list of node IDs associated with the controller.
 
-/******************* Function Definitions *****************/
+ */
+bool get_nodes_list() {
+    char url[150];
+    int http_code;
+    String response;
+    JsonDocument doc;
+    
+    // Construct the endpoint URL with query parameter
+    snprintf(url, sizeof(url), "%s?controller_id=%s", 
+         constr_endp(TX_GET_ENDPOINT), 
+         ID);
+    
+    client.begin(url);
+    client.addHeader("accept", "application/json");
+
+    printf("Sending GET request to %s\n", url);
+    
+    http_code = client.GET();
+    
+    if (http_code != HTTP_200_OK) {
+        PRINT_ERROR("HTTP GET failed with status code: ${http_code}");
+        client.end();
+        return false;
+    }
+    
+    response = client.getString();
+    DeserializationError error = deserializeJson(doc, response);
+    client.end();
+    
+    if (error) {
+        PRINT_ERROR("Failed to parse JSON response");
+        return false;
+    }
+    
+    node_count = doc.size();
+    node_list = (char**)malloc(node_count * sizeof(char*));
+    
+    if (node_list == nullptr) {
+        PRINT_ERROR("Memory allocation failed");
+        return false;
+    }
+    printf("Number of nodes: %zu\n", node_count);
+
+    // Parse each node in the response and extract node_id
+    for (size_t i = 0; i < node_count; i++) {
+        const char* node_id = doc[i]["node_id"];
+        (node_list)[i] = strdup(node_id);
+        
+        if ((node_list)[i] == nullptr) {
+            PRINT_ERROR("String duplication failed");
+            // Free any allocated memory before returning
+            for (size_t j = 0; j < i; j++) {
+                free((node_list)[j]);
+            }
+            free(node_list);
+            return false;
+        }
+    }
+    printf("Node IDs:\n");
+    for (size_t i = 0; i < node_count; i++) {
+        printf("%s\n", (node_list)[i]);
+    }
+    
+    return true;
+}
+
+
+
 /**
  * @brief This function is the entry point for the HTTP send thread. It sends the data to the controller API.
  * @param parameter - The parameter passed to the task
