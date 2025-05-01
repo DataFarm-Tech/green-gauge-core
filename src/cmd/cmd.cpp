@@ -32,6 +32,7 @@ void cmd_help()
     cli_printf(" teardown - Removes all threads and clears queue\n");
     cli_printf(" q_add - Adds an element to the queue\n");
     cli_printf(" key - Shows the active http key used\n");
+    cli_printf(" clear-config - Clears the current config.\n");
 }
 
 /**
@@ -243,4 +244,10 @@ void cmd_add_queue()
 void cmd_key()
 {
     cli_printf("Key: %s\n", config.api_key);
+}
+
+void cmd_clear_config()
+{
+    printf("Clearing config\n");
+    clear_config();
 }

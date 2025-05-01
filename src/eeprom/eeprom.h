@@ -10,3 +10,4 @@ extern device_config config;
 void init_eeprom_int();
 void save_config();
 void read_config();
+void clear_config();

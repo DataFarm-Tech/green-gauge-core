@@ -34,3 +34,17 @@ void read_config()
 {
     EEPROM.get(EEPROM_ADDR, config);  // Load the configuration from EEPROM
 }
+
+/**
+ * @brief This function clears the current config in EEPROM by overwriting
+ * it with a default/zeroed structure.
+ */
+void clear_config()
+{
+    device_config empty_config = {};  // Zero-initialize the structure
+    EEPROM.put(EEPROM_ADDR, empty_config);
+    EEPROM.commit();
+
+    // Also update the in-memory config if needed
+    config = empty_config;
+}

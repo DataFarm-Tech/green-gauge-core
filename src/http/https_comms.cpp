@@ -9,6 +9,7 @@
 #include "msg_queue.h"
 #include "utils.h"
 #include "th/th_handler.h"
+#include "interrupts.h"
 
 /******************* Hash Defines *****************/
 
@@ -103,18 +104,19 @@ void activate_controller()
 /**
  * @brief The following function calls the /user/get/node endpoint to retrieve 
  *        the list of node IDs associated with the controller.
-
+ * TODO: Add the api_key header before running the GET request.
+ * TODO: Create a global list in the config variable, that holds the node list and the node count.
+ * TODO: Change this to a void instead of bool. In main app we will check if node_list is NULL. If it is then we delete the main_app thread.
  */
-bool get_nodes_list() {
+bool get_nodes_list() 
+{
     char url[150];
     int http_code;
     String response;
     JsonDocument doc;
     
     // Construct the endpoint URL with query parameter
-    snprintf(url, sizeof(url), "%s?controller_id=%s", 
-         constr_endp(TX_GET_ENDPOINT), 
-         ID);
+    snprintf(url, sizeof(url), "%s?controller_id=%s", constr_endp(TX_GET_ENDPOINT), ID);
     
     client.begin(url);
     client.addHeader("accept", "application/json");
@@ -124,7 +126,8 @@ bool get_nodes_list() {
     http_code = client.GET();
     
     if (http_code != HTTP_200_OK) {
-        PRINT_ERROR("HTTP GET failed with status code: ${http_code}");
+        PRINT_ERROR("HTTP GET failed with status code");
+        printf("http code: %d\n", http_code);
         client.end();
         return false;
     }
@@ -163,7 +166,8 @@ bool get_nodes_list() {
         }
     }
     printf("Node IDs:\n");
-    for (size_t i = 0; i < node_count; i++) {
+    for (size_t i = 0; i < node_count; i++) 
+    {
         printf("%s\n", (node_list)[i]);
     }
     
@@ -263,18 +267,17 @@ String construct_json_payload(msg message)
  * @return int - EXIT_SUCCESS on success, EXIT_FAILURE on failure
  */
 int init_http_client(const String& url)
-{   
-    //TODO: check if url is NULL and handle it properly
-    if (strncmp(API_KEY, "", sizeof(API_KEY)) == 0)
+{       
+    if (!is_key_set())
     {
-        PRINT_STR("API key not initialized");
-        DEBUG();
-        return EXIT_FAILURE; //TODO: replace to hash define exit  failure
+        //return error
+        return EXIT_FAILURE;
+
     }
     
     client.begin(url);
     client.addHeader("Content-Type", "application/json");
-    client.addHeader("access_token", API_KEY);
+    client.addHeader("access_token", config.api_key);
 
     return EXIT_SUCCESS;
 }
@@ -292,7 +295,11 @@ int post_request(String json_payload)
 
     url = constr_endp(TX_POST_ENDPOINT); 
     
-    init_http_client(url);
+    if (init_http_client(url) == EXIT_FAILURE)
+    {
+        return EXIT_FAILURE;
+    }
+    
     http_code = client.POST(json_payload);
     client.end();
 

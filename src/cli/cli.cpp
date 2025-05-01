@@ -31,7 +31,7 @@ cli_cmd get_best_enum(const char* token)
     if (strncmp(token, "q_add", sizeof(token)) == 0) return CMD_QADD;
     if (strncmp(token, "apply", sizeof(token)) == 0) return CMD_APPLY;
     if (strncmp(token, "key", sizeof(token)) == 0) return CMD_KEY;
-
+    if (strncmp(token, "clear-config", sizeof(token)) == 0) return CMD_CLEAR_CONFIG;
     if (strncmp(token, "clear", sizeof(token)) == 0) return CMD_CLEAR;
     return CMD_UNKNOWN;
 }
@@ -108,7 +108,9 @@ void handle_cmd(char* cmd)
         case CMD_KEY:
             cmd_key();
             break;
-            
+        case CMD_CLEAR_CONFIG:
+            clear_config();
+            break;
         case CMD_UNKNOWN:
         default:
             cli_printf("Unknown command: %s\n", token);

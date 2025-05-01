@@ -16,6 +16,7 @@ typedef enum {
     CMD_QADD,
     CMD_APPLY,
     CMD_KEY,
+    CMD_CLEAR_CONFIG,
     CMD_UNKNOWN
 } cli_cmd;
 
