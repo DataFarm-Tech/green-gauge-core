@@ -216,6 +216,9 @@ void cmd_queue()
     }
 }
 
+/**
+ * @brief The following command adds an element to the q.
+ */
 void cmd_add_queue()
 {
     msg new_message;

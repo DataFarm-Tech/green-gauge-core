@@ -100,7 +100,6 @@ void close_sys_time()
             udp.stop();
             PRINT_INFO("Closing NTP time");
             active_time_state = STOP_STATE;
-
             xSemaphoreGive(ntp_client_mh); // Release the mutex
         }
     }

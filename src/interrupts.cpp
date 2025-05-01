@@ -85,6 +85,8 @@ void switch_state(const int sensor_pin, const int controller_pin)
         {
             PRINT_INFO("Switching to sensor state\n");
             current_state = SENSOR_STATE;
+
+            init_mutex(current_state);
         }
     } 
     else 
