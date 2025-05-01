@@ -52,7 +52,8 @@ void rfm95w_setup()
  */
 void wifi_connect() 
 {
-    if (WiFi.status() == WL_CONNECTED) {
+    if (WiFi.status() == WL_CONNECTED) 
+    {
         PRINT_INFO("Already connected to WiFi");
         return;
     }
@@ -66,15 +67,31 @@ void wifi_connect()
 
     unsigned long startAttemptTime = millis();
 
-    // Wait for connection or timeout after 10 seconds
-    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) 
+    {
         printf(".");
         delay(500);
     }
 
-    if (WiFi.status() == WL_CONNECTED) {
+    if (WiFi.status() == WL_CONNECTED) 
+    {
         PRINT_INFO("WiFi connected!");
-    } else {
+    } 
+    else 
+    {
         PRINT_WARNING("Failed to connect to WiFi.");
+    }
+}
+
+/**
+ * @brief The following function disconnects the WiFi.
+ * @param erase_creds The following parameter refers to erasing the creds or keeping them
+ */
+void wifi_disconnect(bool erase_creds) 
+{
+    if (WiFi.status() == WL_CONNECTED) 
+    {
+        PRINT_INFO("Disconnecting from WiFi...");
+        WiFi.disconnect(erase_creds); // Set to false if you don't want to erase credentials
     }
 }

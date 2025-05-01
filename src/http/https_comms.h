@@ -4,6 +4,6 @@
 
 void http_send(void* parameter);
 void activate_controller();
-bool get_nodes_list();
+void get_nodes_list();
 
 

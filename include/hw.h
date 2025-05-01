@@ -22,3 +22,4 @@
 
 void rfm95w_setup();
 void wifi_connect();
+void wifi_disconnect(bool erase_creds);

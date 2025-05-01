@@ -6,6 +6,7 @@
 #include "config.h"
 #include "hw.h"
 #include "th/th_handler.h"
+#include "eeprom/eeprom.h"
 /*
 The current state must be undefined when initialising.
 The logic does not understand what state it is in.
@@ -22,11 +23,14 @@ volatile device_state_t current_state = UNDEFINED_STATE;
 void init_p()
 {
     Serial.begin(BAUD_RATE);
-    sleep(5);
+    sleep(5); /* This is provided to ensure serial console has enough time to init*/
     printf("init_p: Starting initialization...\n");
 
-    pinMode(INT_STATE_PIN, INPUT);
+    pinMode(INT_STATE_PIN, INPUT); /* Our interr pins must be set before an interrupt is called*/
     pinMode(INT_STATE_PIN_2, INPUT);
+
+    init_eeprom_int(); /* init the eeprom interface*/
+    read_config();
 
     switch_state(digitalRead(INT_STATE_PIN), digitalRead(INT_STATE_PIN_2)); //force a check on the switch state
 

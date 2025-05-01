@@ -6,7 +6,6 @@
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 
-#define API_KEY "0420b9fb-d256-4765-be76-16a00a6c6141" //DEFAULT KEY
 #define API_HOST "45.79.239.100" //DEFAULT HOST
 #define API_PORT "80" //DEFAULT PORT
 #define TX_POST_ENDPOINT "/controller/add/data" //ADD DATA ENDPOINT

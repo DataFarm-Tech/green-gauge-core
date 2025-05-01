@@ -77,9 +77,7 @@ bool is_key_set() {
  */
 void switch_state(const int sensor_pin, const int controller_pin) 
 {
-    tear_down(); //teardown clears the queue before the mutexes are intialized
-    init_eeprom_int(); //init eeprom interface
-    read_config(); //read current saved config
+    tear_down(); /* Removes all threads, queues*/
     
     if (sensor_pin == LOW && controller_pin == HIGH) 
     {
@@ -87,8 +85,6 @@ void switch_state(const int sensor_pin, const int controller_pin)
         {
             PRINT_INFO("Switching to sensor state\n");
             current_state = SENSOR_STATE;
-            
-            // do rs485 pin setup
         }
     } 
     else 
@@ -98,21 +94,20 @@ void switch_state(const int sensor_pin, const int controller_pin)
             PRINT_INFO("Switching to controller state\n");
             current_state = CONTROLLER_STATE;
             
-            wifi_connect();
+            wifi_connect(); /* Once controller starts it connects to wlan0*/
             
-            if (!is_key_set())
+            if (!is_key_set()) /* Before proceeding key must exist, for http thread to use*/
             {
 
-                activate_controller();
+                activate_controller(); /* Retrieves a key from the API*/
             }
-            
-            //get nodes list
-            get_nodes_list();
+        
+            get_nodes_list(); /* Get's the node_list from the API and saves to global variable.*/
             
             init_mutex(current_state);
             
             create_th(main_app, "main_app", MAIN_APP_TH_STACK_SIZE, &main_app_th, 1);
-            create_th(http_send, "http_th", HTTP_TH_STACK_SIZE, &http_th, 1); // core 0 is used for network related tasks
+            create_th(http_send, "http_th", HTTP_TH_STACK_SIZE, &http_th, 1);
             
         }
     }
@@ -120,7 +115,6 @@ void switch_state(const int sensor_pin, const int controller_pin)
     #if LORA_EN == 1
         // rfm95w_setup();
         create_th(lora_listener, "lora_listener", LORA_LISTENER_TH_STACK_SIZE, &lora_listener_th, 1);
-        //start lora thread
     #endif
 }
 
