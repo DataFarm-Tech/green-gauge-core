@@ -34,6 +34,7 @@ void cmd_help()
     cli_printf(" key - Shows the active http key used\n");
     cli_printf(" clear-config - Clears the current config.\n");
     cli_printf(" list - Lists all the nodes belonging to itself.\n");
+    cli_printf(" cache - Lists items in cache.\n");
 }
 
 /**
@@ -264,4 +265,24 @@ void cmd_node_list()
         cli_printf("%s ", (node_list)[i]);
     }
     cli_printf("\n");
+}
+
+void cmd_cache()
+{
+    Serial.println("Hash Cache Contents:");
+    for (int i = 0; i < config.cache.count; i++) {
+        uint8_t index = (config.cache.head + i) % HASH_CACHE_SIZE;
+        Serial.print("Entry ");
+        Serial.print(i + 1);
+        Serial.print(": ");
+        
+        // Print the hash as hexadecimal
+        for (int j = 0; j < HASH_SIZE; j++) {
+            Serial.print(config.cache.entries[index][j], HEX);
+            if (j < HASH_SIZE - 1) {
+                Serial.print(":");
+            }
+        }
+        Serial.println();
+    }
 }

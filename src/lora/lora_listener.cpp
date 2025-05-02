@@ -3,7 +3,10 @@
 #include <RH_RF95.h>
 #include <SPI.h>
 #include "hw.h"
+#include "utils.h"
 #include "config.h"
+#include "pack_def/pack_def.h"
+#include "hash_cache/hash_cache.h"
 
 RH_RF95 rf95(RFM95_NSS, RFM95_INT); // Create the rf95 obj
 
@@ -22,10 +25,13 @@ void lora_listener(void * param)
             {
                 uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
                 uint8_t buf_len = sizeof(buf);
+                pack_def packet;
 
                 if (rf95.recv(buf, &buf_len))
                 {
-                    if (memcmp(buf, ID, ADDRESS_SIZE) == MEMORY_CMP_SUCCESS)
+                    packet = describe_packet(buf, buf_len);
+
+                    if (packet.des_node == ID)
                     {
                         switch (current_state)
                         {
@@ -55,4 +61,40 @@ void lora_listener(void * param)
         sleep(1); //doesnt do anything yet
         //this thread will add to the Q
     }
+}
+
+
+// void relay_packet(uint8_t * buff, )
+// {
+//     //extract ttl from buff
+
+//     //if ttl != 1
+//     //  extract cache from buff
+
+//     //  if (!hash_cache_contains(buff.cache))
+//     //      add_hash_cache(buff.cache)
+//     //      decrement ttl by 1
+//     //      set new ttl in packet
+//     //      send_packet();
+//extract sha256hash from buf.
+                    // if (!hash_cache_contains(sha256Hash)) {
+                    //     hash_cache_add(sha256Hash);
+                    //      send packet;
+                    // }
+                    //else:
+                    //  drop the packet
+// }
+
+void send_packet(uint8_t* packet_to_send, uint8_t packet_len)
+{
+    if (xSemaphoreTake(rf95_mh, portMAX_DELAY) == pdTRUE)
+    {
+        if (!rf95.send(packet_to_send, packet_len)) 
+        {
+            PRINT_STR("Packet failed");
+        }
+
+        xSemaphoreGive(rf95_mh); // Release the mutex
+    }
+    
 }

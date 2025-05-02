@@ -152,6 +152,7 @@ void get_nodes_list()
         
     node_count = doc.size();
     node_list = (char**)malloc(node_count * sizeof(char*));
+    ttl = (2 * node_count) + 1;
     
     if (node_list == nullptr) 
     {

@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <Arduino.h>
-#include "crc.h"
+#include "crypt.h"
+#include <Crypto.h>  // For SHA256
 
 // Define the constants as macros
 #define CRC16_CCITT_FALSE_INIT 0xFFFF  // Initial CRC value
@@ -54,4 +55,18 @@ uint16_t calc_crc_16_ccitt_false(uint8_t *data, size_t length)
         }
     }
     return crc;
+}
+
+
+/**
+ * @brief The following function generates a hash.
+ * @param str_to_hash The string that is being hashed
+ * @param out_hash A array that is populated and used where ever this is called.
+ * @return None
+ */
+void generate_hash(String str_to_hash, byte * out_hash)
+{
+    SHA256 hasher;
+    hasher.doUpdate(str_to_hash.c_str(), str_to_hash.length());
+    hasher.doFinal(out_hash);
 }
