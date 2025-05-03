@@ -18,6 +18,7 @@ typedef enum {
     CMD_KEY,
     CMD_CLEAR_CONFIG,
     CMD_LIST,
+    CMD_STOP_THREAD,
     CMD_UNKNOWN
 } cli_cmd;
 
@@ -34,3 +35,4 @@ void cmd_ipconfig();
 void cmd_key();
 void cmd_add_queue();
 void cmd_node_list();
+void cmd_stop_thread(const char * thread_name);

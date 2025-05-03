@@ -34,6 +34,7 @@ void cmd_help()
     cli_printf(" key - Shows the active http key used\n");
     cli_printf(" clear-config - Clears the current config.\n");
     cli_printf(" list - Lists all the nodes belonging to itself.\n");
+    cli_printf(" stop_thread [lora_listener_th, main_app_th, http_th] - stops a particular thread.\n");
 }
 
 /**
@@ -264,4 +265,34 @@ void cmd_node_list()
         cli_printf("%s ", (node_list)[i]);
     }
     cli_printf("\n");
+}
+
+void cmd_stop_thread(const char* thread_name)
+{
+    if (thread_name == NULL) 
+    {
+        printf("Error: thread_stop requires a thread_name argument.\n");
+        return;
+    }
+
+    if (strcmp(thread_name, "lora_listener_th") == 0) 
+    {
+        delete_th(&lora_listener_th);
+        printf("Stopped lora_listener_th\n");
+    } 
+    else if (strcmp(thread_name, "main_app_th") == 0) 
+    {
+        delete_th(&main_app_th);
+        printf("Stopped main_app_th\n");
+    } 
+    else if (strcmp(thread_name, "http_th") == 0) 
+    {
+        delete_th(&http_th);
+        printf("Stopped http_th\n");
+    } 
+    else 
+    {
+        printf("Unknown thread name: %s\n", thread_name);
+        return;
+    }
 }
