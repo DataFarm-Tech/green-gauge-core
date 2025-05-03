@@ -13,6 +13,9 @@
 #include "config.h"
 #include "eeprom/eeprom.h"
 #include "mh/mutex_h.h"
+#include "lora/lora_listener.h"
+#include "http/https_comms.h"
+#include "main_app/main_app.h"
 
 /**
  * @brief A command to show the help text
@@ -35,6 +38,7 @@ void cmd_help()
     cli_printf(" clear-config - Clears the current config.\n");
     cli_printf(" list - Lists all the nodes belonging to itself.\n");
     cli_printf(" stop_thread [lora_listener_th, main_app_th, http_th] - stops a particular thread.\n");
+    cli_printf(" start_thread [lora_listener_th, main_app_th, http_th] - stops a particular thread.\n");
 }
 
 /**
@@ -289,6 +293,37 @@ void cmd_stop_thread(const char* thread_name)
     {
         delete_th(&http_th);
         printf("Stopped http_th\n");
+    } 
+    else 
+    {
+        printf("Unknown thread name: %s\n", thread_name);
+        return;
+    }
+}
+
+
+void cmd_start_thread(const char * thread_name)
+{
+    if (thread_name == NULL) 
+    {
+        printf("Error: thread_start requires a thread_name argument.\n");
+        return;
+    }
+
+    if (strcmp(thread_name, "lora_listener_th") == 0) 
+    {
+        create_th(lora_listener, "lora_listener_th", LORA_LISTENER_TH_STACK_SIZE, &lora_listener_th, 1);
+        printf("Started lora_listener_th\n");
+    } 
+    else if (strcmp(thread_name, "main_app_th") == 0) 
+    {
+        create_th(main_app, "main_app_th", MAIN_APP_TH_STACK_SIZE, &main_app_th, 1);
+        printf("Started main_app_th\n");
+    } 
+    else if (strcmp(thread_name, "http_th") == 0) 
+    {
+        create_th(http_send, "http_send", HTTP_TH_STACK_SIZE, &http_th, 1);
+        printf("Started http_th\n");
     } 
     else 
     {
