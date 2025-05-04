@@ -29,7 +29,6 @@ void lora_listener(void * param)
 
                 if (rf95.recv(buf, &buf_len))
                 {
-                    memset(packet, 0, sizeof(packet));
                     packet = describe_packet(buf, buf_len);
 
                     if (packet.des_node == ID)
