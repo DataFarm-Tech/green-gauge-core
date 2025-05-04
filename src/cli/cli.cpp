@@ -35,6 +35,8 @@ cli_cmd get_best_enum(const char* token)
     if (strncmp(token, "clear", sizeof(token)) == 0) return CMD_CLEAR;
     if (strncmp(token, "list", sizeof(token)) == 0) return CMD_LIST;
     if (strncmp(token, "cache", sizeof(token)) == 0) return CMD_CACHE;
+    if (strncmp(token, "stop_thread", sizeof(token)) == 0) return CMD_STOP_THREAD;
+    if (strncmp(token, "start_thread", sizeof(token)) == 0) return CMD_START_THREAD;
     return CMD_UNKNOWN;
 }
 
@@ -118,6 +120,12 @@ void handle_cmd(char* cmd)
             break;
         case CMD_CACHE:
             cmd_cache();
+            break;
+        case CMD_STOP_THREAD:
+            cmd_stop_thread(arg);
+            break;
+        case CMD_START_THREAD:
+            cmd_start_thread(arg);
             break;
         case CMD_UNKNOWN:
         default:
