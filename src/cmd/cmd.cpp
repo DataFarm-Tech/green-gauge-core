@@ -289,6 +289,10 @@ void cmd_cache()
             }
         }
         Serial.println();
+
+    }
+}
+
 void cmd_stop_thread(const char* thread_name)
 {
     if (thread_name == NULL) 
