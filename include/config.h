@@ -12,6 +12,4 @@
 #define TX_ACT_ENDPOINT "/controller/activate"
 #define TX_GET_ENDPOINT "/user/get/node"
 
-#define ADDRESS_SIZE 6
 #define MEMORY_CMP_SUCCESS 0
-#define LORA_DATA_LEN 21

@@ -11,6 +11,7 @@
 #include "lora/lora_listener.h"
 #include "ntp/ntp.h"
 #include "eeprom/eeprom.h"
+#include "hash_cache/hash_cache.h"
 #include "mh/mutex_h.h"
 
 /**
@@ -116,6 +117,7 @@ void switch_state(const int sensor_pin, const int controller_pin)
 
     #if LORA_EN == 1
         // rfm95w_setup();
+        hash_cache_init();
         create_th(lora_listener, "lora_listener", LORA_LISTENER_TH_STACK_SIZE, &lora_listener_th, 1);
     #endif
 }

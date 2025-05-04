@@ -84,7 +84,12 @@ void activate_controller()
     client.addHeader("accept", "application/json");
     http_code = client.POST(json_payload);
 
-    printf("code: %d\n", http_code);
+    while (http_code != HTTP_200_OK) 
+    {
+        PRINT_INFO("GET request failed");
+        check_internet();
+        http_code = client.POST(json_payload);
+    }
 
     switch (http_code)
     {
@@ -152,6 +157,7 @@ void get_nodes_list()
         
     node_count = doc.size();
     node_list = (char**)malloc(node_count * sizeof(char*));
+    ttl = (2 * node_count) + 1;
     
     if (node_list == nullptr) 
     {
