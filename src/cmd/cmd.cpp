@@ -323,6 +323,25 @@ void cmd_stop_thread(const char* thread_name)
     }
 }
 
+void cmd_check_state()
+{
+    switch (current_state)
+    {
+        case CONTROLLER_STATE:
+            printf("Current state: CONTROLLER\n");
+            break;
+        case SENSOR_STATE:
+            printf("Current state: SENSOR\n");
+            break;
+        case UNDEFINED_STATE:
+            printf("Current state: UNDEFINED\n");
+            break;
+        
+    default:
+        break;
+    }
+}
+
 
 void cmd_start_thread(const char * thread_name)
 {

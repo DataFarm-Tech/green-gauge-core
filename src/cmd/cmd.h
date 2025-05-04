@@ -21,6 +21,7 @@ typedef enum {
     CMD_CACHE,
     CMD_STOP_THREAD,
     CMD_START_THREAD,
+    CMD_STATE,
     CMD_UNKNOWN
 } cli_cmd;
 
@@ -38,5 +39,6 @@ void cmd_key();
 void cmd_add_queue();
 void cmd_node_list();
 void cmd_cache();
+void cmd_check_state();
 void cmd_stop_thread(const char * thread_name);
 void cmd_start_thread(const char * thread_name);
