@@ -65,12 +65,23 @@ void main_app(void *parm)
 
 void app()
 {
+    packet pkt;
+    uint8_t packet_to_send[PACKET_LENGTH];
+
     if (node_count > 0)
     {
         for (int i = 0; i < node_count; i++)
         {
-            uint8_t packet_to_send[PACKET_LENGTH];
-            create_packet(packet_to_send, src_node_id, seq_id, node_list[i]);
+            memset(packet_to_send, 0, sizeof(packet_to_send)); // Clear the packet buffer
+            memset(&pkt, 0, sizeof(pkt)); // Clear the packet structure
+            
+            strcpy(pkt.src_node, ID);
+            strcpy(pkt.des_node, node_list[i]);
+            pkt.ttl = ttl;
+            memset(pkt.data, 0, sizeof(pkt.data)); // Clear data field
+
+            
+            create_packet(packet_to_send, &pkt, seq_id);
             
             for (int i = 0; i < PACKET_LENGTH; i++)
             {

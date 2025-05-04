@@ -25,7 +25,7 @@ void lora_listener(void * param)
             {
                 uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
                 uint8_t buf_len = sizeof(buf);
-                pack_def packet;
+                packet packet;
 
                 if (rf95.recv(buf, &buf_len))
                 {
@@ -33,10 +33,12 @@ void lora_listener(void * param)
 
                     if (packet.des_node == ID)
                     {
+                        printf("Packet from %s to %s\n", packet.src_node, packet.des_node);
+                        
                         switch (current_state)
                         {
                             case CONTROLLER_STATE:
-                                //post recieved data to Q
+                                //post recieved data to Q, do not create new packet
                                 break;
                             case SENSOR_STATE:
                                 //append data to buf, and relay (decrement ttl by 1)
@@ -47,49 +49,17 @@ void lora_listener(void * param)
                             break;
                         }
                     }
-                    else
-                    {
-                        //packet not for me, relay and decrement by 1
-
-                    }
                 }
-                
             }
             
-            xSemaphoreGive(rf95_mh); // Release the mutex
+            xSemaphoreGive(rf95_mh);
         }
 
-        sleep(1); //doesnt do anything yet
-        //this thread will add to the Q
+        sleep(1);
     }
 }
 
-// void relay_packet(uint8_t * buff)
-// {
 
-// }
-
-
-// void relay_packet(uint8_t * buff, )
-// {
-//     //extract ttl from buff
-
-//     //if ttl != 1
-//     //  extract cache from buff
-
-//     //  if (!hash_cache_contains(buff.cache))
-//     //      add_hash_cache(buff.cache)
-//     //      decrement ttl by 1
-//     //      set new ttl in packet
-//     //      send_packet();
-//extract sha256hash from buf.
-                    // if (!hash_cache_contains(sha256Hash)) {
-                    //     hash_cache_add(sha256Hash);
-                    //      send packet;
-                    // }
-                    //else:
-                    //  drop the packet
-// }
 
 void send_packet(uint8_t* packet_to_send, uint8_t packet_len)
 {

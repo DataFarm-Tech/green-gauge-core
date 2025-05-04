@@ -12,7 +12,7 @@ typedef struct {
     uint8_t hash[SHA256_SIZE];       // SHA256 hash
     uint8_t data[7];                 // Data field
     uint16_t crc;                    // CRC
-} pack_def;
+} packet;
 
-void create_packet(uint8_t * packet_to_send, const char * src_node_id, uint8_t seq_id, const char * dest_node_id);
-pack_def describe_packet(uint8_t *buf, uint8_t buf_len);
+void create_packet(uint8_t *packet_to_send, const packet *pkt, uint8_t seq_id);
+packet describe_packet(const uint8_t *buf, uint8_t buf_len);
