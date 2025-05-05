@@ -15,6 +15,7 @@
 #include "mh/mutex_h.h"
 #include "lora/lora_listener.h"
 #include "http/https_comms.h"
+#include "hw.h"
 #include "main_app/main_app.h"
 
 /**
@@ -369,6 +370,26 @@ void cmd_start_thread(const char * thread_name)
     else 
     {
         printf("Unknown thread name: %s\n", thread_name);
+        return;
+    }
+}
+
+
+void cmd_disconnect_wifi(const char * arg)
+{
+    if (arg == NULL) 
+    {
+        wifi_disconnect(false);
+        return;
+    }
+    else if (strcmp(arg, "erase") == 0) 
+    {
+        wifi_disconnect(true);
+        printf("Disconnected from WiFi and erased credentials\n");
+    } 
+    else
+    {
+        printf("Invalid argument. Use 'erase' to erase credentials.\n");
         return;
     }
 }

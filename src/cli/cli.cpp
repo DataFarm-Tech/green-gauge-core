@@ -38,6 +38,7 @@ cli_cmd get_best_enum(const char* token)
     if (strncmp(token, "cache", sizeof(token)) == 0) return CMD_CACHE;
     if (strncmp(token, "stop_thread", sizeof(token)) == 0) return CMD_STOP_THREAD;
     if (strncmp(token, "start_thread", sizeof(token)) == 0) return CMD_START_THREAD;
+    if (strncmp(token, "disconnect_wifi", sizeof(token)) == 0) return CMD_DISCONNECT_WIFI;
     return CMD_UNKNOWN;
 }
 
@@ -130,6 +131,9 @@ void handle_cmd(char* cmd)
             break;
         case CMD_STATE:
             cmd_check_state();
+            break;
+        case CMD_DISCONNECT_WIFI:
+            cmd_disconnect_wifi(arg);
             break;
         case CMD_UNKNOWN:
         default:

@@ -104,7 +104,6 @@ void switch_state(const int sensor_pin, const int controller_pin)
                 activate_controller(); /* Retrieves a key from the API*/
             }
             
-            printf("Key not set, activating controller...\n");
             get_nodes_list(); /* Get's the node_list from the API and saves to global variable.*/
             
             init_mutex(current_state);
