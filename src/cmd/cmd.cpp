@@ -5,7 +5,6 @@
 #include "utils.h"
 #include <WiFi.h>
 #include <ESP32Ping.h>
-#include "ntp/ntp.h"
 #include "interrupts.h"
 #include <queue>
 #include <mutex>

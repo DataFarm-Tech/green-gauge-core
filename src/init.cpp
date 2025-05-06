@@ -7,6 +7,7 @@
 #include "hw.h"
 #include "th/th_handler.h"
 #include "eeprom/eeprom.h"
+#include "utils.h"
 
 /*
 The current state must be undefined when initialising.

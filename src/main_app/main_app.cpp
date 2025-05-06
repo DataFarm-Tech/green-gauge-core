@@ -1,6 +1,5 @@
 #include "main_app/main_app.h"
 #include "utils.h"
-// #include "ntp/ntp.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include "th/th_handler.h"
@@ -21,13 +20,6 @@ void app();
 
 void main_app(void *parm)
 {
-    // sleep(10);
-    // uint32_t currentTime;
-
-    // if (!start_sys_time() || !get_sys_time(&currentTime)) 
-    // {
-    //     PRINT_ERROR("Unable to interface sys time killing main_app thread!");
-        
     //     /**
     //      * This portion of code doesnt make any sense
     //      * But it still works??
@@ -39,12 +31,12 @@ void main_app(void *parm)
     //     vTaskDelete(NULL);
     // } 
 
-
     while (1)
     {
         if (!hourly_timer_flag)
         {
             printf("Not yet an hour\n");
+            app();
         }
         else
         {

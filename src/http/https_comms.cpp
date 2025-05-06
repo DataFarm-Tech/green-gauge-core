@@ -305,13 +305,6 @@ String construct_json_payload(message message)
  */
 int init_http_client(const String& url, request_type type)
 {
-    if (!is_key_set())
-    {
-        PRINT_ERROR("Key is not available in EEPROM");
-        return EXIT_FAILURE;
-
-    }
-
     client.begin(url);
     client.addHeader("access_token", config.api_key);
     
@@ -409,7 +402,7 @@ char* constr_endp(const char* endpoint)
 {
     static char endp[200];  // Static buffer to persist after function returns
 
-    if (strncmp(endpoint, "", sizeof(endpoint)) == 0)
+    if (strncmp(endpoint, "", strlen(endpoint)) == 0)
     {
         PRINT_STR("Endpoint is empty");
         return NULL;

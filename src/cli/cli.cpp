@@ -19,25 +19,25 @@ uint8_t cli_pos = 0;
  */
 cli_cmd get_best_enum(const char* token) 
 {
-    if (strncmp(token, "help", sizeof(token)) == 0) return CMD_HELP;
-    if (strncmp(token, "exit", sizeof(token)) == 0) return CMD_EXIT;
-    if (strncmp(token, "reboot", sizeof(token)) == 0) return CMD_REBOOT;
-    if (strncmp(token, "queue", sizeof(token)) == 0) return CMD_QUEUE;
-    if (strncmp(token, "ping", sizeof(token)) == 0) return CMD_PING;
-    if (strncmp(token, "threads", sizeof(token)) == 0) return CMD_THREADS;
-    if (strncmp(token, "teardown", sizeof(token)) == 0) return CMD_TEARDOWN;
-    if (strncmp(token, "ipconfig", sizeof(token)) == 0) return CMD_IPCONFIG;
-    if (strncmp(token, "q_add", sizeof(token)) == 0) return CMD_QADD;
-    if (strncmp(token, "apply", sizeof(token)) == 0) return CMD_APPLY;
-    if (strncmp(token, "key", sizeof(token)) == 0) return CMD_KEY;
-    if (strncmp(token, "clear-config", sizeof(token)) == 0) return CMD_CLEAR_CONFIG;
-    if (strncmp(token, "clear", sizeof(token)) == 0) return CMD_CLEAR;
-    if (strncmp(token, "list", sizeof(token)) == 0) return CMD_LIST;
-    if (strncmp(token, "state", sizeof(token)) == 0) return CMD_STATE;
-    if (strncmp(token, "cache", sizeof(token)) == 0) return CMD_CACHE;
-    if (strncmp(token, "stop_thread", sizeof(token)) == 0) return CMD_STOP_THREAD;
-    if (strncmp(token, "start_thread", sizeof(token)) == 0) return CMD_START_THREAD;
-    if (strncmp(token, "disconnect_wifi", sizeof(token)) == 0) return CMD_DISCONNECT_WIFI;
+    if (strncmp(token, "help", strlen(token)) == 0) return CMD_HELP;
+    if (strncmp(token, "exit", strlen(token)) == 0) return CMD_EXIT;
+    if (strncmp(token, "reboot", strlen(token)) == 0) return CMD_REBOOT;
+    if (strncmp(token, "queue", strlen(token)) == 0) return CMD_QUEUE;
+    if (strncmp(token, "ping", strlen(token)) == 0) return CMD_PING;
+    if (strncmp(token, "threads", strlen(token)) == 0) return CMD_THREADS;
+    if (strncmp(token, "teardown", strlen(token)) == 0) return CMD_TEARDOWN;
+    if (strncmp(token, "ipconfig", strlen(token)) == 0) return CMD_IPCONFIG;
+    if (strncmp(token, "q_add", strlen(token)) == 0) return CMD_QADD;
+    if (strncmp(token, "apply", strlen(token)) == 0) return CMD_APPLY;
+    if (strncmp(token, "key", strlen(token)) == 0) return CMD_KEY;
+    if (strncmp(token, "clear-config", strlen(token)) == 0) return CMD_CLEAR_CONFIG;
+    if (strncmp(token, "clear", strlen(token)) == 0) return CMD_CLEAR;
+    if (strncmp(token, "list", strlen(token)) == 0) return CMD_LIST;
+    if (strncmp(token, "state", strlen(token)) == 0) return CMD_STATE;
+    if (strncmp(token, "cache", strlen(token)) == 0) return CMD_CACHE;
+    if (strncmp(token, "stop_thread", strlen(token)) == 0) return CMD_STOP_THREAD;
+    if (strncmp(token, "start_thread", strlen(token)) == 0) return CMD_START_THREAD;
+    if (strncmp(token, "disconnect_wifi", strlen(token)) == 0) return CMD_DISCONNECT_WIFI;
     return CMD_UNKNOWN;
 }
 
