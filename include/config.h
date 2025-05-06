@@ -6,7 +6,7 @@
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 
-#define API_HOST "45.79.239.100" //DEFAULT HOST
+#define API_HOST "datafarmapi.duckdns.org" //DEFAULT HOST
 #define API_PORT "80" //DEFAULT PORT
 #define TX_POST_ENDPOINT "/controller/add/data" //ADD DATA ENDPOINT
 #define TX_ACT_ENDPOINT "/controller/activate"

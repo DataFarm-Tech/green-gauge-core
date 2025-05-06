@@ -8,8 +8,7 @@ typedef enum {
     CONTROLLER_STATE = 2,
 } device_state_t;
 
-// Function declarations
+extern volatile device_state_t current_state;
+
 void init_p();
 
-// External variables
-extern volatile device_state_t current_state;

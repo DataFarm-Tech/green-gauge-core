@@ -5,7 +5,6 @@
 #include "utils.h"
 #include <WiFi.h>
 #include <ESP32Ping.h>
-#include "ntp/ntp.h"
 #include "interrupts.h"
 #include <queue>
 #include <mutex>
@@ -15,6 +14,7 @@
 #include "mh/mutex_h.h"
 #include "lora/lora_listener.h"
 #include "http/https_comms.h"
+#include "hw.h"
 #include "main_app/main_app.h"
 #include "pack_def/pack_def.h"
 
@@ -66,23 +66,6 @@ void cmd_clear()
     }
 }
 
-
-/**
- * @brief A command to show the current sys time.
- * This time is the NTP time, being retrieved by the NTP client.
- */
-void cmd_time()
-{
-    uint32_t currentTime;
-
-    if (!get_sys_time(&currentTime))
-    {
-        return;
-    }
-
-    printf("time: %d\n", currentTime);
-    
-}
 /**
  * @brief The following cmd shows all the active threads
  */
@@ -213,7 +196,7 @@ void cmd_queue()
     
         for (size_t i = 0; i < size; ++i) 
         {
-            msg m = internal_msg_q.front();
+            message m = internal_msg_q.front();
             cli_printf("  [%d] src_node: %s, des_node: %s\n", index++, m.src_node.c_str(), m.des_node.c_str());
     
             internal_msg_q.pop();
@@ -229,7 +212,7 @@ void cmd_queue()
  */
 void cmd_add_queue()
 {
-    msg new_message;
+    message new_message;
     new_message.src_node = "tnode1";
     new_message.des_node = "controller";
     
@@ -256,12 +239,6 @@ void cmd_add_queue()
 void cmd_key()
 {
     cli_printf("Key: %s\n", config.api_key);
-}
-
-void cmd_clear_config()
-{
-    printf("Clearing config\n");
-    clear_config();
 }
 
 void cmd_node_list()
@@ -325,6 +302,25 @@ void cmd_stop_thread(const char* thread_name)
     }
 }
 
+void cmd_check_state()
+{
+    switch (current_state)
+    {
+        case CONTROLLER_STATE:
+            printf("Current state: CONTROLLER\n");
+            break;
+        case SENSOR_STATE:
+            printf("Current state: SENSOR\n");
+            break;
+        case UNDEFINED_STATE:
+            printf("Current state: UNDEFINED\n");
+            break;
+        
+    default:
+        break;
+    }
+}
+
 
 void cmd_start_thread(const char * thread_name)
 {
@@ -382,4 +378,23 @@ void cmd_send_packet()
 
     send_packet(packet_to_send, sizeof(packet_to_send));
     printf("packet sent\n");
+}
+
+void cmd_disconnect_wifi(const char * arg)
+{
+    if (arg == NULL) 
+    {
+        wifi_disconnect(false);
+        return;
+    }
+    else if (strcmp(arg, "erase") == 0) 
+    {
+        wifi_disconnect(true);
+        printf("Disconnected from WiFi and erased credentials\n");
+    } 
+    else
+    {
+        printf("Invalid argument. Use 'erase' to erase credentials.\n");
+        return;
+    }
 }

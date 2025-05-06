@@ -46,7 +46,6 @@ void rfm95w_setup()
 }
 
 
-/** Change this to WiFi manager. */
 /**
  * Will change to wifi manager
  */

@@ -3,7 +3,7 @@ name: CI/CD CN001/SN001 Build/Test
 on:
   push:
     branches:
-      - '**' ## On all branches
+      - '**'
 
 jobs:
   build:
@@ -13,13 +13,22 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: "true"
+
       - name: Set up Python
         uses: actions/setup-python@v1
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           sudo pip install platformio
-      - name: Install platformIO libraries
+          sudo apt-get update
+          sudo apt-get install -y cppcheck
+
+      - name: Install PlatformIO libraries
         run: sudo pio lib install
+
+      - name: Run Cppcheck
+        run: cppcheck $(cat cppcheck.conf)
+
       - name: Run PlatformIO
         run: ./flash.sh compile

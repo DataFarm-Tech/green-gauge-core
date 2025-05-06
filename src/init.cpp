@@ -7,6 +7,8 @@
 #include "hw.h"
 #include "th/th_handler.h"
 #include "eeprom/eeprom.h"
+#include "utils.h"
+
 /*
 The current state must be undefined when initialising.
 The logic does not understand what state it is in.
@@ -39,6 +41,19 @@ void init_p()
     attachInterrupt(digitalPinToInterrupt(INT_STATE_PIN_2), has_state_changed, CHANGE);
 
     create_th(process_state_change, "process_state_change", PROC_CS_TH_STACK_SIZE, &process_state_ch_th, 0);
+    
+    timer = timerBegin(0, TIMER_PRESCALER, true);
+    
+    if (!timer) 
+    {
+        printf("init_p: Failed to create timer\n");
+        while(1);
+    }
+
+    timerAttachInterrupt(timer, &on_hourly_timer, true);
+    timerAlarmWrite(timer, alarm_value_hourly, true);
+    timerAlarmEnable(timer);
+
 
     //CLI Thread creation.
     print_motd();

@@ -9,10 +9,13 @@
 #include "http/https_comms.h"
 #include "msg_queue.h"
 #include "lora/lora_listener.h"
-#include "ntp/ntp.h"
 #include "eeprom/eeprom.h"
 #include "hash_cache/hash_cache.h"
 #include "mh/mutex_h.h"
+
+#define TIMER_PRESCALER 80  // Prescaler value
+#define TICKS_PER_SECOND 1000000
+#define SECONDS_PER_HOUR 10
 
 /**
  * Adding this macro to en/dis for development
@@ -21,11 +24,26 @@
  */
 #define LORA_EN 1
 
+const uint64_t alarm_value_hourly = (uint64_t)TICKS_PER_SECOND * SECONDS_PER_HOUR;
+hw_timer_t * timer = NULL;
+volatile bool hourly_timer_flag = false;
 volatile unsigned long last_interrupt_time = 0;
 volatile bool state_change_detected = false;
 
 void switch_state(const int sensor_pin, const int controller_pin);
 void tear_down();
+
+/**
+ * @brief Interrupt service routine for the timer
+ * This function is called when the timer alarm goes off.
+ * It sets the hourlyTimerFlag to true, indicating that
+ * the timer has elapsed.
+ */
+void IRAM_ATTR on_hourly_timer() 
+{
+    hourly_timer_flag = true;
+}
+
 
 /**
  * @brief Interrupt service routine for state change detection
@@ -47,8 +65,8 @@ void IRAM_ATTR has_state_changed()
  */
 void process_state_change(void *param) 
 {
-    int sensor_pin = 0;
-    int controller_pin = 0;
+    int sensor_pin;
+    int controller_pin;
     while (1) 
     {
         if (state_change_detected) 
@@ -101,10 +119,9 @@ void switch_state(const int sensor_pin, const int controller_pin)
             
             if (!is_key_set()) /* Before proceeding key must exist, for http thread to use*/
             {
-
                 activate_controller(); /* Retrieves a key from the API*/
             }
-        
+            
             get_nodes_list(); /* Get's the node_list from the API and saves to global variable.*/
             
             init_mutex(current_state);
@@ -129,15 +146,14 @@ void switch_state(const int sensor_pin, const int controller_pin)
  */
 void tear_down() 
 {
-    close_sys_time();
-
     delete_th(&lora_listener_th);      
     delete_th(&main_app_th);
     delete_th(&http_th);
 
     if (msg_queue_mh != NULL)
     {
-        if (xSemaphoreTake(msg_queue_mh, portMAX_DELAY) == pdTRUE) {
+        if (xSemaphoreTake(msg_queue_mh, portMAX_DELAY) == pdTRUE) 
+        {
             while (!internal_msg_q.empty()) internal_msg_q.pop();
             xSemaphoreGive(msg_queue_mh);
         }

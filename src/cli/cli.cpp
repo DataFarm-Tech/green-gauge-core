@@ -19,38 +19,28 @@ uint8_t cli_pos = 0;
  */
 cli_cmd get_best_enum(const char* token) 
 {
-    if (strncmp(token, "help", sizeof(token)) == 0) return CMD_HELP;
-    if (strncmp(token, "exit", sizeof(token)) == 0) return CMD_EXIT;
-    if (strncmp(token, "reboot", sizeof(token)) == 0) return CMD_REBOOT;
-    if (strncmp(token, "queue", sizeof(token)) == 0) return CMD_QUEUE;
-    if (strncmp(token, "ping", sizeof(token)) == 0) return CMD_PING;
-    if (strncmp(token, "threads", sizeof(token)) == 0) return CMD_THREADS;
-    if (strncmp(token, "time", sizeof(token)) == 0) return CMD_TIME;
-    if (strncmp(token, "teardown", sizeof(token)) == 0) return CMD_TEARDOWN;
-    if (strncmp(token, "ipconfig", sizeof(token)) == 0) return CMD_IPCONFIG;
-    if (strncmp(token, "q_add", sizeof(token)) == 0) return CMD_QADD;
-    if (strncmp(token, "apply", sizeof(token)) == 0) return CMD_APPLY;
-    if (strncmp(token, "key", sizeof(token)) == 0) return CMD_KEY;
-    if (strncmp(token, "clear-config", sizeof(token)) == 0) return CMD_CLEAR_CONFIG;
-    if (strncmp(token, "clear", sizeof(token)) == 0) return CMD_CLEAR;
-    if (strncmp(token, "list", sizeof(token)) == 0) return CMD_LIST;
-    if (strncmp(token, "cache", sizeof(token)) == 0) return CMD_CACHE;
-    if (strncmp(token, "stop_thread", sizeof(token)) == 0) return CMD_STOP_THREAD;
-    if (strncmp(token, "start_thread", sizeof(token)) == 0) return CMD_START_THREAD;
-    if (strncmp(token, "send_packet", sizeof(token)) == 0) return CMD_SEND_PACKET;
+    if (strncmp(token, "help", strlen(token)) == 0) return CMD_HELP;
+    if (strncmp(token, "exit", strlen(token)) == 0) return CMD_EXIT;
+    if (strncmp(token, "reboot", strlen(token)) == 0) return CMD_REBOOT;
+    if (strncmp(token, "queue", strlen(token)) == 0) return CMD_QUEUE;
+    if (strncmp(token, "ping", strlen(token)) == 0) return CMD_PING;
+    if (strncmp(token, "threads", strlen(token)) == 0) return CMD_THREADS;
+    if (strncmp(token, "teardown", strlen(token)) == 0) return CMD_TEARDOWN;
+    if (strncmp(token, "ipconfig", strlen(token)) == 0) return CMD_IPCONFIG;
+    if (strncmp(token, "q_add", strlen(token)) == 0) return CMD_QADD;
+    if (strncmp(token, "apply", strlen(token)) == 0) return CMD_APPLY;
+    if (strncmp(token, "key", strlen(token)) == 0) return CMD_KEY;
+    if (strncmp(token, "clear-config", strlen(token)) == 0) return CMD_CLEAR_CONFIG;
+    if (strncmp(token, "clear", strlen(token)) == 0) return CMD_CLEAR;
+    if (strncmp(token, "list", strlen(token)) == 0) return CMD_LIST;
+    if (strncmp(token, "state", strlen(token)) == 0) return CMD_STATE;
+    if (strncmp(token, "cache", strlen(token)) == 0) return CMD_CACHE;
+    if (strncmp(token, "stop_thread", strlen(token)) == 0) return CMD_STOP_THREAD;
+    if (strncmp(token, "start_thread", strlen(token)) == 0) return CMD_START_THREAD;
+    if (strncmp(token, "disconnect_wifi", strlen(token)) == 0) return CMD_DISCONNECT_WIFI;
     return CMD_UNKNOWN;
 }
 
-void trim_newline(char* str) {
-    size_t len = strlen(str);
-    while (len > 0 && (str[len - 1] == '\r' || str[len - 1] == '\n')) {
-        str[--len] = '\0';
-    }
-}
-
-void print_prompt() {
-    cli_printf("%s> ", ID);
-}
 
 
 /**
@@ -95,9 +85,6 @@ void handle_cmd(char* cmd)
         case CMD_THREADS:
             cmd_threads();
             break;
-        case CMD_TIME:
-            cmd_time();
-            break;
         case CMD_TEARDOWN:
             cmd_teardown();
             break;
@@ -130,6 +117,12 @@ void handle_cmd(char* cmd)
             break;
         case CMD_SEND_PACKET:
             cmd_send_packet();
+            break;
+        case CMD_STATE:
+            cmd_check_state();
+            break;
+        case CMD_DISCONNECT_WIFI:
+            cmd_disconnect_wifi(arg);
             break;
         case CMD_UNKNOWN:
         default:
@@ -194,12 +187,4 @@ void read_serial_cli(void* param)
 
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
-}
-
-/**
- * @brief The following function prints the MOTD.
- */
-void print_motd() 
-{
-    cli_printf("Welcome to the DataFarm CLI!\n\n");
 }

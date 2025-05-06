@@ -1,6 +1,5 @@
 #include "main_app/main_app.h"
 #include "utils.h"
-#include "ntp/ntp.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include "th/th_handler.h"
@@ -21,45 +20,50 @@ void app();
 
 void main_app(void *parm)
 {
-    sleep(10);
-    uint32_t currentTime;
-
-    if (!start_sys_time() || !get_sys_time(&currentTime)) 
-    {
-        PRINT_ERROR("Unable to interface sys time killing main_app thread!");
-        
-        /**
-         * This portion of code doesnt make any sense
-         * But it still works??
-         * Calling the delete_th function removes it, but doesnt 
-         * show the removal in the threads cmd.
-         * Will find a work around.
-         */
-        main_app_th = NULL;
-        vTaskDelete(NULL);
-    } 
+    //     /**
+    //      * This portion of code doesnt make any sense
+    //      * But it still works??
+    //      * Calling the delete_th function removes it, but doesnt 
+    //      * show the removal in the threads cmd.
+    //      * Will find a work around.
+    //      */
+    //     main_app_th = NULL;
+    //     vTaskDelete(NULL);
+    // } 
 
     while (1)
     {
-        if (!exec_flag)
+        if (!hourly_timer_flag)
         {
-            exec_flag = true;
-            PRINT_WARNING("Starting APP MAIN");
+            printf("Not yet an hour\n");
             app();
-            last_run_time = currentTime;
         }
         else
         {
-            // Check if 6 hours (21600 seconds) have passed
-            if (currentTime - last_run_time >= CONTROLLER_INTERVAL_SEC)  // 6 hours = 6 * 60 * 60 = 21600 seconds
-            { 
-                PRINT_WARNING("Starting APP MAIN");
-                app();
-                last_run_time = currentTime;
-            }
+            printf("An hour has passed\n");
+            hourly_timer_flag = false; // Reset the flag
         }
         
-        sleep(1);
+        sleep(2);
+        // if (!exec_flag)
+        // {
+        //     exec_flag = true;
+        //     PRINT_WARNING("Starting APP MAIN");
+        //     app();
+        //     last_run_time = currentTime;
+        // }
+        // else
+        // {
+        //     // Check if 6 hours (21600 seconds) have passed
+        //     if (currentTime - last_run_time >= CONTROLLER_INTERVAL_SEC)  // 6 hours = 6 * 60 * 60 = 21600 seconds
+        //     { 
+        //         PRINT_WARNING("Starting APP MAIN");
+        //         app();
+        //         last_run_time = currentTime;
+        //     }
+        // }
+        
+        // sleep(1);
     }
 }
 
@@ -78,14 +82,15 @@ void app()
             strcpy(pkt.src_node, ID);
             strcpy(pkt.des_node, node_list[i]);
             pkt.ttl = ttl;
+            pkt.num_nodes = node_count;
             memset(pkt.data, 0, sizeof(pkt.data)); // Clear data field
 
             
             create_packet(packet_to_send, &pkt, seq_id);
             
-            for (int i = 0; i < PACKET_LENGTH; i++)
+            for (int j = 0; j < PACKET_LENGTH; j++)
             {
-                printf("%02x ", packet_to_send[i]);
+                printf("%02x ", packet_to_send[j]);
             }
             printf("\n");
 

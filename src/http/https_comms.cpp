@@ -16,7 +16,8 @@
 /* HTTP / Controller HTTP Error Codes*/
 #define HTTP_200_OK 200
 #define HTTP_201_CREATED 201
-#define HTTP_404_UNAUTH 404
+#define HTTP_401_UNAUTH 401
+#define HTTP_404_NOTFOUND 404
 #define HTTP_500_ERROR 500
 #define HTTP_409_DUPLICATE 409
 
@@ -31,7 +32,7 @@ typedef enum
 } request_type;
 
 int post_request(String json_payload);
-String construct_json_payload(msg message);
+String construct_json_payload(message message);
 void check_internet();
 char* constr_endp(const char* endpoint);
 void update_key(const char* new_key);
@@ -68,53 +69,49 @@ void activate_controller()
     JsonDocument response_doc;
     const char* api_key;
 
+    url = constr_endp(TX_ACT_ENDPOINT);
+
+    if (init_http_client(url, POST) == EXIT_FAILURE)
+    {
+        PRINT_ERROR("Unable to initialise key"); //TODO
+    }
+
     doc["controller_id"] = ID;
     doc["username"] = "admin";
     doc["password"] = "admin";
 
     serializeJson(doc, json_payload); //convert into a string
-
-    printf("json: %s\n", (String)json_payload);
-
-    url = constr_endp(TX_ACT_ENDPOINT);
-    printf("url: %s\n", url);
-
-    client.begin(url);
-    client.addHeader("Content-Type", "application/json");
-    client.addHeader("accept", "application/json");
     http_code = client.POST(json_payload);
 
     while (http_code != HTTP_200_OK) 
     {
-        PRINT_INFO("GET request failed");
+        switch (http_code)
+        {
+            case HTTP_401_UNAUTH:
+                printf("[%d]: Unauthorized access. Key is invalid.\n", http_code);
+                break;
+            default:
+                break;
+        }
+
         check_internet();
         http_code = client.POST(json_payload);
     }
 
-    switch (http_code)
-    {
-        case HTTP_200_OK:
-            response = client.getString();
-            deserializeJson(response_doc, response);
-            api_key = response_doc["access_token"];
-
-            if (api_key != nullptr) 
-            {
-                update_key(api_key);
-            } 
-            else 
-            {
-                PRINT_ERROR("access_token not found in response");
-            }
-
-            break;
-
-        default:
-            printf("HTTP POST failed with status code: %d\n", http_code);
-            break;
-    }
-
+    response = client.getString();
     client.end();
+
+    deserializeJson(response_doc, response);
+    api_key = response_doc["access_token"];
+
+    if (api_key != nullptr) 
+    {
+        update_key(api_key);
+    } 
+    else 
+    {
+        PRINT_ERROR("access_token not found in response");
+    }
 }
 
 /**
@@ -127,12 +124,10 @@ void activate_controller()
 void get_nodes_list() 
 {
     char url[150];
-    int http_code;
     String response;
     JsonDocument doc;
     int success;
     
-    // Construct the endpoint URL with query parameter
     snprintf(url, sizeof(url), "%s?controller_id=%s", constr_endp(TX_GET_ENDPOINT), ID);
 
     if (init_http_client(url, GET) == EXIT_FAILURE)
@@ -141,11 +136,21 @@ void get_nodes_list()
     }
     
     success = client.GET();
-    printf("success: %d\n", success);
                 
     while (success != HTTP_200_OK) 
     {
-        PRINT_INFO("GET request failed");
+        switch (success)
+        {
+            case HTTP_401_UNAUTH:
+                printf("[%d]: Unauthorized access. Key is invalid.\n", success);
+                break;
+            case HTTP_404_NOTFOUND:
+                printf("[%d]: %s is not a valid controller\n", success, ID);
+                break;
+            default:
+                break;
+        }
+
         check_internet();
         success = client.GET();
     }
@@ -154,40 +159,43 @@ void get_nodes_list()
     client.end();
     
     deserializeJson(doc, response);
-        
+
+
     node_count = doc.size();
     node_list = (char**)malloc(node_count * sizeof(char*));
-    ttl = (2 * node_count) + 1;
     
-    if (node_list == nullptr) 
+    if (node_list != nullptr) 
+    {
+        for (int i = 0; i < node_count; i++) 
+        {
+            const char* node_id = doc[i]["node_id"];
+            (node_list)[i] = strdup(node_id);
+            
+            if ((node_list)[i] == nullptr)  /* This should never happen*/
+            {
+                DEBUG();
+                PRINT_ERROR("String duplication failed");
+                // Free any allocated memory before returning
+                for (int j = 0; j < i; j++) 
+                {
+                    free((node_list)[j]);
+                }
+    
+                free(node_list);
+                return;
+            }
+        }
+    
+        ttl = (2 * node_count) + 1;
+        hash_cache_size = MIN(10, node_count);
+    }
+    else
     {
         DEBUG();
         PRINT_ERROR("Memory allocation failed");
         return;
     }
 
-    // printf("Number of nodes: %zu\n", node_count);
-
-    // Parse each node in the response and extract node_id
-    for (int i = 0; i < node_count; i++) 
-    {
-        const char* node_id = doc[i]["node_id"];
-        (node_list)[i] = strdup(node_id);
-        
-        if ((node_list)[i] == nullptr) 
-        {
-            DEBUG();
-            PRINT_ERROR("String duplication failed");
-            // Free any allocated memory before returning
-            for (int j = 0; j < i; j++) 
-            {
-                free((node_list)[j]);
-            }
-
-            free(node_list);
-            return;
-        }
-    }
 }
 
 
@@ -199,7 +207,7 @@ void get_nodes_list()
  */
 void http_send(void* param)
 {
-    msg cur_msg;
+    message cur_msg;
     String json_payload;
     int success;
 
@@ -218,7 +226,19 @@ void http_send(void* param)
                 
                 while (success != HTTP_201_CREATED) 
                 {
-                    PRINT_INFO("POST request failed");
+                    switch (success)
+                    {
+                        case HTTP_401_UNAUTH:
+                            printf("[%d]: Unauthorized access. Key is invalid.\n", success);
+                            break;
+                        case HTTP_404_NOTFOUND:
+                            printf("[%d]: Node %s does not exist...\n", success, cur_msg.src_node.c_str());
+                            break;
+                        
+                    default:
+                        break;
+                    }
+                    
                     check_internet();
                     success = post_request(json_payload);
                 }
@@ -240,7 +260,7 @@ void http_send(void* param)
  * @param message - The data to be sent to the controller API
  * @return None
  */
-String construct_json_payload(msg message) 
+String construct_json_payload(message message) 
 {
     // Create a JSON document
     JsonDocument doc; // Adjust size as needed
@@ -285,13 +305,6 @@ String construct_json_payload(msg message)
  */
 int init_http_client(const String& url, request_type type)
 {
-    if (!is_key_set())
-    {
-        PRINT_ERROR("Key is not available in EEPROM");
-        return EXIT_FAILURE;
-
-    }
-
     client.begin(url);
     client.addHeader("access_token", config.api_key);
     
@@ -389,7 +402,7 @@ char* constr_endp(const char* endpoint)
 {
     static char endp[200];  // Static buffer to persist after function returns
 
-    if (strncmp(endpoint, "", sizeof(endpoint)) == 0)
+    if (strncmp(endpoint, "", strlen(endpoint)) == 0)
     {
         PRINT_STR("Endpoint is empty");
         return NULL;

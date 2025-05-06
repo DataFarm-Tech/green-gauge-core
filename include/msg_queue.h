@@ -20,10 +20,12 @@ typedef struct {
     String src_node;
     String des_node;
     rs485_data data;    
-} msg;
+} message;
 
-extern std::queue<msg> internal_msg_q;  // declare the queue here
+extern std::queue<message> internal_msg_q;  // declare the queue here
 
 extern char** node_list;     // Array of node IDs (strings)
 extern size_t node_count; // Number of nodes in the list
 extern uint8_t ttl;
+extern int hash_cache_size;
+extern volatile bool hourlyTimerFlag;
