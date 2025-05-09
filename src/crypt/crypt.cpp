@@ -11,6 +11,30 @@ void calc_crc(uint8_t *buffer, size_t length);
 uint16_t calc_crc_16_ccitt_false(uint8_t *data, size_t length);
 
 /**
+ * @brief Validates the CRC-16-CCITT-FALSE of the given buffer.
+ * @param buffer - The buffer that includes both data and the appended CRC (last 2 bytes).
+ * @param length_with_crc - Total length of the buffer, including the 2 CRC bytes.
+ * @return true if CRC is valid, false otherwise.
+ */
+bool validate_crc(uint8_t *buffer, size_t length_with_crc)
+{
+    if (length_with_crc < 2)
+        return false;  // Not enough data to contain a CRC
+
+    size_t data_length = length_with_crc - 2;
+
+    // Calculate the CRC of the data portion
+    uint16_t computed_crc = calc_crc_16_ccitt_false(buffer, data_length);
+
+    // Extract the CRC from the last two bytes of the buffer
+    uint16_t received_crc = (buffer[data_length] << 8) | buffer[data_length + 1];
+
+    // Compare calculated and received CRC
+    return computed_crc == received_crc;
+}
+
+
+/**
  * 
  * @brief This function calculates the CRC-16-CCITT-FALSE checksum of the data in the buffer and appends it to the end of the buffer.
  * @param buffer - The data buffer for which the CRC needs to be calculated

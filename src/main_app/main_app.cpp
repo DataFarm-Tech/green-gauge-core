@@ -42,28 +42,10 @@ void main_app(void *parm)
         {
             printf("An hour has passed\n");
             hourly_timer_flag = false; // Reset the flag
+            app();
         }
         
         sleep(2);
-        // if (!exec_flag)
-        // {
-        //     exec_flag = true;
-        //     PRINT_WARNING("Starting APP MAIN");
-        //     app();
-        //     last_run_time = currentTime;
-        // }
-        // else
-        // {
-        //     // Check if 6 hours (21600 seconds) have passed
-        //     if (currentTime - last_run_time >= CONTROLLER_INTERVAL_SEC)  // 6 hours = 6 * 60 * 60 = 21600 seconds
-        //     { 
-        //         PRINT_WARNING("Starting APP MAIN");
-        //         app();
-        //         last_run_time = currentTime;
-        //     }
-        // }
-        
-        // sleep(1);
     }
 }
 
@@ -79,13 +61,12 @@ void app()
             memset(packet_to_send, 0, sizeof(packet_to_send)); // Clear the packet buffer
             memset(&pkt, 0, sizeof(pkt)); // Clear the packet structure
             
-            strcpy(pkt.src_node, ID);
-            strcpy(pkt.des_node, node_list[i]);
-            pkt.ttl = ttl;
-            pkt.num_nodes = node_count;
+            strcpy(pkt.src_node, ID); //copy the source node ID
+            strcpy(pkt.des_node, node_list[i]); //copy the destination node ID
+            pkt.ttl = ttl; // Set the time-to-live
+            pkt.num_nodes = node_count; //  Set the number of nodes
             memset(pkt.data, 0, sizeof(pkt.data)); // Clear data field
 
-            
             create_packet(packet_to_send, &pkt, seq_id);
             
             for (int j = 0; j < PACKET_LENGTH; j++)

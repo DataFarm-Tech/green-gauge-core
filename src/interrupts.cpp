@@ -96,22 +96,29 @@ bool is_key_set() {
  */
 void switch_state(const int sensor_pin, const int controller_pin) 
 {
-    tear_down(); /* Removes all threads, queues*/
     
     if (sensor_pin == LOW && controller_pin == HIGH) 
     {
         if (current_state != SENSOR_STATE) 
         {
+            tear_down(); /* Removes all threads, queues*/
             PRINT_INFO("Switching to sensor state\n");
             current_state = SENSOR_STATE;
 
             init_mutex(current_state);
+
+            #if LORA_EN == 1
+                // rfm95w_setup();
+                hash_cache_init();
+                create_th(lora_listener, "lora_listener", LORA_LISTENER_TH_STACK_SIZE, &lora_listener_th, 1);
+            #endif
         }
     } 
     else 
     {
         if (current_state != CONTROLLER_STATE) 
         {
+            tear_down(); /* Removes all threads, queues*/
             PRINT_INFO("Switching to controller state\n");
             current_state = CONTROLLER_STATE;
             
@@ -128,15 +135,15 @@ void switch_state(const int sensor_pin, const int controller_pin)
             
             create_th(main_app, "main_app", MAIN_APP_TH_STACK_SIZE, &main_app_th, 1);
             create_th(http_send, "http_th", HTTP_TH_STACK_SIZE, &http_th, 1);
+
+            #if LORA_EN == 1
+                // rfm95w_setup();
+                hash_cache_init();
+                create_th(lora_listener, "lora_listener", LORA_LISTENER_TH_STACK_SIZE, &lora_listener_th, 1);
+            #endif
             
         }
     }
-
-    #if LORA_EN == 1
-        // rfm95w_setup();
-        hash_cache_init();
-        create_th(lora_listener, "lora_listener", LORA_LISTENER_TH_STACK_SIZE, &lora_listener_th, 1);
-    #endif
 }
 
 /**
@@ -157,7 +164,16 @@ void tear_down()
             while (!internal_msg_q.empty()) internal_msg_q.pop();
             xSemaphoreGive(msg_queue_mh);
         }
+        vSemaphoreDelete(msg_queue_mh);
+        msg_queue_mh = NULL;
     }
+
+    if (rf95_mh != NULL)
+    {
+        vSemaphoreDelete(rf95_mh);
+        rf95_mh = NULL;
+    }
+    
 
     sleep(2);
     return;
