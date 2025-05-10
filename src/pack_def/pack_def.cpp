@@ -4,6 +4,11 @@
 #include "crypt/crypt.h"
 #include "hash_cache/hash_cache.h"
 
+/**
+ * @brief The following function takes a string and a buffer
+ * and generates a SHA256 hash of the string.
+ * The hash is stored in the buffer.
+ */
 void create_packet(uint8_t *packet_to_send, const packet *pkt, uint8_t seq_id)
 {
     byte sha256Hash[SHA256_SIZE];
@@ -37,8 +42,8 @@ void create_packet(uint8_t *packet_to_send, const packet *pkt, uint8_t seq_id)
     }
 
     calc_crc(packet_to_send, PACKET_LENGTH - CRC_SIZE);
-    printf("OK\n");
 }
+
 
 message describe_packet(const uint8_t *buf, uint8_t buf_len)
 {

@@ -35,6 +35,11 @@ void create_th(TaskFunction_t func, const char* name, int stack_size, TaskHandle
     }
 }
 
+/**
+ * @brief This function deletes a thread and sets the thread handle to NULL.
+ * @param th - The thread handle to be deleted
+ * @return None
+ */
 void delete_th(TaskHandle_t* th)
 {
     if (*th != NULL) 

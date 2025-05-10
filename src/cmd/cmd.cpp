@@ -499,20 +499,17 @@ void cmd_start_thread(const char * thread_name)
 
 void cmd_send_packet()
 {
+    printf("Not stable...\n");
+    return;
+
     packet pkt;
     uint8_t packet_to_send[PACKET_LENGTH];
     uint8_t seq_id = 0;
 
-    // memset(packet_to_send, 0, sizeof(packet_to_send)); // Clear the packet buffer
-    // memset(&pkt, 0, sizeof(pkt)); // Clear the packet structure
-
-    printf("OK\n");
-    
     strcpy(pkt.src_node, ID);
     strcpy(pkt.des_node, "7jdsss");
     pkt.ttl = ttl;
     memset(pkt.data, 0, sizeof(pkt.data)); // Clear data field
-    printf("OK\n");
     create_packet(packet_to_send, &pkt, seq_id);
     
     for (int i = 0; i < PACKET_LENGTH; i++)
@@ -520,9 +517,8 @@ void cmd_send_packet()
         printf("%02x ", packet_to_send[i]);
     }
     printf("\n");
-
+    
     send_packet(packet_to_send, sizeof(packet_to_send));
-    printf("packet sent\n");
 }
 
 /**
