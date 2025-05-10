@@ -16,30 +16,61 @@
 #include "http/https_comms.h"
 #include "hw.h"
 #include "main_app/main_app.h"
+#include "pack_def/pack_def.h"
 
 /**
  * @brief A command to show the help text
  */
 void cmd_help() 
 {
-    cli_printf("Available commands:\n");
-    cli_printf("  help    - Show this help message\n");
-    cli_printf("  exit    - Exit the CLI\n");
-    cli_printf("  reboot  - Reboot this device\n");
-    cli_printf("  queue   - Print contents of internal message queue\n");
-    cli_printf("  ping [host]  - Ping a host\n");
-    cli_printf("  clear - Clears the screen\n");
-    cli_printf(" threads - Shows the active threads\n");
-    cli_printf(" ipconfig - Shows the network config\n");
-    cli_printf(" time - Shows the current NTP time\n");
-    cli_printf(" teardown - Removes all threads and clears queue\n");
-    cli_printf(" q_add - Adds an element to the queue\n");
-    cli_printf(" key - Shows the active http key used\n");
-    cli_printf(" clear-config - Clears the current config.\n");
-    cli_printf(" list - Lists all the nodes belonging to itself.\n");
-    cli_printf(" cache - Lists items in cache.\n");
-    cli_printf(" stop_thread [lora_listener_th, main_app_th, http_th] - stops a particular thread.\n");
-    cli_printf(" start_thread [lora_listener_th, main_app_th, http_th] - stops a particular thread.\n");
+    switch (current_state)
+    {
+        case UNDEFINED_STATE:
+            printf("Device is in UNDEFINED state.\n");
+            break;
+        case SENSOR_STATE:
+            printf("Available commands:\n");
+            printf("  help    - Show this help message\n");
+            printf("  exit    - Exit the CLI\n");
+            printf("  state   - Shows the current state of the device\n");
+            printf("  reboot  - Reboot this device\n");
+            printf("  threads - Show active threads\n");
+            printf("  teardown - Removes all threads and clears queue\n");
+            printf("  clear-config - Clears the current config.\n");
+            printf("  cache - Lists items in cache.\n");
+            printf("  clear - Clears the screen\n");
+            printf("  stop_thread [lora_listener_th, main_app_th, http_th] - stops a particular thread.\n");
+            printf("  start_thread [lora_listener_th, main_app_th, http_th] - stops a particular thread.\n");
+            printf("  apply - Saves the current config.\n");
+            break;
+        case CONTROLLER_STATE:
+            printf("Available commands:\n");
+            printf("  help    - Show this help message\n");
+            printf("  exit    - Exit the CLI\n");
+            printf("  reboot  - Reboot this device\n");
+            printf("  threads - Show active threads\n");
+            printf("  teardown - Removes all threads and clears queue\n");
+            printf("  clear-config - Clears the current config.\n");
+            printf("  cache - Lists items in cache.\n");
+            printf("  stop_thread [lora_listener_th, main_app_th, http_th] - stops a particular thread.\n");
+            printf("  start_thread [lora_listener_th, main_app_th, http_th] - stops a particular thread.\n");
+            printf("  list    - Lists all the nodes belonging to itself.\n");
+            printf("  ping [host]  - Ping a host\n");
+            printf("  key     - Shows the active http key used\n");
+            printf("  disconnect_wifi - Disconnects from WiFi\n");
+            printf("  disconnect_wifi erase - Disconnects from WiFi and erases credentials\n");
+            printf("  ipconfig - Shows the network config\n");
+            printf("  queue   - Print contents of internal message queue\n");
+            printf("  q_add   - Adds an element to the queue\n");
+            printf("  clear   - Clears the screen\n");
+            printf("  state   - Shows the current state of the device\n");
+            printf("  apply - Saves the current config.\n");
+
+            break;
+        
+        default:
+            break;
+    }
 }
 
 /**
@@ -181,56 +212,111 @@ void cmd_teardown()
  */
 void cmd_queue() 
 {
-    if (xSemaphoreTake(msg_queue_mh, portMAX_DELAY) == pdTRUE) {
-        cli_printf("Queue size: %zu\n", internal_msg_q.size());
-        if (internal_msg_q.empty()) 
-        {
-            cli_print("Queue is empty.\n");
-            xSemaphoreGive(msg_queue_mh);
-            return;
-        }
-        int index = 0;
-        size_t size = internal_msg_q.size();
+    int index = 0;
+    size_t size;
+    message m;
     
-        for (size_t i = 0; i < size; ++i) 
-        {
-            message m = internal_msg_q.front();
-            cli_printf("  [%d] src_node: %s, des_node: %s\n", index++, m.src_node.c_str(), m.des_node.c_str());
-    
-            internal_msg_q.pop();
-            internal_msg_q.push(m);  // Rotate to preserve order
-        }
-    
-        xSemaphoreGive(msg_queue_mh);
+    switch (current_state)
+    {
+        case UNDEFINED_STATE:
+        case SENSOR_STATE:
+            printf("Cannot show queue in the current state.\n");
+            break;
+        case CONTROLLER_STATE:
+            if (msg_queue_mh != NULL) 
+            {
+                if (xSemaphoreTake(msg_queue_mh, portMAX_DELAY) == pdTRUE) 
+                    {
+                        cli_printf("Queue size: %zu\n", internal_msg_q.size());
+                        
+                        if (internal_msg_q.empty()) 
+                        {
+                            cli_print("Queue is empty.\n");
+                            xSemaphoreGive(msg_queue_mh);
+                            return;
+                        }
+                        
+                        size = internal_msg_q.size();
+                    
+                        for (size_t i = 0; i < size; ++i) 
+                        {
+                            m = internal_msg_q.front();
+                            cli_printf("  [%d] src_node: %s, des_node: %s\n", index++, m.src_node.c_str(), m.des_node.c_str());
+                    
+                            internal_msg_q.pop();
+                            internal_msg_q.push(m);  // Rotate to preserve order
+                        }
+                    
+                        xSemaphoreGive(msg_queue_mh);
+                    }    
+            }
+            else
+            {
+                printf("Error: msg_queue_mh is NULL.\n");
+                break;
+            }
+            
+            break;
+    default:
+        break;
     }
 }
 
 /**
  * @brief The following command adds an element to the q.
  */
-void cmd_add_queue()
+void cmd_add_queue(const char * src_node, const char * des_node)
 {
     message new_message;
-    new_message.src_node = "tnode1";
-    new_message.des_node = "controller";
-    
-    // Generate some sensor data (you can replace with real sensor readings)
-    new_message.data = {
-        .rs485_humidity = uint8_t(random(30, 60)),
-        .rs485_temp = uint8_t(random(20, 30)),
-        .rs485_con = uint8_t(random(20, 40)),
-        .rs485_ph = uint8_t(random(5, 9)),
-        .rs485_nit = uint8_t(random(40, 60)),
-        .rs485_phos = uint8_t(random(30, 50)),
-        .rs485_pot = uint8_t(random(25, 45))
-    };
 
-    if (xSemaphoreTake(msg_queue_mh, portMAX_DELAY) == pdTRUE)
+    switch (current_state)
     {
-        internal_msg_q.push(new_message); 
-        xSemaphoreGive(msg_queue_mh);
+        case UNDEFINED_STATE:
+        case SENSOR_STATE:
+            printf("Cannot add to queue in the current state.\n");
+            break;
+        case CONTROLLER_STATE:
+
+            if (src_node == NULL || strlen(src_node) != ADDRESS_SIZE)
+            {
+                src_node = "sn0001";
+            }
+
+            if (des_node == NULL || strlen(des_node) != ADDRESS_SIZE)
+            {
+                des_node = "cn0001";
+            }
+            
+            new_message.src_node = src_node;
+            new_message.des_node = des_node;
+            
+            new_message.data = {
+                .rs485_humidity = uint8_t(random(30, 60)),
+                .rs485_temp = uint8_t(random(20, 30)),
+                .rs485_con = uint8_t(random(20, 40)),
+                .rs485_ph = uint8_t(random(5, 9)),
+                .rs485_nit = uint8_t(random(40, 60)),
+                .rs485_phos = uint8_t(random(30, 50)),
+                .rs485_pot = uint8_t(random(25, 45))
+            };
+
+            if (msg_queue_mh != NULL) 
+            {
+                if (xSemaphoreTake(msg_queue_mh, portMAX_DELAY) == pdTRUE)
+                {
+                    internal_msg_q.push(new_message); 
+                    xSemaphoreGive(msg_queue_mh);
+                }
+                break;
+            }
+            else
+            {
+                printf("Error: msg_queue_mh is NULL.\n");
+                break;
+            }
+    default:
+        break;
     }
-    
 }
 
 /**
@@ -239,7 +325,23 @@ void cmd_add_queue()
  */
 void cmd_key()
 {
-    cli_printf("Key: %s\n", config.api_key);
+    switch (current_state)
+    {
+        case SENSOR_STATE:
+        case UNDEFINED_STATE:
+            printf("Cannot show API key in the current state.\n");
+            break;
+        case CONTROLLER_STATE:
+            if (strlen(config.api_key) == 0)
+            {
+                printf("No API key set.\n");
+                break;
+            }
+            cli_printf("API Key: %s\n", config.api_key);
+            break;
+        default:
+            break;
+        }
 }
 
 /**
@@ -249,12 +351,32 @@ void cmd_key()
  */
 void cmd_node_list()
 {
-    cli_printf("Node IDs:\n");
-    for (int i = 0; i < node_count; i++) 
+    switch (current_state)
     {
-        cli_printf("%s ", (node_list)[i]);
+        case UNDEFINED_STATE:
+        case SENSOR_STATE:
+            printf("Cannot show node list in the current state.\n");
+            break;
+        case CONTROLLER_STATE:
+            if (node_count > 0)
+            {
+                cli_printf("Node IDs:\n");
+                for (int i = 0; i < node_count; i++) 
+                {
+                    cli_printf("%s ", (node_list)[i]);
+                }
+                cli_printf("\n");
+                break;
+            }
+            else
+            {
+                cli_printf("No nodes in the list.\n");
+                break;
+            }
+            
+    default:
+        break;
     }
-    cli_printf("\n");
 }
 
 /**
@@ -385,17 +507,47 @@ void cmd_disconnect_wifi(const char * arg)
 {
     if (arg == NULL) 
     {
-        wifi_disconnect(false);
+        if (WiFi.status() == WL_CONNECTED)
+        {
+            wifi_disconnect(false); /** if no arg, do not erase credentials */
+        }
+        else
+        {
+            printf("Not connected to WiFi.\n");
+        }
+        
         return;
     }
-    else if (strcmp(arg, "erase") == 0) 
+    else if (strncmp(arg, "erase", strlen(arg)) == 0) 
     {
-        wifi_disconnect(true);
-        printf("Disconnected from WiFi and erased credentials\n");
+        if (WiFi.status() == WL_CONNECTED)
+        {
+            wifi_disconnect(true);
+        }
+        else
+        {
+            printf("Not connected to WiFi.\n");
+        }
+
+        return;
     } 
     else
     {
         printf("Invalid argument. Use 'erase' to erase credentials.\n");
         return;
     }
+}
+/**
+ * @brief This command connects to the WiFi
+ * @return None
+ */
+void cmd_connect_wifi()
+{
+    if (WiFi.status() == WL_CONNECTED) 
+    {
+        printf("Already connected to WiFi.\n");
+        return;
+    }
+
+    wifi_connect();
 }

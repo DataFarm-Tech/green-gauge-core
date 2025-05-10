@@ -1,46 +1,25 @@
+#include <Arduino.h>
+
 #include "main_app/main_app.h"
 #include "utils.h"
-#include <Arduino.h>
-#include <WiFi.h>
 #include "th/th_handler.h"
 #include "interrupts.h"
 #include "msg_queue.h"
 #include "lora/lora_listener.h"
 #include "pack_def/pack_def.h"
 
-
-#define CONTROLLER_INTERVAL_SEC 28800 //change me to 60 for testing
-
-bool exec_flag = false;
-uint32_t last_run_time = 0;  // Store the last execution time in epoch format
-const char * src_node_id =  ID;
 uint8_t seq_id = 0;
 
 void app();
 
 void main_app(void *parm)
 {
-    //     /**
-    //      * This portion of code doesnt make any sense
-    //      * But it still works??
-    //      * Calling the delete_th function removes it, but doesnt 
-    //      * show the removal in the threads cmd.
-    //      * Will find a work around.
-    //      */
-    //     main_app_th = NULL;
-    //     vTaskDelete(NULL);
-    // } 
+    app();
 
     while (1)
     {
-        if (!hourly_timer_flag)
+        if (hourly_timer_flag)
         {
-            printf("Not yet an hour\n");
-            app();
-        }
-        else
-        {
-            printf("An hour has passed\n");
             hourly_timer_flag = false; // Reset the flag
             app();
         }
@@ -51,6 +30,8 @@ void main_app(void *parm)
 
 void app()
 {
+    PRINT_INFO("Starting app...\n");
+
     packet pkt;
     uint8_t packet_to_send[PACKET_LENGTH];
 
@@ -69,13 +50,13 @@ void app()
 
             create_packet(packet_to_send, &pkt, seq_id);
             
-            for (int j = 0; j < PACKET_LENGTH; j++)
-            {
-                printf("%02x ", packet_to_send[j]);
-            }
-            printf("\n");
+            // for (int j = 0; j < PACKET_LENGTH; j++)
+            // {
+            //     printf("%02x ", packet_to_send[j]);
+            // }
+            // printf("\n");
 
-            send_packet(packet_to_send, sizeof(packet_to_send));
+            // send_packet(packet_to_send, sizeof(packet_to_send));
             seq_id++;
         }
     }

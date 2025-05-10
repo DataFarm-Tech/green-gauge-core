@@ -38,6 +38,7 @@ cli_cmd get_best_enum(const char* token)
     if (strncmp(token, "stop_thread", strlen(token)) == 0) return CMD_STOP_THREAD;
     if (strncmp(token, "start_thread", strlen(token)) == 0) return CMD_START_THREAD;
     if (strncmp(token, "disconnect_wifi", strlen(token)) == 0) return CMD_DISCONNECT_WIFI;
+    if (strncmp(token, "connect_wifi", strlen(token) == 0)) return CMD_CONNECT_WIFI;
     return CMD_UNKNOWN;
 }
 
@@ -58,9 +59,14 @@ void handle_cmd(char* cmd)
     cli_cmd cmd_input = get_best_enum(token);
     
     char* arg = strtok(nullptr, " ");
+    char* arg2 = strtok(nullptr, " ");
+
+    if (arg) trim_newline(arg);
+    if (arg2) trim_newline(arg2);
     
     cli_printf("\n");
-    if (arg) trim_newline(arg);
+
+ 
     
     switch (cmd_input) 
     {
@@ -92,7 +98,7 @@ void handle_cmd(char* cmd)
             cmd_ipconfig();
             break;
         case CMD_QADD:
-            cmd_add_queue();
+            cmd_add_queue(arg, arg2);
             break;
         case CMD_APPLY:
             save_config();
@@ -120,6 +126,9 @@ void handle_cmd(char* cmd)
             break;
         case CMD_DISCONNECT_WIFI:
             cmd_disconnect_wifi(arg);
+            break;
+        case CMD_CONNECT_WIFI:
+            cmd_connect_wifi();
             break;
         case CMD_UNKNOWN:
         default:
