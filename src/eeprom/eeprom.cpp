@@ -1,5 +1,8 @@
 #include <EEPROM.h>
 #include "eeprom.h"
+/**
+ * TODO: rename eeprom.cpp eeprom.h to eeprom_config.h
+ */
 
 #define EEPROM_SIZE sizeof(device_config)
 #define EEPROM_ADDR 0 //start writing eeprom from the start of mem

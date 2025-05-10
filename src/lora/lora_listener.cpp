@@ -90,8 +90,8 @@ void lora_listener(void * param)
                             case SENSOR_STATE:
                                 //reset ttl to the num_nodes
                                 buf[ADDRESS_SIZE * 2 + 1] = buf[ADDRESS_SIZE * 2];
-                                swap_src_dest_addresses(buf);
-                                read_rs485(buf, buf_len);
+                                swap_src_dest_addresses(buf); // ..... 0000000 ...
+                                read_rs485(buf, buf_len); //..... 23445467 ...
                                 send_packet(buf, buf_len); // Send the packet
                                 break;
                         

@@ -85,6 +85,7 @@ void process_state_change(void *param)
     vTaskDelete(NULL); // Delete the task when done
 }
 
+/** TODO: double check this. */
 bool is_key_set() {
     return config.api_key[0] != '\0';  // Check if the first character is not the null terminator
 }
