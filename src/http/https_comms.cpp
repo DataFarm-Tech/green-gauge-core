@@ -23,6 +23,7 @@
 
 #define PING_NUM 5
 
+#define GOOGLE_HOST "google.com"
 /******************* Function Prototypes *****************/
 
 typedef enum
@@ -89,6 +90,7 @@ void activate_controller()
         {
             case HTTP_401_UNAUTH:
                 printf("[%d]: Unauthorized access. Key is invalid.\n", http_code);
+                printf("test\n");
                 break;
             default:
                 break;
@@ -355,27 +357,23 @@ int post_request(String json_payload)
  */
 void check_internet() 
 {
-    const char* google_dns = "google.com"; // Google DNS for internet check
-
-    // 1. Loop until WiFi connects
     while (WiFi.status() != WL_CONNECTED) 
     {
         printf("WiFi disconnected. Reconnecting...\n");
         WiFi.reconnect();
-        delay(3000); // Prevents watchdog trigger
+        sleep(3);
     }
 
-    // 2. Loop until Google pings (confirms internet)
     while (1) 
     {
         printf("Pinging Google...\n");
-        if (Ping.ping(google_dns, PING_NUM)) 
+        if (Ping.ping(GOOGLE_HOST, PING_NUM)) 
         {
             break;
         }
 
         printf("Google ping failed. Retrying in 3s...\n");
-        delay(3000);
+        sleep(3);
     }
 
     // 3. Loop until your server pings
@@ -385,11 +383,10 @@ void check_internet()
 
         if (Ping.ping(API_HOST, PING_NUM)) 
         {
-            // Serial.println("Server ping successful.");
             break;
         }
         printf("Server ping failed. Retrying in 3s...\n");
-        delay(3000);
+        sleep(3);
     }
 }
 
@@ -400,11 +397,12 @@ void check_internet()
  */
 char* constr_endp(const char* endpoint)
 {
-    static char endp[200];  // Static buffer to persist after function returns
+    static char endp[BUFFER_SIZE];  // Static buffer to persist after function returns
 
     if (strncmp(endpoint, "", strlen(endpoint)) == 0)
     {
         PRINT_STR("Endpoint is empty");
+        DEBUG();
         return NULL;
     }
     

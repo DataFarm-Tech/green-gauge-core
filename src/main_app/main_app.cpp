@@ -56,7 +56,7 @@ void app()
             // }
             // printf("\n");
 
-            // send_packet(packet_to_send, sizeof(packet_to_send));
+            send_packet(packet_to_send, sizeof(packet_to_send));
             seq_id++;
         }
     }

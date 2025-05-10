@@ -38,7 +38,7 @@ cli_cmd get_best_enum(const char* token)
     if (strncmp(token, "stop_thread", strlen(token)) == 0) return CMD_STOP_THREAD;
     if (strncmp(token, "start_thread", strlen(token)) == 0) return CMD_START_THREAD;
     if (strncmp(token, "disconnect_wifi", strlen(token)) == 0) return CMD_DISCONNECT_WIFI;
-    if (strncmp(token, "connect_wifi", strlen(token) == 0)) return CMD_CONNECT_WIFI;
+    if (strncmp(token, "connect_wifi", strlen(token)) == 0) return CMD_CONNECT_WIFI;
     return CMD_UNKNOWN;
 }
 

@@ -85,6 +85,7 @@ void process_state_change(void *param)
     vTaskDelete(NULL); // Delete the task when done
 }
 
+/** TODO: double check this. */
 bool is_key_set() {
     return config.api_key[0] != '\0';  // Check if the first character is not the null terminator
 }
@@ -126,6 +127,8 @@ void switch_state(const int sensor_pin, const int controller_pin)
             
             if (!is_key_set()) /* Before proceeding key must exist, for http thread to use*/
             {
+                printf("key is not set\n");
+                DEBUG();
                 activate_controller(); /* Retrieves a key from the API*/
             }
             
