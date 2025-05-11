@@ -5,5 +5,6 @@
 
 extern SemaphoreHandle_t rf95_mh;  // Mutex handle
 extern SemaphoreHandle_t msg_queue_mh;  // Mutex handle
+extern SemaphoreHandle_t seq_mh;  // Mutex handle
 
 void init_mutex(device_state_t state);

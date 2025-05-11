@@ -29,3 +29,4 @@ extern size_t node_count; // Number of nodes in the list
 extern uint8_t ttl;
 extern int hash_cache_size;
 extern volatile bool hourlyTimerFlag;
+extern uint8_t seq_id;

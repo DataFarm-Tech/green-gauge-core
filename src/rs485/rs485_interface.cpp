@@ -10,19 +10,31 @@
  * @note This function fills the buffer with random data for simulation purposes.
  *       In a real implementation, this function would read data from the RS485 interface.
  */
-void read_rs485(uint8_t * buf, uint8_t buf_len)
+uint8_t read_rs485(char * data, uint8_t buf_len)
 {
-    if (buf == NULL || buf_len == 0)
+    if (buf_len < DATA_SIZE)
     {
-        printf("Error: read_rs485 requires a non-null buffer and a non-zero length.\n");
-        DEBUG();
-        return;
+        PRINT_ERROR("Buffer length is too small");
+        return EXIT_FAILURE;
     }
 
-    for (int i = PACKET_LENGTH - DATA_SIZE; i < DATA_SIZE; i++)
+    bool rs485_disconnect = true;
+
+    for (int i = 0; i < buf_len; i++)
     {
-        buf[i] = (uint8_t)random(0, 255); // Simulate reading data from RS485
+        data[i] = (char)random(0, 255); // Simulate reading a byte from RS485
+
+        if (data[i] != 1)
+        {
+            rs485_disconnect = false;
+        }
     }
 
-    return;
+    if (rs485_disconnect)
+    {
+        PRINT_ERROR("All RS485 data values were 1. Invalid response.");
+        return SN001_ERR_RSP_CODE_A;
+    }
+
+    return EXIT_SUCCESS;
 }

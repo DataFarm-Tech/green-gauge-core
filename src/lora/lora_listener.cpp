@@ -9,6 +9,7 @@
 #include "hash_cache/hash_cache.h"
 #include "rs485/rs485_interface.h"
 #include "crypt/crypt.h"
+#include "msg_queue.h"
 
 RH_RF95 rf95(RFM95_NSS, RFM95_INT); // Create the rf95 obj
 
@@ -25,15 +26,21 @@ void lora_listener(void * param)
 {
     while (1)
     {
-        if (xSemaphoreTake(rf95_mh, portMAX_DELAY) == pdTRUE)
+        if (rf95.available())
         {
-            if (rf95.available())
+            if (xSemaphoreTake(rf95_mh, portMAX_DELAY) == pdTRUE)
             {
                 uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
                 uint8_t buf_len = sizeof(buf);
 
                 if (rf95.recv(buf, &buf_len))
                 {
+                    if (buf_len < SN001_ERR_RSP_LEN) /** This is the smallest msg len */
+                    {
+                        xSemaphoreGive(rf95_mh);
+                        continue;
+                    }
+                    
                     /** Before doing anything with buffer, we check that 
                      * the buffer is not empty and the length is correct.
                      * We also check that the buffer is not corrupted.
@@ -80,6 +87,7 @@ void lora_listener(void * param)
                         switch (current_state)
                         {
                             case CONTROLLER_STATE:
+                            {
                                 if (xSemaphoreTake(msg_queue_mh, portMAX_DELAY) == pdTRUE)
                                 {
                                     internal_msg_q.push(describe_packet(buf, buf_len));
@@ -87,14 +95,54 @@ void lora_listener(void * param)
                                 }
                                 
                                 break;
+                            }
                             case SENSOR_STATE:
-                                //reset ttl to the num_nodes
-                                buf[ADDRESS_SIZE * 2 + 1] = buf[ADDRESS_SIZE * 2];
-                                swap_src_dest_addresses(buf); // ..... 0000000 ...
-                                read_rs485(buf, buf_len); //..... 23445467 ...
-                                send_packet(buf, buf_len); // Send the packet
-                                break;
-                        
+                            {
+                                char rs485_buf[DATA_SIZE];
+                                uint8_t rc = read_rs485(rs485_buf, DATA_SIZE);
+
+                                switch (rc)
+                                {
+                                    case SN001_SUC_RSP_CODE:
+                                    {
+                                        sn001_rsp pkt_resp;
+                                        uint8_t packet_success[SN001_SUC_RSP_LEN];
+
+                                        memcpy(pkt_resp.src_node, buf, ADDRESS_SIZE);
+                                        memcpy(pkt_resp.des_node, buf + ADDRESS_SIZE, ADDRESS_SIZE);
+                                        memcpy(pkt_resp.data, rs485_buf, DATA_SIZE);
+                                        pkt_resp.ttl = buf[ADDRESS_SIZE * 2];
+
+                                        pkt_sn001_rsp(packet_success, &pkt_resp, seq_id);
+                                        send_packet(packet_success, sizeof(packet_success));
+                                        break;
+                                    }
+                                    case SN001_ERR_RSP_CODE_A:
+                                    {
+                                        sn001_err_rsp pkt_err;
+                                        uint8_t packet_err[SN001_ERR_RSP_LEN];
+
+                                        memcpy(pkt_err.src_node, buf, ADDRESS_SIZE);
+                                        memcpy(pkt_err.des_node, buf + ADDRESS_SIZE, ADDRESS_SIZE);
+                                        pkt_err.ttl = buf[ADDRESS_SIZE * 2];
+                                        pkt_err.err_code = rc;
+
+                                        pkt_sn001_err_rsp(packet_err, &pkt_err, seq_id);
+                                        send_packet(packet_err, sizeof(packet_err));
+                                        break;
+                                    }
+                                    default:
+                                        break;
+                                }
+
+                                if (xSemaphoreTake(seq_mh, portMAX_DELAY) == pdTRUE)
+                                {
+                                    seq_id++;
+                                    xSemaphoreGive(seq_mh);
+                                }
+
+                                break;            
+                            }
                         default:
                             break;
                         }
@@ -105,10 +153,12 @@ void lora_listener(void * param)
                         send_packet(buf, buf_len); // Send the packet
                     }
                 }
-            }
-            
-            xSemaphoreGive(rf95_mh);
+                }
+                
+                xSemaphoreGive(rf95_mh);
         }
+
+        vTaskDelay(10 / portTICK_PERIOD_MS);
 
         sleep(1);
     }
@@ -132,12 +182,17 @@ void swap_src_dest_addresses(uint8_t buffer[])
 }
 
 
-
+/**
+ * @brief Sends a packet using the RF95 module.
+ * 
+ * @param packet_to_send Pointer to the packet to be sent.
+ * @param packet_len Length of the packet to be sent.
+ */
 void send_packet(uint8_t* packet_to_send, uint8_t packet_len)
 {
     if (xSemaphoreTake(rf95_mh, portMAX_DELAY) == pdTRUE)
     {
-        if (!rf95.send(packet_to_send, packet_len)) 
+        while (!rf95.send(packet_to_send, packet_len)) 
         {
             PRINT_STR("Packet failed");
         }

@@ -176,6 +176,13 @@ void tear_down()
         vSemaphoreDelete(rf95_mh);
         rf95_mh = NULL;
     }
+
+    if (seq_mh != NULL)
+    {
+        vSemaphoreDelete(seq_mh);
+        seq_mh = NULL;
+    }
+    
     
 
     sleep(2);

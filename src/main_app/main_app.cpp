@@ -7,8 +7,7 @@
 #include "msg_queue.h"
 #include "lora/lora_listener.h"
 #include "pack_def/pack_def.h"
-
-uint8_t seq_id = 0;
+#include "msg_queue.h"
 
 void app();
 
@@ -32,32 +31,31 @@ void app()
 {
     PRINT_INFO("Starting app...\n");
 
-    packet pkt;
-    uint8_t packet_to_send[PACKET_LENGTH];
+    cn001_req req_pkt;
+    uint8_t packet_to_send[CN001_REQ_LEN];
 
     if (node_count > 0)
     {
         for (int i = 0; i < node_count; i++)
         {
             memset(packet_to_send, 0, sizeof(packet_to_send)); // Clear the packet buffer
-            memset(&pkt, 0, sizeof(pkt)); // Clear the packet structure
+            memset(&req_pkt, 0, sizeof(req_pkt)); // Clear the packet structure
             
-            strcpy(pkt.src_node, ID); //copy the source node ID
-            strcpy(pkt.des_node, node_list[i]); //copy the destination node ID
-            pkt.ttl = ttl; // Set the time-to-live
-            pkt.num_nodes = node_count; //  Set the number of nodes
-            memset(pkt.data, 0, sizeof(pkt.data)); // Clear data field
-
-            create_packet(packet_to_send, &pkt, seq_id);
+            strcpy(req_pkt.src_node, ID); //copy the source node ID
+            strcpy(req_pkt.des_node, node_list[i]); //copy the destination node ID
             
-            // for (int j = 0; j < PACKET_LENGTH; j++)
-            // {
-            //     printf("%02x ", packet_to_send[j]);
-            // }
-            // printf("\n");
+            req_pkt.ttl = ttl; // Set the time-to-live
+            req_pkt.num_nodes = node_count; //  Set the number of nodes
+            
+            pkt_cn001_req(packet_to_send, &req_pkt, seq_id); // Create the packet
 
             send_packet(packet_to_send, sizeof(packet_to_send));
-            seq_id++;
+
+            if (xSemaphoreTake(seq_mh, portMAX_DELAY) == pdTRUE)
+            {
+                seq_id++;
+                xSemaphoreGive(seq_mh);
+            }
         }
     }
 }
