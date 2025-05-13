@@ -109,7 +109,7 @@ void switch_state(const int sensor_pin, const int controller_pin)
             init_mutex(current_state);
 
             #if LORA_EN == 1
-                // rfm95w_setup();
+                rfm95w_setup();
                 hash_cache_init();
                 create_th(lora_listener, "lora_listener", LORA_LISTENER_TH_STACK_SIZE, &lora_listener_th, 1);
             #endif
@@ -136,7 +136,7 @@ void switch_state(const int sensor_pin, const int controller_pin)
             
             init_mutex(current_state);
             
-            // create_th(main_app, "main_app", MAIN_APP_TH_STACK_SIZE, &main_app_th, 1);
+            create_th(main_app, "main_app", MAIN_APP_TH_STACK_SIZE, &main_app_th, 1);
             create_th(http_send, "http_th", HTTP_TH_STACK_SIZE, &http_th, 1);
 
             #if LORA_EN == 1

@@ -29,21 +29,21 @@ void init_p()
     sleep(5); /* This is provided to ensure serial console has enough time to init*/
     printf("init_p: Starting initialization...\n");
 
-    pinMode(INT_STATE_PIN, INPUT); /* Our interr pins must be set before an interrupt is called*/
-    pinMode(INT_STATE_PIN_2, INPUT);
+    // pinMode(INT_STATE_PIN, INPUT); /* Our interr pins must be set before an interrupt is called*/
+    // pinMode(INT_STATE_PIN_2, INPUT);
 
     led_pin_init();
 
     init_eeprom_int(); /* init the eeprom interface*/
     read_config();
 
-    switch_state(digitalRead(INT_STATE_PIN), digitalRead(INT_STATE_PIN_2)); //force a check on the switch state
+    // switch_state(digitalRead(INT_STATE_PIN), digitalRead(INT_STATE_PIN_2)); //force a check on the switch state
 
-    // Attach interrupts to both pins to monitor state changes
-    attachInterrupt(digitalPinToInterrupt(INT_STATE_PIN), has_state_changed, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(INT_STATE_PIN_2), has_state_changed, CHANGE);
+    // // Attach interrupts to both pins to monitor state changes
+    // attachInterrupt(digitalPinToInterrupt(INT_STATE_PIN), has_state_changed, CHANGE);
+    // attachInterrupt(digitalPinToInterrupt(INT_STATE_PIN_2), has_state_changed, CHANGE);
 
-    create_th(process_state_change, "process_state_change", PROC_CS_TH_STACK_SIZE, &process_state_ch_th, 0);
+    // create_th(process_state_change, "process_state_change", PROC_CS_TH_STACK_SIZE, &process_state_ch_th, 0);
 
     switch_state(1, 0); //force a check on the switch state
     
