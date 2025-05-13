@@ -504,6 +504,34 @@ void cmd_start_thread(const char * thread_name)
     }
 }
 
+void cmd_send_packet()
+{    
+    uint8_t packet_to_send[CN001_REQ_LEN];
+    cn001_req req;
+
+    strcpy(req.src_node, ID);
+    strcpy(req.des_node, "34jfud");
+
+    req.ttl = ttl;
+    req.num_nodes = node_count;
+
+    pkt_cn001_req(packet_to_send, &req, seq_id);
+
+    for (int i = 0; i < CN001_REQ_LEN; i++)
+    {
+        printf("%02x ", packet_to_send[i]);
+    }
+
+    if (send_packet(packet_to_send, sizeof(packet_to_send)) == EXIT_SUCCESS)
+    {
+        if (xSemaphoreTake(seq_mh, portMAX_DELAY) == pdTRUE)
+        {
+            seq_id++;
+            xSemaphoreGive(seq_mh);
+        }
+    }
+}
+
 /**
  * @brief This command clears the current config
  * and erases the credentials
