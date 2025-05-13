@@ -1,21 +1,21 @@
 #include <Arduino.h>
 
 #include "interrupts.h"
-#include "th/th_handler.h"
+#include "th_handler.h"
 #include "init.h"
 #include "utils.h"
 #include "hw.h"
-#include "main_app/main_app.h"
-#include "http/https_comms.h"
+#include "main_app.h"
+#include "https_comms.h"
 #include "msg_queue.h"
-#include "lora/lora_listener.h"
-#include "eeprom/eeprom.h"
-#include "hash_cache/hash_cache.h"
-#include "mh/mutex_h.h"
+#include "lora_listener.h"
+#include "eeprom.h"
+#include "hash_cache.h"
+#include "mutex_h.h"
 
 #define TIMER_PRESCALER 80  // Prescaler value
 #define TICKS_PER_SECOND 1000000
-#define SECONDS_PER_HOUR 10
+#define SECONDS_PER_HOUR 300
 
 /**
  * Adding this macro to en/dis for development

@@ -1,13 +1,14 @@
 #include <Arduino.h>
 
-#include "cli/cli.h"
+#include "cli.h"
 #include "init.h"
 #include "interrupts.h"
 #include "config.h"
 #include "hw.h"
-#include "th/th_handler.h"
-#include "eeprom/eeprom.h"
+#include "th_handler.h"
+#include "eeprom.h"
 #include "utils.h"
+#include "err_handle.h"
 
 /*
 The current state must be undefined when initialising.
@@ -31,6 +32,8 @@ void init_p()
     pinMode(INT_STATE_PIN, INPUT); /* Our interr pins must be set before an interrupt is called*/
     pinMode(INT_STATE_PIN_2, INPUT);
 
+    led_pin_init();
+
     init_eeprom_int(); /* init the eeprom interface*/
     read_config();
 
@@ -41,6 +44,8 @@ void init_p()
     attachInterrupt(digitalPinToInterrupt(INT_STATE_PIN_2), has_state_changed, CHANGE);
 
     create_th(process_state_change, "process_state_change", PROC_CS_TH_STACK_SIZE, &process_state_ch_th, 0);
+
+    // switch_state(1, 0); //force a check on the switch state
     
     timer = timerBegin(0, TIMER_PRESCALER, true);
     

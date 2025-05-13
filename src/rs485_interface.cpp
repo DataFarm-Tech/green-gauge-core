@@ -1,7 +1,7 @@
 #include "rs485_interface.h"
 #include <Arduino.h>
 #include "utils.h"
-#include "pack_def/pack_def.h"
+#include "pack_def.h"
 
 /**
  * @brief Simulates reading data from an RS485 interface.

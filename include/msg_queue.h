@@ -4,7 +4,7 @@
 #include <mutex>
 #include <Arduino.h>
 #include "config.h"
-#include "mh/mutex_h.h"
+#include "mutex_h.h"
 
 typedef struct {
     uint8_t rs485_humidity;
@@ -16,13 +16,15 @@ typedef struct {
     uint8_t rs485_pot;
 } rs485_data;
 
-typedef struct {
+typedef struct
+{
     String src_node;
     String des_node;
-    rs485_data data;    
-} message;
+    rs485_data data;
+} sn001_suc_rsp;
 
-extern std::queue<message> internal_msg_q;  // declare the queue here
+
+extern std::queue<sn001_suc_rsp> internal_msg_q;
 
 extern char** node_list;     // Array of node IDs (strings)
 extern size_t node_count; // Number of nodes in the list

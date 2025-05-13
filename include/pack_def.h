@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include "crypt/crypt.h"
+#include "crypt.h"
 #include "msg_queue.h"
 
 #define ADDRESS_SIZE 6
@@ -26,16 +26,6 @@
 #define SN001_ERR_RSP_CODE_A 0x0A
 #define SN001_ERR_RSP_CODE_B 0x0B
 #define SN001_SUC_RSP_CODE 0x0C
-
-typedef struct {
-    char des_node[ADDRESS_SIZE + 1];  // Destination node as string
-    char src_node[ADDRESS_SIZE + 1];  // Source node as string
-    uint8_t num_nodes;
-    uint8_t ttl;                      // Time-to-live
-    uint8_t hash[SHA256_SIZE];       // SHA256 hash
-    uint8_t data[DATA_SIZE];                 // Data field
-    uint16_t crc;                    // CRC
-} packet;
 
 
 /** 
@@ -82,5 +72,4 @@ void pkt_cn001_req(uint8_t * buf, const cn001_req * pkt, uint8_t seq_id);
 void pkt_sn001_rsp(uint8_t * buf, const sn001_rsp * pkt, uint8_t seq_id);
 void pkt_sn001_err_rsp(uint8_t * buf, const sn001_err_rsp * pkt, uint8_t seq_id);
 
-void create_packet(uint8_t *packet_to_send, const packet *pkt, uint8_t seq_id);
-message describe_packet(const uint8_t *buf, uint8_t buf_len);
+void cn001_handle_packet(const uint8_t *buf, uint8_t buf_len);

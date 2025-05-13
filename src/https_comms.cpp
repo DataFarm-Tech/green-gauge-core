@@ -2,13 +2,13 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <Update.h>
-#include "eeprom/eeprom.h"
+#include "eeprom.h"
 
 #include "config.h"
 #include "https_comms.h"
 #include "msg_queue.h"
 #include "utils.h"
-#include "th/th_handler.h"
+#include "th_handler.h"
 #include "interrupts.h"
 
 /******************* Hash Defines *****************/
@@ -33,7 +33,7 @@ typedef enum
 } request_type;
 
 int post_request(String json_payload);
-String construct_json_payload(message message);
+String construct_json_payload(sn001_suc_rsp message);
 void check_internet();
 char* constr_endp(const char* endpoint);
 void update_key(const char* new_key);
@@ -209,7 +209,7 @@ void get_nodes_list()
  */
 void http_send(void* param)
 {
-    message cur_msg;
+    sn001_suc_rsp cur_msg;
     String json_payload;
     int success;
 
@@ -262,7 +262,7 @@ void http_send(void* param)
  * @param message - The data to be sent to the controller API
  * @return None
  */
-String construct_json_payload(message message) 
+String construct_json_payload(sn001_suc_rsp message) 
 {
     // Create a JSON document
     JsonDocument doc; // Adjust size as needed

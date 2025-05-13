@@ -1,8 +1,8 @@
 #include "pack_def.h"
 #include "config.h"
 #include "msg_queue.h"
-#include "crypt/crypt.h"
-#include "hash_cache/hash_cache.h"
+#include "crypt.h"
+#include "hash_cache.h"
 #include "utils.h"
 
 #define CN001_REQ_ID 0x01
@@ -20,6 +20,7 @@
 #define SN001_ERR_RSP_CODE_A 0x0A
 #define SN001_ERR_RSP_CODE_B 0x0B
 
+void cn001_notify_error(String src_node, uint8_t rc);
 
 /**
  * @brief The following function generates a CN001 request packet.
@@ -159,27 +160,97 @@ void pkt_sn001_err_rsp(uint8_t * buf, const sn001_err_rsp * pkt, uint8_t seq_id)
     calc_crc(buf, offset);
 }
 
-message describe_packet(const uint8_t *buf, uint8_t buf_len)
+/**
+ * @brief This function extracts the valuable data from the packet.
+ * It checks whether the msg_id embedded is successful. If it's successful 
+ * then it is added too the internal msg queue. Otherwise, a notification is sent
+ * to the user.
+ * @param buf - The packet
+ * @param buf_len - the packet's length
+ */
+void cn001_handle_packet(const uint8_t *buf, uint8_t buf_len)
 {
-    message msg;
+    String des_node;
+    String src_node;
 
     for (int i = 0; i < ADDRESS_SIZE; i++) 
     {
-        msg.des_node[i] = (char)buf[i];
-        msg.src_node[i] = (char)buf[ADDRESS_SIZE + i];
+        des_node[i] = (char)buf[i];
+    }
+
+    for (int i = 0; i < ADDRESS_SIZE; i++)
+    {
+        src_node[i] = (char)buf[ADDRESS_SIZE + i];
     }
     
-    msg.des_node[ADDRESS_SIZE] = '\0';
-    msg.src_node[ADDRESS_SIZE] = '\0';
+    des_node[ADDRESS_SIZE] = '\0';
+    src_node[ADDRESS_SIZE] = '\0';
+    
+    switch (buf[0])
+    {
+        case SN001_SUC_RSP_ID:
+        {
+            sn001_suc_rsp suc_rsp;
+            int index = 0;
+            
+            suc_rsp.src_node = src_node;
+            suc_rsp.des_node = des_node;
 
-    /* move this into a function*/
-    msg.data.rs485_humidity = buf[ADDRESS_SIZE * 2];
-    msg.data.rs485_temp = buf[ADDRESS_SIZE * 2 + 1];
-    msg.data.rs485_con = buf[ADDRESS_SIZE * 2 + 2];
-    msg.data.rs485_ph = buf[ADDRESS_SIZE * 2 + 3];
-    msg.data.rs485_nit = buf[ADDRESS_SIZE * 2 + 4];
-    msg.data.rs485_phos = buf[ADDRESS_SIZE * 2 + 5];
-    msg.data.rs485_pot = buf[ADDRESS_SIZE * 2 + 6];
+            suc_rsp.data.rs485_humidity = buf[ADDRESS_SIZE * 2];
+            suc_rsp.data.rs485_temp = buf[ADDRESS_SIZE * 2 + ++index];
+            suc_rsp.data.rs485_con = buf[ADDRESS_SIZE * 2 + ++index];
+            suc_rsp.data.rs485_ph = buf[ADDRESS_SIZE * 2 + ++index];
+            suc_rsp.data.rs485_nit = buf[ADDRESS_SIZE * 2 + ++index];
+            suc_rsp.data.rs485_phos = buf[ADDRESS_SIZE * 2 + ++index];
+            suc_rsp.data.rs485_pot = buf[ADDRESS_SIZE * 2 + ++index];
 
-    return msg;
+            if (xSemaphoreTake(msg_queue_mh, portMAX_DELAY) == pdTRUE)
+            {
+                internal_msg_q.push(suc_rsp);
+                xSemaphoreGive(msg_queue_mh);
+            }
+        
+            break;
+        }
+        case SN001_ERR_RSP_ID:
+        {
+            /**
+             * RED LED is NOT! set to high
+             * since this is an error about another 
+             * node.
+             */
+            cn001_notify_error(src_node, buf[14]);
+            break;
+        }
+    default:
+        break;
+    }
+}
+
+/**
+ * @brief The following function notifies the user that @param src_node
+ * is not functioning properly.
+ * @param rc
+ */
+void cn001_notify_error(String src_node, uint8_t rc)
+{
+    /** This function needs to do something in the database to display the error for
+     * src_node.
+     */
+
+    switch (rc)
+    {
+        case SN001_ERR_RSP_CODE_A:
+            /*handle error*/
+            
+            break;
+        case SN001_ERR_RSP_CODE_B:
+            /*handle error*/
+            break;
+        
+    default:
+        break;
+    }
+
+    
 }

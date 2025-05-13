@@ -1,6 +1,6 @@
 #include "hash_cache.h"
 #include <string.h>
-#include "eeprom/eeprom.h"
+#include "eeprom.h"
 #include "msg_queue.h"
 
 /**

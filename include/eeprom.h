@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include "hash_cache/hash_cache.h"
+#include "hash_cache.h"
 
 #define HASH_CACHE_SIZE 10
 #define HASH_SIZE 32

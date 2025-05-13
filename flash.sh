@@ -49,6 +49,10 @@ case "$action" in
         echo "Cleaning build environment..."
         sudo pio run --target clean
         ;;
+    esp32_test)
+        sudo pio run -e esp32s3_test --target upload
+        sudo pio device monitor -b 115200 -p /dev/ttyACM0
+        ;;
 
     *)
         echo "Invalid action: $action"

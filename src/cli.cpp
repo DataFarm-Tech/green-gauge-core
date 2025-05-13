@@ -1,13 +1,13 @@
 #include <Arduino.h>
 #include <mutex>
 
-#include "cli/cli.h"
+#include "cli.h"
 #include "config.h"
-#include "eeprom/eeprom.h"
-#include "th/th_handler.h"
+#include "eeprom.h"
+#include "th_handler.h"
 #include "utils.h"
 #include "msg_queue.h"
-#include "cmd/cmd.h"
+#include "cmd.h"
 #include "interrupts.h"
 
 char cli_buffer[BUFFER_SIZE];

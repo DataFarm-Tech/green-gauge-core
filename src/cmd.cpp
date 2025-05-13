@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "cmd.h"
 #include "msg_queue.h"
-#include "th/th_handler.h"
+#include "th_handler.h"
 #include "utils.h"
 #include <WiFi.h>
 #include <ESP32Ping.h>
@@ -10,14 +10,14 @@
 #include <mutex>
 #include <Arduino.h>
 #include "config.h"
-#include "eeprom/eeprom.h"
-#include "mh/mutex_h.h"
-#include "lora/lora_listener.h"
-#include "http/https_comms.h"
+#include "eeprom.h"
+#include "mutex_h.h"
+#include "lora_listener.h"
+#include "https_comms.h"
 #include "hw.h"
-#include "main_app/main_app.h"
-#include "pack_def/pack_def.h"
-
+#include "main_app.h"
+#include "pack_def.h"
+#include "err_handle.h"
 /**
  * @brief A command to show the help text
  */
@@ -144,6 +144,7 @@ void cmd_ping(const char* host)
     if (WiFi.status() != WL_CONNECTED)
     {
         printf("Not connected to Wifi...\n");
+        err_led_state(WIFI, INT_STATE_ERROR);
         return;
     }
 
@@ -173,18 +174,25 @@ void cmd_ping(const char* host)
  */
 void cmd_ipconfig()
 {
-    // Print IPv4 Configuration
+    // Get the IPv4 configuration
     IPAddress ip = WiFi.localIP();
     IPAddress subnet = WiFi.subnetMask();
     IPAddress gateway = WiFi.gatewayIP();
     IPAddress dns = WiFi.dnsIP();
-
-    printf("=== IPv4 Configuration ===\n");
-    printf("IP Address: %s\n", ip.toString().c_str());
-    printf("Subnet Mask: %s\n", subnet.toString().c_str());
-    printf("Gateway Address: %s\n", gateway.toString().c_str());
-    printf("DNS Server: %s\n", dns.toString().c_str());
+    
+    // Check if all IP components are 0.0.0.0
+    if (ip == IPAddress(0, 0, 0, 0) && subnet == IPAddress(0, 0, 0, 0) && gateway == IPAddress(0, 0, 0, 0) && dns == IPAddress(0, 0, 0, 0)) {
+        printf("Not connected to WiFi\n");
+    } else {
+        // Print IPv4 Configuration
+        printf("=== IPv4 Configuration ===\n");
+        printf("IP Address: %s\n", ip.toString().c_str());
+        printf("Subnet Mask: %s\n", subnet.toString().c_str());
+        printf("Gateway Address: %s\n", gateway.toString().c_str());
+        printf("DNS Server: %s\n", dns.toString().c_str());
+    }
 }
+
 
 
 /**
@@ -212,7 +220,7 @@ void cmd_teardown()
  */
 void cmd_queue() 
 {
-    message m;
+    sn001_suc_rsp m;
     
     switch (current_state)
     {
@@ -266,7 +274,7 @@ void cmd_queue()
  */
 void cmd_add_queue(const char * src_node, const char * des_node)
 {
-    message new_message;
+    sn001_suc_rsp new_message;
 
     switch (current_state)
     {

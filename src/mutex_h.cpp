@@ -27,8 +27,7 @@ void init_mutex(device_state_t state)
     switch (state)
     {
         case CONTROLLER_STATE:
-
-            // //init msg queue mutex
+        
             msg_queue_mh = xSemaphoreCreateMutex();
             if (msg_queue_mh == NULL)
             {

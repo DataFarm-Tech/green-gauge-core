@@ -6,8 +6,9 @@
 #include "config.h"
 #include "hw.h"
 #include "utils.h"
-#include "lora/lora_listener.h"
-#include "mh/mutex_h.h"
+#include "lora_listener.h"
+#include "mutex_h.h"
+#include "err_handle.h"
 
 /**
  * @brief This function initializes the hardware for the RFM95W module.
@@ -27,17 +28,21 @@ void rfm95w_setup()
       while (!rf95.init())
       {
           PRINT_ERROR("rfm95w module init failed...");
+          err_led_state(LORA, INT_STATE_OK);
           sleep(5); //output red LED
       }
 
       if (!rf95.setFrequency(RF95_FREQ))
       {
           PRINT_ERROR("unable to set frequency for rfm95w module...");
+          err_led_state(LORA, INT_STATE_OK);
           sleep(5); //output red LED
       }
 
       rf95.setTxPower(23, false);
       rf95.setModemConfig(RH_RF95::Bw125Cr48Sf4096);
+      
+      err_led_state(LORA, INT_STATE_OK);
 
       xSemaphoreGive(rf95_mh); // release the lock when done
   }
@@ -75,10 +80,12 @@ void wifi_connect()
     if (WiFi.status() == WL_CONNECTED) 
     {
         PRINT_INFO("WiFi connected!");
+        err_led_state(WIFI, INT_STATE_OK);
     } 
     else 
     {
         PRINT_WARNING("Failed to connect to WiFi.");
+        err_led_state(WIFI, INT_STATE_ERROR);
     }
 }
 
@@ -93,4 +100,7 @@ void wifi_disconnect(bool erase_creds)
         PRINT_INFO("Disconnecting from WiFi...");
         WiFi.disconnect(erase_creds); // Set to false if you don't want to erase credentials
     }
+
+    err_led_state(WIFI, INT_STATE_ERROR);
+    
 }
