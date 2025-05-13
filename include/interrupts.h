@@ -2,8 +2,8 @@
 
 #include <Arduino.h>
 
-#define INT_STATE_PIN 32
-#define INT_STATE_PIN_2 33
+#define INT_STATE_PIN 14
+#define INT_STATE_PIN_2 15
 
 #define TIMER_PRESCALER 80  // Prescaler value
 
