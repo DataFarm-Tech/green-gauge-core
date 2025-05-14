@@ -1,7 +1,7 @@
-#include "lora_listener.h"
-#include "mutex_h.h"
 #include <RH_RF95.h>
 #include <SPI.h>
+#include "lora_listener.h"
+#include "mutex_h.h"
 #include "hw.h"
 #include "utils.h"
 #include "config.h"

@@ -12,22 +12,15 @@
 #include "eeprom.h"
 #include "hash_cache.h"
 #include "mutex_h.h"
+#include "config.h"
 
-#define TIMER_PRESCALER 80  // Prescaler value
+
 #define TICKS_PER_SECOND 1000000
-#define SECONDS_PER_HOUR 300
-
-/**
- * Adding this macro to en/dis for development
- * reasons, since there is no interupt pins on the 
- * devices with LoRa modules.
- */
-#define LORA_EN 1
+#define SECONDS_PER_HOUR 20000
 
 const uint64_t alarm_value_hourly = (uint64_t)TICKS_PER_SECOND * SECONDS_PER_HOUR;
-hw_timer_t * timer = NULL;
 volatile bool hourly_timer_flag = false;
-volatile unsigned long last_interrupt_time = 0;
+volatile uint32_t last_interrupt_time = 0;
 volatile bool state_change_detected = false;
 
 void switch_state(const int sensor_pin, const int controller_pin);
@@ -125,9 +118,8 @@ void switch_state(const int sensor_pin, const int controller_pin)
             
             wifi_connect(); /* Once controller starts it connects to wlan0*/
             
-            if (!is_key_set()) /* Before proceeding key must exist, for http thread to use*/
+            if (!is_key_set()) /* FIX THIS!!!*/
             {
-                printf("key is not set\n");
                 DEBUG();
                 activate_controller(); /* Retrieves a key from the API*/
             }
@@ -135,6 +127,8 @@ void switch_state(const int sensor_pin, const int controller_pin)
             get_nodes_list(); /* Get's the node_list from the API and saves to global variable.*/
             
             init_mutex(current_state);
+
+            init_hw_clock();
             
             create_th(main_app, "main_app", MAIN_APP_TH_STACK_SIZE, &main_app_th, 1);
             create_th(http_send, "http_th", HTTP_TH_STACK_SIZE, &http_th, 1);
@@ -144,7 +138,6 @@ void switch_state(const int sensor_pin, const int controller_pin)
                 hash_cache_init();
                 create_th(lora_listener, "lora_listener", LORA_LISTENER_TH_STACK_SIZE, &lora_listener_th, 1);
             #endif
-            
         }
     }
 }

@@ -1,14 +1,13 @@
 #include <Arduino.h>
+#include <WiFi.h>
+#include <ESP32Ping.h>
+#include <queue>
+#include <mutex>
 #include "cmd.h"
 #include "msg_queue.h"
 #include "th_handler.h"
 #include "utils.h"
-#include <WiFi.h>
-#include <ESP32Ping.h>
 #include "interrupts.h"
-#include <queue>
-#include <mutex>
-#include <Arduino.h>
 #include "config.h"
 #include "eeprom.h"
 #include "mutex_h.h"
@@ -18,6 +17,7 @@
 #include "main_app.h"
 #include "pack_def.h"
 #include "err_handle.h"
+
 /**
  * @brief A command to show the help text
  */

@@ -10,10 +10,15 @@
 #include "pack_def.h"
 #include "msg_queue.h"
 
-void app();
-
 #define RESPONSE_TIMEOUT 120000 // 2 minutes in milliseconds
 
+void app();
+
+/**
+ * @brief The following function is the main_app thread.
+ * This thread calls the app() function every X hours. It uses the HW timer
+ * to ensure it is executed correctly.
+ */
 void main_app(void * param)
 {
     app();
@@ -31,10 +36,14 @@ void main_app(void * param)
 }
 
 
-// Wait for a matching response from internal_msg_q using snapshot checking with timeout
+/**
+ * @brief The following function waits until @param dest_node
+ * appears in a snapshot queue.
+ * @return bool
+ */
 bool wait_for_response(const char *dest_node)
 {
-    unsigned long start_time = millis();
+    uint32_t start_time = millis();
 
     while ((millis() - start_time) < RESPONSE_TIMEOUT)
     {
@@ -57,10 +66,12 @@ bool wait_for_response(const char *dest_node)
     return false; // Timeout with no match
 }
 
-
+/**
+ * @brief The following function starts t
+ */
 void app()
 {
-    PRINT_INFO("Starting app...\n");
+    PRINT_INFO("Starting app...");
 
     cn001_req req_pkt;
 
@@ -89,16 +100,13 @@ void app()
                     xSemaphoreGive(seq_mh);
                 }
 
-                printf("sent packet\n");
-
                 if (wait_for_response(req_pkt.des_node))
                 {
-                    // PRINT_INFO("Received response from %s.\n", req_pkt.des_node);
-                    printf("rec response\n");
+                    printf("[INFO]: Recieved Response from %s\n", req_pkt.des_node);
                 }
                 else
                 {
-                    printf("no response\n");
+                    printf("[INFO]: No Response from %s\n", req_pkt.des_node);
                     /** Notify user for error */
                 }
             }

@@ -5,9 +5,6 @@
 #define INT_STATE_PIN 14
 #define INT_STATE_PIN_2 15
 
-#define TIMER_PRESCALER 80  // Prescaler value
-
-extern hw_timer_t * timer;
 extern volatile bool hourly_timer_flag;
 extern const uint64_t alarm_value_hourly;
 

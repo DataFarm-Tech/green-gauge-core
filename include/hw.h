@@ -29,6 +29,9 @@
 #define SENSOR_LED_GREEN 8
 #define SENSOR_LED_RED 9
 
+extern hw_timer_t * timer;
+
 void rfm95w_setup();
+void init_hw_clock();
 void wifi_connect();
 void wifi_disconnect(bool erase_creds);

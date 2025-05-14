@@ -1,5 +1,33 @@
 #pragma once
 
+/** 
+ * Adding this macro to disable the CLI when deploying
+ * products. 
+ */
+#define CLI_EN 1
+
+/**
+ * Adding this macro to en/dis for development
+ * reasons, since there is no interupt pins on the 
+ * devices with LoRa modules.
+ */
+#define LORA_EN 1
+
+/**
+ * Adding this macro to en/dis for development
+ * reasons, since there is no interupt pins on the 
+ * devices with LoRa modules.
+ */
+#define INT_STATE_EN 0
+
+
+/**
+ * Adding this macro to en/dis for development
+ * reasons, since there is no interupt pins on the 
+ * devices with LoRa modules.
+ */
+#define DEBUG_MODE 0
+
 #define ID "tcon12" //if ID is never defined in compilation process, it will be set to "UNDEFINED"
 #define BAUD_RATE 115200
 
