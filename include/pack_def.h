@@ -25,7 +25,7 @@
  */
 #define SN001_ERR_RSP_CODE_A 0x0A
 #define SN001_ERR_RSP_CODE_B 0x0B
-#define SN001_SUC_RSP_CODE 0x0C
+#define SN001_ERR_RSP_CODE_C 0x0C
 
 
 /** 

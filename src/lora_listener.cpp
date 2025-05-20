@@ -35,6 +35,10 @@ void lora_listener(void * param)
 
                 if (rf95.recv(buf, &buf_len))
                 {
+                    /**
+                     * Check the length of the packet, ensure its within 
+                     * bounds.
+                     */
                     if (buf_len < SN001_ERR_RSP_LEN || buf_len > SN001_SUC_RSP_LEN) /** This is the smallest msg len */
                     {
                         xSemaphoreGive(rf95_mh);
@@ -55,12 +59,12 @@ void lora_listener(void * param)
                     
                     /** 
                      * Since packets have different lengths. The ttl offset and hash offset
-                     * can change. If the msg_id is success then set of hash_location and our ttol_location.
+                     * can change. If the msg_id is sensor success then set of hash_location and our ttol_location.
                      */
                     if (buf[0] == SN001_SUC_RSP_ID)
                     {
                         hash_location = 21;
-                        ttl_location = hash_location - 1;
+                        ttl_location = hash_location - 1; /** TTL location is always hash_location - 1 (independent of packet type) */
                     }
                     
                     /**
@@ -91,8 +95,11 @@ void lora_listener(void * param)
                     {
                         hash_cache_add(buf, hash_location);
                     }
-                    
-                    if (memcmp(buf, ID, ADDRESS_SIZE) == MEMORY_CMP_SUCCESS) /** Checks ownership of packet */
+
+                    /** 
+                     * Checks ownership of packet. 
+                     * */
+                    if (memcmp(buf, ID, ADDRESS_SIZE) == MEMORY_CMP_SUCCESS)
                     {
                         switch (current_state)
                         {
@@ -108,7 +115,7 @@ void lora_listener(void * param)
 
                                 switch (rc)
                                 {
-                                    case SN001_SUC_RSP_CODE: /** The rs485 has a connection and returned data */
+                                    case EXIT_SUCCESS: /** The rs485 has a connection and returned data */
                                     {
                                         /** Ensure green LED is set back to HIGH, when rs485 comms work. */
                                         err_led_state(SENSOR, INT_STATE_OK);

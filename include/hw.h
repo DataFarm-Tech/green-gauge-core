@@ -29,6 +29,13 @@
 #define SENSOR_LED_GREEN 8
 #define SENSOR_LED_RED 9
 
+/**
+ * BMS Pin definitions
+ */
+#define BMS_LED_PIN_1 14
+#define BMS_LED_PIN_2 15
+#define BMS_LED_PIN_3 16
+
 extern hw_timer_t * timer;
 
 void rfm95w_setup();
@@ -37,3 +44,4 @@ void wifi_connect();
 void wifi_disconnect(bool erase_creds);
 void open_rs485_comms();
 void close_rs485_comms();
+void init_bms_pins();

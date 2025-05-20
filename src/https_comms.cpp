@@ -18,6 +18,7 @@
 #define HTTP_201_CREATED 201
 #define HTTP_401_UNAUTH 401
 #define HTTP_404_NOTFOUND 404
+#define HTTP_422_UNPROCESSABLE_ENTITY 422
 #define HTTP_500_ERROR 500
 #define HTTP_409_DUPLICATE 409
 
@@ -116,6 +117,69 @@ void activate_controller()
     }
 }
 
+/**
+ * @brief The following function sends a request to NetLink
+ * to add a notification. Each notification belongs to a node
+ * A code is passed to the API, where the API does a lookup of 
+ * that code and adds the corresponding message in the notification 
+ * that is placed into the database
+ * @param src_node
+ * @param code
+ * @return void
+ */
+void cn001_notify_message(String src_node, uint8_t code)
+{
+    char url[BUFFER_SIZE];
+    int success;
+    String json_payload;
+    JsonDocument doc;
+
+    doc["device_id"] = src_node;
+    char hexCodeStr[6]; // "0x" + 2 hex digits + null
+    snprintf(hexCodeStr, sizeof(hexCodeStr), "0x%02X", code);
+    doc["code"] = hexCodeStr;
+
+    serializeJson(doc, json_payload);
+    serializeJson(doc, json_payload);
+    
+    if (json_payload.length() == 0) 
+    {
+        PRINT_ERROR("Failed to serialize JSON");
+        return;
+    }
+
+
+    snprintf(url, sizeof(url), constr_endp(TX_POST_ENDPOINT_NOTIFY));
+    
+    if (init_http_client(url, POST) == EXIT_FAILURE)
+    {
+        PRINT_ERROR("Unable to initialise key");
+    }
+
+    success = client.POST(json_payload);
+
+    while (success != HTTP_201_CREATED)
+    {
+        switch (success)
+        {
+            case HTTP_404_NOTFOUND:
+                printf("[%d]: %s is not a valid node\n", success, src_node);
+                break;
+            case HTTP_422_UNPROCESSABLE_ENTITY:
+                printf("[%d]: %d is not a valid code\n", success, code);
+                break;
+            
+        default:
+            break;
+        }
+
+        check_internet();
+        success = client.POST(json_payload);
+    }
+    
+
+    
+}
 /**
  * @brief The following function calls the /user/get/node endpoint to retrieve 
  *        the list of node IDs associated with the controller.

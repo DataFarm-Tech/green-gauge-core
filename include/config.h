@@ -39,5 +39,6 @@
 #define TX_POST_ENDPOINT "/controller/add/data" //ADD DATA ENDPOINT
 #define TX_ACT_ENDPOINT "/controller/activate"
 #define TX_GET_ENDPOINT "/user/get/node"
+#define TX_POST_ENDPOINT_NOTIFY "/notifications/add"
 
 #define MEMORY_CMP_SUCCESS 0

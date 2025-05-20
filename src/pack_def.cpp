@@ -3,22 +3,12 @@
 #include "msg_queue.h"
 #include "crypt.h"
 #include "hash_cache.h"
+#include "https_comms.h"
 #include "utils.h"
 
 #define CN001_REQ_ID 0x01
 #define SN001_SUC_RSP_ID 0x02
 #define SN001_ERR_RSP_ID 0x03
-
-/**
- * The following defines are user to identify the
- * different types of error responses that can be sent.
- * 
- * The error codes are as follows:
- * SN001_ERR_RSP_CODE_A 0x0A - No connection to RS485
- * SN001_ERR_RSP_CODE_B 0x0B - Invalid data from RS485 (upper bounds and lower bounds)
- */
-#define SN001_ERR_RSP_CODE_A 0x0A
-#define SN001_ERR_RSP_CODE_B 0x0B
 
 void cn001_notify_error(String src_node, uint8_t rc);
 
@@ -228,57 +218,10 @@ void cn001_handle_packet(const uint8_t *buf, uint8_t buf_len)
              * since this is an error about another 
              * node.
              */
-            // notify_battery_health(src_node, buf[SN001_ERR_RSP_LEN - 2]); /** Getting the battery level from packet */
-            cn001_notify_error(src_node, buf[13]);
+            cn001_notify_message(src_node, buf[13]);
             break;
         }
     default:
         break;
     }
-}
-
-/**
- * @brief The following function notifies the user that @param src_node
- * is not functioning properly.
- * @param rc
- */
-void cn001_notify_error(String src_node, uint8_t rc)
-{
-    /** This function needs to do something in the database to display the error for
-     * src_node.
-     */
-
-    switch (rc)
-    {
-        case SN001_ERR_RSP_CODE_A:
-            /*handle error*/
-            
-            break;
-        case SN001_ERR_RSP_CODE_B:
-            /*handle error*/
-            break;
-        
-    default:
-        break;
-    }
-
-    
-}
-
-/**
- * @brief The following function takes a src_node and it's
- * battery health. Before notifying API, battery_health must be less than
- * 25%. 
- * @param src_node
- * @param battery_health
- * @return void
- */
-void notify_battery_health(String src_node, uint8_t battery_health)
-{
-    if (battery_health < 25)
-    {
-        return;
-    }
-
-    /** Call to API  */
 }

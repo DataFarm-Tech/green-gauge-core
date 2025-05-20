@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <string.h>
-
+#include "https_comms.h"
 #include "main_app.h"
 #include "utils.h"
 #include "th_handler.h"
@@ -107,6 +107,8 @@ void app()
                 else
                 {
                     printf("[INFO]: No Response from %s\n", req_pkt.des_node);
+                    cn001_notify_message(req_pkt.des_node, SN001_ERR_RSP_CODE_B);
+
                     /** Notify user for error */
                 }
             }
