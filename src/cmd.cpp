@@ -17,6 +17,7 @@
 #include "main_app.h"
 #include "pack_def.h"
 #include "rs485_interface.h"
+#include "bms.h"
 
 
 /**
@@ -44,6 +45,7 @@ void cmd_help()
             printf("  start_thread [lora_listener_th, main_app_th, http_th] - stops a particular thread.\n");
             printf("  apply - Saves the current config.\n");
             printf("  read_sensor - Reads the sensor data, and prints buf to screen. \n");
+            printf("  battery - Reads the current battery state\n");
             break;
         case CONTROLLER_STATE:
             printf("Available commands:\n");
@@ -68,7 +70,7 @@ void cmd_help()
             printf("  state   - Shows the current state of the device\n");
             printf("  apply - Saves the current config.\n");
             printf("  notify - Calls cn001_notify function to send notification.\n");
-
+            printf("  battery - Reads the current battery state\n");
             break;
         
         default:
@@ -655,4 +657,36 @@ void cmd_notify_message(char *src_node, char *code_str) {
     }
 
     cn001_notify_message(src_node, code);
+}
+
+/**
+ * @brief The following function gets the battery state.
+ */
+void cmd_get_battery_state()
+{
+    set_battery_state();
+    switch (battery_state)
+    {
+        case BAT_CHARGE_UNDEFINED:
+            printf("Issue in finding battery state.\n");
+            break;
+        case BAT_CHARGE_FULL:
+            printf("Battery is 100%% charged.\n");
+            break;
+        case BAT_CHARGE_HIGH:
+            printf("Battery is between 75%% and 100%% charged.\n");
+            break;
+        case BAT_CHARGE_MEDIUM:
+            printf("Battery is between 50%% and 75%% charged.\n");
+            break;
+        case BAT_CHARGE_LOW:
+            printf("Battery is between 3%% and 25%% charged.\n");
+            break;
+        case BAT_CHARGE_CRITICAL:
+            printf("Battery is below 3%%. Please charge immediately.\n");
+            break;
+        default:
+            printf("Unknown battery state.\n");
+            break;
+    }
 }

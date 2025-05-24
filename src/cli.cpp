@@ -43,6 +43,7 @@ cli_cmd get_best_enum(const char* token)
     if (strncmp(token, "connect_wifi", strlen(token)) == 0) return CMD_CONNECT_WIFI;
     if (strncmp(token, "read_sensor", strlen(token)) == 0) return CMD_READ_SENSOR;
     if (strncmp(token, "notify", strlen(token)) == 0) return CMD_NOTIFY;
+    if (strncmp(token, "battery", strlen(token)) == 0) return CMD_BAT_STATE;
     return CMD_UNKNOWN;
 }
 
@@ -142,6 +143,9 @@ void handle_cmd(char* cmd)
             break;
         case CMD_NOTIFY:
             cmd_notify_message(arg, arg2);
+            break;
+        case CMD_BAT_STATE:
+            cmd_get_battery_state();
             break;
         case CMD_UNKNOWN:
         default:

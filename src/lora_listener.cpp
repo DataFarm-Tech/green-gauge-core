@@ -62,6 +62,9 @@ void lora_listener(void * param)
                      */
                     if (!validate_crc(buf, buf_len))
                     {
+                        #if DEBUG_MODE == 1
+                            printf("The provided buffer did not pass CRC validation.\n");
+                        #endif
                         xSemaphoreGive(rf95_mh);
                         continue;
                     }
@@ -82,6 +85,9 @@ void lora_listener(void * param)
                      */
                     if (buf[ttl_location] == 0)
                     {
+                        #if DEBUG_MODE == 1
+                            printf("This buffer's TTL is 0, dropping packet.\n");
+                        #endif
                         xSemaphoreGive(rf95_mh);
                         continue;
                     }
@@ -97,6 +103,10 @@ void lora_listener(void * param)
 
                     if (hash_cache_contains(buf, hash_location))
                     {
+                        #if DEBUG_MODE == 1
+                            printf("This packet already exists in the hash cash. dropping packet.\n");
+                        #endif
+
                         xSemaphoreGive(rf95_mh);
                         continue;
                     }
@@ -152,6 +162,10 @@ void lora_listener(void * param)
                                     case SN001_ERR_RSP_CODE_A:
                                     {
                                         /** Ensure RED LED is set too high, if the read from sensor fails */
+                                        #if DEBUG_MODE == 1
+                                            printf("The RS485 connection was severed.\n");
+                                        #endif
+                                        
                                         err_led_state(SENSOR, INT_STATE_ERROR);
                                         sn001_err_rsp pkt_err;
                                         uint8_t packet_err[SN001_ERR_RSP_LEN];
@@ -227,6 +241,15 @@ int send_packet(uint8_t* packet_to_send, uint8_t packet_len)
     {
         if (!rf95.send(packet_to_send, packet_len))
         {
+            #if DEBUG_MODE == 1
+                printf("The packet did not send successfully:.\n");
+                for (size_t i = 0; i < packet_len; i++)
+                {
+                    printf("%02x ", packet_to_send[i]);
+                }
+                printf("\n");
+            #endif
+
             err_led_state(LORA, INT_STATE_ERROR);
             return EXIT_FAILURE;
         }
