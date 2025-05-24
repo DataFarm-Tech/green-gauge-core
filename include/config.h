@@ -1,5 +1,16 @@
 #pragma once
 
+/**
+ * Adding a macro to en/dis LEDS 
+ */
+#define LED_PINS_EN 1
+
+
+/**
+ * Adding a macro to en/dis the BMS LEDS 
+ */
+#define BMS_PINS_EN 1
+
 /** 
  * Adding this macro to enable/disable the Wifi
  * model's functionality. 

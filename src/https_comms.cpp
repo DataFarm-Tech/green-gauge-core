@@ -130,8 +130,6 @@ void cn001_notify_message(String src_node, uint8_t code)
 {
     int http_code;
     char * url;
-    size_t url_len;
-    size_t space_left;
     String json_payload;
     JsonDocument doc;
 

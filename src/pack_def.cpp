@@ -50,7 +50,7 @@ void pkt_cn001_req(uint8_t * buf, const cn001_req * pkt, uint8_t seq_id)
 
     if (offset != CN001_REQ_LEN - CRC_SIZE - 1) //indexing by 0.
     {
-        printf("CN001_REQ packet length mismatch: expected %d, got %d\n", CN001_REQ_LEN, offset);
+        printf("CN001_REQ packet length mismatch: expected %d, got %zu\n", CN001_REQ_LEN, offset);
         return;
     }
     
@@ -101,7 +101,7 @@ void pkt_sn001_rsp(uint8_t * buf, const sn001_rsp * pkt, uint8_t seq_id)
 
     if (offset != SN001_SUC_RSP_LEN - CRC_SIZE - 1) //indexing by 0. 
     {
-        printf("SN001_RSP packet length mismatch: expected %d, got %d\n", SN001_SUC_RSP_LEN, offset);
+        printf("SN001_RSP packet length mismatch: expected %d, got %zu\n", SN001_SUC_RSP_LEN, offset);
         return;
     }
     
@@ -147,7 +147,7 @@ void pkt_sn001_err_rsp(uint8_t * buf, const sn001_err_rsp * pkt, uint8_t seq_id)
 
     if (offset != SN001_ERR_RSP_LEN - CRC_SIZE - 1) //indexing from 0. 
     {
-        printf("SN001_ERR_RSP packet length mismatch: expected %d, got %d\n", SN001_ERR_RSP_LEN, offset);
+        printf("SN001_ERR_RSP packet length mismatch: expected %d, got %zu\n", SN001_ERR_RSP_LEN, offset);
         return;
     }
     

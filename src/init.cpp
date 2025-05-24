@@ -34,8 +34,13 @@ void init_p()
     
     printf("init_p: Starting initialization...\n");
 
+    #if LED_PINS_EN == 1
+        led_pin_init();
+    #endif
     
-    led_pin_init();
+    #if BMS_PINS_EN == 1
+        init_bms_pins();
+    #endif
     
     init_eeprom_int(); /* init the eeprom interface*/
     read_config();
