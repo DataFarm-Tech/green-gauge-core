@@ -45,6 +45,7 @@ cli_cmd get_best_enum(const char* token)
     if (strncmp(token, "read_sensor", strlen(token)) == 0) return CMD_READ_SENSOR;
     if (strncmp(token, "notify", strlen(token)) == 0) return CMD_NOTIFY;
     if (strncmp(token, "battery", strlen(token)) == 0) return CMD_BAT_STATE;
+    if (strncmp(token, "history", strlen(token)) == 0) return CMD_HISTORY;
     return CMD_UNKNOWN;
 }
 
@@ -148,11 +149,16 @@ void handle_cmd(char* cmd)
         case CMD_BAT_STATE:
             cmd_get_battery_state();
             break;
+        case CMD_HISTORY:
+            cmd_history();
+            break;
         case CMD_UNKNOWN:
         default:
             cli_printf("Unknown command: %s\n", token);
             break;
     }
+
+    add_to_history(cmd);
 }
 
 

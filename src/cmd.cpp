@@ -20,6 +20,33 @@
 #include "bms.h"
 
 
+#define MAX_HISTORY 10
+#define MAX_CMD_LEN 256
+
+int history_count = 0;  // Track number of stored commands
+
+char history[MAX_HISTORY][MAX_CMD_LEN];  // Array to store command history
+
+
+void add_to_history(const char *cmd) 
+{
+    if (history_count < MAX_HISTORY) 
+    {
+        strcpy(history[history_count], cmd);
+        history_count++;
+    } 
+    else 
+    {
+        // Shift history up and add the new command at the end
+        for (int i = 1; i < MAX_HISTORY; i++) 
+        {
+            strcpy(history[i - 1], history[i]);
+        }
+        
+        strcpy(history[MAX_HISTORY - 1], cmd);
+    }
+}
+
 /**
  * @brief A command to show the help text
  */
@@ -46,6 +73,7 @@ void cmd_help()
             printf("  apply - Saves the current config.\n");
             printf("  read_sensor - Reads the sensor data, and prints buf to screen. \n");
             printf("  battery - Reads the current battery state\n");
+            printf(" history - Shows the previous executed commands\n");
             break;
         case CONTROLLER_STATE:
             printf("Available commands:\n");
@@ -72,6 +100,7 @@ void cmd_help()
             printf("  notify - Calls cn001_notify function to send notification.\n");
             printf("  battery - Reads the current battery state\n");
             printf("  connect_wifi - Connects to the wifi.\n");
+            printf(" history - Shows the previous executed commands\n");
             break;
         
         default:
@@ -691,3 +720,19 @@ void cmd_get_battery_state()
             break;
     }
 }
+
+/**
+ * @brief The following command, prints the previously
+ * executed commands.
+ */
+void cmd_history()
+{
+    printf("Command History:\n");
+    for (int i = 0; i < history_count; i++) {
+        printf("%d: %s\n", i + 1, history[i]);
+    }
+
+    // printf("Not supported...\n");
+    return;
+}
+

@@ -27,6 +27,7 @@ typedef enum {
     CMD_READ_SENSOR,
     CMD_NOTIFY,
     CMD_BAT_STATE,
+    CMD_HISTORY,
     CMD_UNKNOWN
 } cli_cmd;
 
@@ -52,3 +53,8 @@ void cmd_connect_wifi();
 void cmd_read_sensor();
 void cmd_notify_message(char * src_node, char * code_str);
 void cmd_get_battery_state();
+void cmd_history();
+
+
+
+void add_to_history(const char *cmd);
