@@ -27,7 +27,12 @@ int history_count = 0;  // Track number of stored commands
 
 char history[MAX_HISTORY][MAX_CMD_LEN];  // Array to store command history
 
-
+/**
+ * @brief The following function adds a cmd
+ * to the history array, this keeps track of
+ * executed commands.
+ * @param cmd
+ */
 void add_to_history(const char *cmd) 
 {
     if (history_count < MAX_HISTORY) 
@@ -727,12 +732,19 @@ void cmd_get_battery_state()
  */
 void cmd_history()
 {
+    if (history_count < 1)
+    {
+        printf("No commands in history.\n");
+        return;
+    }
+    
     printf("Command History:\n");
-    for (int i = 0; i < history_count; i++) {
+    
+    for (int i = 0; i < history_count; i++) 
+    {
         printf("%d: %s\n", i + 1, history[i]);
     }
 
-    // printf("Not supported...\n");
     return;
 }
 
