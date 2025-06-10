@@ -3,14 +3,11 @@ name: CI/CD CN001/SN001 Firmware Deployment Procedure
 on:
   push:
     branches:
-      - 'main'
+      - 'testing'
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    outputs:
-      firmware_path: ${{ steps.archive.outputs.firmware_path }}
-      release_date: ${{ steps.set-date.outputs.release_date }}
 
     steps:
       - uses: actions/checkout@v2
@@ -32,30 +29,9 @@ jobs:
         run: ./flash.sh compile
       
       - name: Archive Firmware
-        id: archive
         run: |
           mkdir -p firmware
           cp .pio/build/compile/firmware.bin firmware/firmware.bin
-          echo "firmware_path=firmware/firmware.bin" >> $GITHUB_OUTPUT
-
-      - name: Set release date
-        id: set-date
-        run: |
-          sudo timedatectl set-timezone Australia/Melbourne
-          echo "release_date=$(date +'%Y-%m-%d_%H-%M-%S')" >> $GITHUB_OUTPUT
-
-  deploy-to-apache:
-    needs: build
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v2
-      
-      - name: Download firmware artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: firmware
-          path: firmware
 
       - name: Set up SSH key for Apache server
         run: |
@@ -69,18 +45,10 @@ jobs:
               firmware/firmware.bin \
               datafarm@45.79.239.100:/var/www/html/firmware_${{ github.run_number }}.bin
 
-  create-release:
-    needs: build
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v2
-      
-      - name: Download firmware artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: firmware
-          path: firmware
+      - name: Set release date
+        run: |
+          sudo timedatectl set-timezone Australia/Melbourne
+          echo "RELEASE_DATE=$(date +'%Y-%m-%d_%H-%M-%S')" >> $GITHUB_ENV
 
       - name: Create GitHub release
         id: create-new-release
@@ -88,8 +56,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ needs.build.outputs.release_date }}
-          release_name: ${{ needs.build.outputs.release_date }}
+          tag_name: v${{ env.RELEASE_DATE }}
+          release_name: ${{ env.RELEASE_DATE }}
       
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
