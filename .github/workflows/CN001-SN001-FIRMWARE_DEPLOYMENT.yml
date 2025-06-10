@@ -52,7 +52,7 @@ jobs:
       - uses: actions/checkout@v2
       
       - name: Download firmware artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: firmware
           path: firmware
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v2
       
       - name: Download firmware artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: firmware
           path: firmware
