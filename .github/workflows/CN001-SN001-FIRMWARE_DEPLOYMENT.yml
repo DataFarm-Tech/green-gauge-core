@@ -3,10 +3,10 @@ name: CI/CD CN001/SN001 Firmware Deployment Procedure
 on:
   push:
     branches:
-      - 'testing'
+      - 'main'
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -33,6 +33,18 @@ jobs:
           mkdir -p firmware
           cp .pio/build/compile/firmware.bin firmware/firmware.bin
 
+      - name: Set up SSH key for Apache server
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 --decode > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Upload to Apache server via SCP
+        run: |
+          scp -P 5823 -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+              firmware/firmware.bin \
+              datafarm@45.79.239.100:/var/www/html/firmware_${{ github.run_number }}.bin
+
       - name: Set release date
         run: |
           sudo timedatectl set-timezone Australia/Melbourne
@@ -55,4 +67,4 @@ jobs:
           upload_url: ${{ steps.create-new-release.outputs.upload_url }}
           asset_path: firmware/firmware.bin
           asset_name: site-v${{ github.run_number }}.bin
-          asset_content_type: application/octet
+          asset_content_type: application/octet-stream
