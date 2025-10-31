@@ -1,4 +1,4 @@
-name: CI/CD CN001/SN001 Build/Test
+name: CI/CD ESP-IDF Build
 
 on:
   push:
@@ -10,25 +10,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          submodules: "true"
+          submodules: true
+      
+      - name: Install ESP-IDF
+        uses: espressif/install-esp-idf-action@v1
+        with:
+          version: v5.1
 
-      - name: Set up Python
-        uses: actions/setup-python@v1
-
-      - name: Install dependencies
+      - name: Build ESP-IDF project
         run: |
-          python -m pip install --upgrade pip
-          sudo pip install platformio
-          sudo apt-get update
-          sudo apt-get install -y cppcheck
-
-      - name: Install PlatformIO libraries
-        run: sudo pio lib install
-
-      - name: Run Cppcheck
-        run: cppcheck $(cat cppcheck.conf)
-
-      - name: Run PlatformIO
-        run: ./flash.sh compile
+          idf.py fullclean build
