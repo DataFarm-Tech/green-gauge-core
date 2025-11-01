@@ -23,19 +23,3 @@ jobs:
       - name: Build ESP-IDF project
         run: |
           idf.py fullclean build
-
-      - name: Verify firmware build output
-        run: |
-          ls -lh build/
-          test -f build/firmware-idf.bin
-
-      - name: Upload firmware to Linode Object Storage
-        uses: jakejarvis/s3-sync-action@v0.3.0
-        env:
-          AWS_S3_BUCKET: ${{ secrets.LINODE_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.LINODE_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.LINODE_SECRET_KEY }}
-          AWS_S3_ENDPOINT: http://df-ota.in-maa-1.linodeobjects.com/
-          AWS_REGION: us-east-1
-          SOURCE_DIR: build/
-          DEST_DIR: firmware/
