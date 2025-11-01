@@ -23,7 +23,6 @@ extern "C" {
 #include <cstdint>
 #include "BatteryPacket.hpp"
 
-
 constexpr int sleep_time_sec = 6 * 60 * 60;
 
 void init_nvs()
@@ -54,7 +53,7 @@ extern "C" void app_main(void)
     {
         ESP_LOGI("MAIN", "Connected.");
 
-        BatteryPacket battery("node123");
+        BatteryPacket battery("nod123");
 
         if (!battery.readFromBMS()) {
             ESP_LOGE("MAIN", "Failed to read battery from BMS");

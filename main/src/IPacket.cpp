@@ -8,13 +8,15 @@
 #include <cstdint>
 #include <cstddef>
 #include "IPacket.hpp"
+#include "Config.hpp"
 
-#define URI "coap://192.168.1.100/sensor"
 #define URI_BUFFER_SIZE 128
 
 static const char* TAG = "IPacket";
 static int resp_wait = 0;
 static int wait_ms = 1000;
+coap_optlist_t * optlist = NULL;
+constexpr uint8_t COAP_DEFAULT_TIME_SEC = 1;
 
 constexpr uint8_t COAP_RESPONSE_SUCCESS = 2;
 constexpr uint8_t COAP_RESPONSE_CLIENT_ERROR = 4;
@@ -44,71 +46,101 @@ coap_response_t IPacket::message_handler(coap_session_t * session, const coap_pd
 
 void IPacket::sendPacket() {
     uint8_t * buffer = toBuffer();
-    if (!buffer) {
-        ESP_LOGE(TAG, "Failed to get buffer");
-        return;
-    }
+    coap_context_t * ctx = nullptr;
+    coap_session_t * session = nullptr;
+    coap_pdu_t * request = nullptr;
+    coap_address_t dst_addr;
+    static coap_uri_t uri;
+    coap_addr_info_t * info_list = nullptr;
+    coap_proto_t proto;
+
+    uint8_t uri_path[URI_BUFFER_SIZE];
 
     coap_startup();
-    coap_context_t* ctx = coap_new_context(NULL);
+
+    ctx = coap_new_context(NULL);
     if (!ctx) {
-        ESP_LOGE(TAG, "Failed to create CoAP context");
-        return;
+        ESP_LOGE(TAG, "coap_new_context() failed");
+        goto clean_up;
     }
 
     coap_context_set_block_mode(ctx, COAP_BLOCK_USE_LIBCOAP | COAP_BLOCK_SINGLE_BODY);
     coap_register_response_handler(ctx, IPacket::message_handler);
 
-    coap_session_t* session = nullptr;
-    coap_address_t dst_addr;
-    coap_uri_t uri;
-    if (coap_split_uri((const uint8_t*)URI, strlen(URI), &uri) == -1) {
+
+    if (coap_split_uri((const uint8_t *)URI, strlen(URI), &uri) == -1) {
         ESP_LOGE(TAG, "Invalid URI: %s", URI);
-        coap_free_context(ctx);
-        coap_cleanup();
-        return;
+        goto clean_up;
     }
 
-    session = coap_new_client_session(ctx, NULL, &dst_addr, COAP_PROTO_UDP);
+    info_list = coap_resolve_address_info(&uri.host, uri.port, uri.port, uri.port, uri.port, 0, 1 << uri.scheme, COAP_RESOLVE_TYPE_REMOTE);
+    if (!info_list) {
+        ESP_LOGE(TAG, "Address resolution failed");
+        goto clean_up;
+    }
+
+    proto = info_list->proto;
+    memcpy(&dst_addr, &info_list->addr, sizeof(dst_addr));
+    coap_free_address_info(info_list);
+
+    if (coap_uri_into_options(&uri, &dst_addr, &optlist, 1, uri_path, sizeof(uri_path)) < 0) {
+        ESP_LOGE(TAG, "Failed to create URI options");
+        goto clean_up;
+    }
+
+    session = coap_new_client_session(ctx, NULL, &dst_addr, proto);
     if (!session) {
-        ESP_LOGE(TAG, "Failed to create CoAP session");
-        coap_free_context(ctx);
-        coap_cleanup();
-        return;
+        ESP_LOGE(TAG, "Failed to create session");
+        goto clean_up;
     }
 
-    coap_pdu_t* request = coap_new_pdu(COAP_MESSAGE_CON, COAP_REQUEST_CODE_POST, session);
+    request = coap_new_pdu(COAP_MESSAGE_CON, COAP_REQUEST_CODE_POST, session);
     if (!request) {
         ESP_LOGE(TAG, "Failed to create request PDU");
-        coap_session_release(session);
-        coap_free_context(ctx);
-        coap_cleanup();
-        return;
+        goto clean_up;
     }
 
+    coap_add_optlist_pdu(request, &optlist);
+
     uint8_t buf[4];
-    coap_add_option(request, COAP_OPTION_CONTENT_FORMAT,
-                    coap_encode_var_safe(buf, sizeof(buf), COAP_MEDIATYPE_APPLICATION_CBOR),
-                    buf);
-    coap_add_data(request, this->bufferLength, buffer);
+
+    coap_add_option(request, COAP_OPTION_CONTENT_FORMAT, coap_encode_var_safe(buf, sizeof(buf), COAP_MEDIATYPE_APPLICATION_CBOR), buf);
+    coap_add_data(request, bufferLength, buffer);
 
     resp_wait = 1;
     coap_send(session, request);
 
-    while (resp_wait) {
+    wait_ms = COAP_DEFAULT_TIME_SEC * 1000;
+
+    while (resp_wait) 
+    {
         int result = coap_io_process(ctx, wait_ms > 1000 ? 1000 : wait_ms);
-        if (result >= 0) {
-            if (result >= wait_ms) {
-                ESP_LOGW(TAG, "No response from server");
+        if (result >= 0) 
+        {
+            if (result >= wait_ms) 
+            {
+                ESP_LOGE(TAG, "No response from server");
                 break;
-            } else {
+            } 
+            else 
+            {
                 wait_ms -= result;
             }
         }
     }
 
-    coap_session_release(session);
-    coap_free_context(ctx);
-    coap_cleanup();
-    ESP_LOGI(TAG, "CoAP send finished");
+    clean_up:
+        if (optlist) {
+            coap_delete_optlist(optlist);
+            optlist = nullptr;
+        }
+        if (session) {
+            coap_session_release(session);
+        }
+        if (ctx) {
+            coap_free_context(ctx);
+        }
+        coap_cleanup();
+
+        ESP_LOGI(TAG, "CoAP send finished");
 }
