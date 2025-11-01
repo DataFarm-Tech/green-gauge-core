@@ -18,7 +18,7 @@ jobs:
       - name: Install ESP-IDF
         uses: espressif/install-esp-idf-action@v1
         with:
-          version: v5.1
+          version: v6.0
 
       - name: Build ESP-IDF project
         run: |
