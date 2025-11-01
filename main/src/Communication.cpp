@@ -1,6 +1,7 @@
 #include "Communication.hpp"
 #include "WiFiConnection.hpp"
 #include "SimConnection.hpp"
+#include "EthernetConnection.hpp"
 
 Communication::Communication(ConnectionType type) 
 {
@@ -11,6 +12,9 @@ Communication::Communication(ConnectionType type)
             break;
         case ConnectionType::SIM:
             connection = std::make_unique<SimConnection>();
+            break;
+        case ConnectionType::ETHERNET:
+            connection = std::make_unique<EthernetConnection>();
             break;
     }
 }

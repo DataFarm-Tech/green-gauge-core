@@ -2,7 +2,7 @@
 
 #include "IConnection.hpp"
 
-class SimConnection : public IConnection {
+class EthernetConnection : public IConnection {
 public:
     bool connect() override;
     bool isConnected() override;

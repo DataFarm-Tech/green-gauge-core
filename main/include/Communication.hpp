@@ -1,4 +1,3 @@
-// Communication.hpp
 #pragma once
 
 #include <memory>
@@ -6,7 +5,8 @@
 
 enum class ConnectionType {
     WIFI,
-    SIM
+    SIM,
+    ETHERNET
 };
 
 class Communication {
