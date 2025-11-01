@@ -6,7 +6,6 @@
 #include <cbor.h>
 #include <sys/socket.h>
 #include "esp_log.h"
-#include "coap3/coap.h"
 #include <cstdint>
 #include <cstddef>
 
@@ -21,6 +20,7 @@ class BatteryPacket : public IPacket {
 private:
     uint8_t level;   ///< Current battery level percentage (0–100)
     uint8_t health;  ///< Battery health percentage (0–100)
+    std::string TAG;
 
 public:
     /**
@@ -33,8 +33,12 @@ public:
      *
      * The constructor sets up identifying and connection parameters for the packet.
      */
-    BatteryPacket(const std::string& id, const std::string& uri_endpoint, uint8_t lvl = 0, uint8_t hlth = 0)
-        : level(lvl), health(hlth) { nodeId = id; uri = uri_endpoint; }
+    BatteryPacket(const std::string& id, const std::string& uri_endpoint, uint8_t lvl = 0, uint8_t hlth = 0, const std::string& tag = "BatteryPacket")
+    : level(lvl), health(hlth), TAG(tag)
+    {
+        nodeId = id;
+        uri = uri_endpoint;
+    }
 
     /**
      * @brief Converts the current BatteryPacket data to a CBOR-encoded byte buffer.

@@ -4,24 +4,19 @@
 #include <cbor.h>
 #include <sys/socket.h>
 #include "esp_log.h"
-#include "coap3/coap.h"
 #include <cstdint>
 #include <cstddef>
 #include "BatteryPacket.hpp"
 #include "Config.hpp"
 
-static const char * TAG = "BatteryPacket";
-
-static uint8_t buffer[BUFFER_SIZE];
-
 const uint8_t * BatteryPacket::toBuffer()
 {
     CborEncoder encoder, mapEncoder, arrayEncoder, batteryEncoder;
-    cbor_encoder_init(&encoder, buffer, BUFFER_SIZE, 0);
+    cbor_encoder_init(&encoder, buffer, BUFFER_SIZE, 0);  // use member buffer
 
     if (cbor_encoder_create_map(&encoder, &mapEncoder, 2) != CborNoError) 
     {
-        ESP_LOGE(TAG, "Failed to create root map");
+        ESP_LOGE(TAG.c_str(), "Failed to create root map");
         return nullptr;
     }
 
@@ -42,8 +37,9 @@ const uint8_t * BatteryPacket::toBuffer()
     cbor_encoder_close_container(&mapEncoder, &arrayEncoder);
     cbor_encoder_close_container(&encoder, &mapEncoder);
 
-    bufferLength = cbor_encoder_get_buffer_size(&encoder, buffer);  // <-- store in member
-    ESP_LOGI(TAG, "CBOR payload length: %d", (int)bufferLength);
+    bufferLength = cbor_encoder_get_buffer_size(&encoder, buffer);
+    ESP_LOGI(TAG.c_str(), "CBOR payload length: %d", (int)bufferLength);
+
     return buffer;
 }
 

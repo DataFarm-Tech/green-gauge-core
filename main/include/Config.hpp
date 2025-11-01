@@ -1,10 +1,12 @@
 #pragma once
 
-#define URI_BATT "coap://45.79.239.100/battery"
-#define URI_NOTIF "coap://45.79.239.100/notif"
-#define URI_DATA "coap://45.79.239.100/data"
+#include <cstdint>
 
+constexpr char NODE_ID[] = "nod123";
+constexpr char BATT_URI[] = "coap://45.79.239.100/battery";
+constexpr char DATA_URI[] = "coap://45.79.239.100/data";
 
-#define NODE_ID "nod123"
+constexpr char BATT_TAG[] = "BatteryPacket";
+constexpr char DATA_TAG[] = "DataPacket";
 
-#define BUFFER_SIZE 128
+constexpr uint8_t BUFFER_SIZE = 128;
