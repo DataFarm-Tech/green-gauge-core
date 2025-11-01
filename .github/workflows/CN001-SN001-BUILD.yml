@@ -23,3 +23,26 @@ jobs:
       - name: Build ESP-IDF project
         run: |
           idf.py fullclean build
+
+      - name: Verify firmware build output
+        run: |
+          ls -lh build/
+          test -f build/firmware-idf.bin
+
+      - name: Upload firmware to Linode Object Storage
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.LINODE_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.LINODE_SECRET_KEY }}
+          AWS_EC2_METADATA_DISABLED: true
+        run: |
+          sudo apt-get update && sudo apt-get install -y awscli
+          
+          # Configure endpoint for Linode Object Storage (S3-compatible)
+          export AWS_DEFAULT_REGION=us-east-1
+          export LINODE_BUCKET="${{ secrets.LINODE_BUCKET }}"
+          export LINODE_ENDPOINT="https://in-maa-1.linodeobjects.com"
+
+          # Upload firmware-idf.bin
+          aws --endpoint-url "$LINODE_ENDPOINT" s3 cp build/firmware-idf.bin s3://$LINODE_BUCKET/firmware-idf-$(date +'%Y%m%d-%H%M%S').bin
+
+          echo "✅ Firmware uploaded successfully to Linode Object Storage."
