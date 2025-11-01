@@ -1,3 +1,3 @@
 #pragma once
 
-#define COAP_SERVER "45.79.239.100"
+#define URI "coap//45.79.239.100/battery"

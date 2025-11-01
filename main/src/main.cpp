@@ -19,8 +19,9 @@ extern "C" {
 #include "lwip/inet.h"
 #include <string.h>
 #include <vector>
-#include "Packet.hpp"
 #include "esp_littlefs.h"
+#include <cstdint>
+#include "BatteryPacket.hpp"
 
 
 constexpr int sleep_time_sec = 6 * 60 * 60;
@@ -53,11 +54,16 @@ extern "C" void app_main(void)
     {
         ESP_LOGI("MAIN", "Connected.");
 
-        Packet pkt;
-        if (pkt.createPayload(23, 55)) 
-        {
-            pkt.sendCoAP();
-        } 
+        BatteryPacket battery("node123");
+
+        if (!battery.readFromBMS()) {
+            ESP_LOGE("MAIN", "Failed to read battery from BMS");
+        } else {
+            ESP_LOGI("MAIN", "Battery Level: %d, Health: %d", battery.getLevel(), battery.getHealth());
+
+            battery.sendPacket();
+            ESP_LOGI("MAIN", "BatteryPacket sent successfully.");
+        }
 
         if (comm.isConnected()) 
         {

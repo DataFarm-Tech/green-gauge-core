@@ -4,8 +4,9 @@ idf_component_register(
         "src/WiFiConnection.cpp"
         "src/Communication.cpp"
         "src/SimConnection.cpp"
-        "src/Packet.cpp"
         "src/EthernetConnection.cpp"
+        "src/BatteryPacket.cpp"
+        "src/IPacket.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash
