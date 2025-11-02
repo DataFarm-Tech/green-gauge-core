@@ -10,7 +10,7 @@
  * Used to specify which network interface should be initialized
  * for data transmission.
  */
-enum class ConnectionType {
+enum class ConnectionType : uint8_t {
     WIFI,      ///< Wi-Fi connection
     SIM,       ///< Cellular (SIM-based) connection
     ETHERNET   ///< Ethernet (wired) connection

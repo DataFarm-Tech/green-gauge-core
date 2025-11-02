@@ -10,47 +10,42 @@
 #include "packet/IPacket.hpp"
 #include "Config.hpp"
 
-static const char* TAG = "IPacket";
-static int resp_wait = 0;
-static int wait_ms = 1000;
-coap_optlist_t * optlist = NULL;
-constexpr uint8_t COAP_DEFAULT_TIME_SEC = 1;
-
-constexpr uint8_t COAP_RESPONSE_SUCCESS = 2;
-constexpr uint8_t COAP_RESPONSE_CLIENT_ERROR = 4;
-constexpr uint8_t COAP_RESPONSE_SERVER_ERROR = 5;
+static const char * TAG = "IPacket";
+static bool resp_wait = false;
 
 
 coap_response_t IPacket::message_handler(coap_session_t * session, const coap_pdu_t * sent,
                                          const coap_pdu_t * received, const coap_mid_t mid) {
     coap_pdu_code_t rcvd_code = coap_pdu_get_code(received);
-    uint8_t rcvd_class = COAP_RESPONSE_CLASS(rcvd_code);
+    CoAPResponseType rcvd_class = static_cast<CoAPResponseType>(COAP_RESPONSE_CLASS(rcvd_code));
 
     switch (rcvd_class) {
-        case COAP_RESPONSE_SUCCESS:
+        case CoAPResponseType::COAP_RESPONSE:
             ESP_LOGI(TAG, "CoAP response success (%d.%02d)", rcvd_class, rcvd_code & 0x1F);
             break;
-        case COAP_RESPONSE_CLIENT_ERROR:
-        case COAP_RESPONSE_SERVER_ERROR:
+        case CoAPResponseType::COAP_RESPONSE_CLIENT_ERROR:
+        case CoAPResponseType::COAP_RESPONSE_SERVER_ERROR:
             ESP_LOGW(TAG, "CoAP response error (%d.%02d)", rcvd_class, rcvd_code & 0x1F);
             break;
         default:
             break;
     }
 
-    resp_wait = 0;
+    resp_wait = false;
     return COAP_RESPONSE_OK;
 }
 
 void IPacket::sendPacket() {
     const uint8_t * buffer = toBuffer();
     coap_context_t * ctx = nullptr;
+    coap_optlist_t * optlist = nullptr;
     coap_session_t * session = nullptr;
     coap_pdu_t * request = nullptr;
     coap_address_t dst_addr;
     static coap_uri_t uri;
     coap_addr_info_t * info_list = nullptr;
     coap_proto_t proto;
+    uint16_t wait_ms = 500;
 
     uint8_t uri_path[BUFFER_SIZE];
 
@@ -64,7 +59,6 @@ void IPacket::sendPacket() {
 
     coap_context_set_block_mode(ctx, COAP_BLOCK_USE_LIBCOAP | COAP_BLOCK_SINGLE_BODY);
     coap_register_response_handler(ctx, IPacket::message_handler);
-
 
     if (coap_split_uri((const uint8_t *)this->uri.c_str(), strlen(this->uri.c_str()), &uri) == -1) {
         ESP_LOGE(TAG, "Invalid URI: %s", this->uri.c_str());
@@ -101,27 +95,21 @@ void IPacket::sendPacket() {
     coap_add_optlist_pdu(request, &optlist);
 
     uint8_t buf[4];
-
-    coap_add_option(request, COAP_OPTION_CONTENT_FORMAT, coap_encode_var_safe(buf, sizeof(buf), COAP_MEDIATYPE_APPLICATION_CBOR), buf);
+    coap_add_option(request, COAP_OPTION_CONTENT_FORMAT,
+                    coap_encode_var_safe(buf, sizeof(buf), COAP_MEDIATYPE_APPLICATION_CBOR),
+                    buf);
     coap_add_data(request, bufferLength, buffer);
 
-    resp_wait = 1;
+    resp_wait = true;
     coap_send(session, request);
 
-    wait_ms = COAP_DEFAULT_TIME_SEC * 1000;
-
-    while (resp_wait) 
-    {
-        int result = coap_io_process(ctx, wait_ms > 1000 ? 1000 : wait_ms);
-        if (result >= 0) 
-        {
-            if (result >= wait_ms) 
-            {
-                ESP_LOGE(TAG, "No response from server");
+    while (resp_wait) {
+        int result = coap_io_process(ctx, wait_ms > 100 ? 100 : wait_ms);
+        if (result >= 0) {
+            if (result >= wait_ms) {
+                ESP_LOGE(TAG, "No response from server within 500 ms");
                 break;
-            } 
-            else 
-            {
+            } else {
                 wait_ms -= result;
             }
         }

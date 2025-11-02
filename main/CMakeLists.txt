@@ -16,6 +16,6 @@ idf_component_register(
         littlefs
 )
 
-set(DEEP_SLEEP_EN 0)
+set(DEEP_SLEEP_EN 1)
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE DEEP_SLEEP_EN=${DEEP_SLEEP_EN})
