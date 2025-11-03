@@ -39,7 +39,7 @@ jobs:
         run: |
           echo "Uploading firmware ${FW_VERSION}.bin ..."
           curl -X PUT -T build/firmware-idf.bin \
-            https://df-ota.in-maa-1.linodeobjects.com/${FW_VERSION}.bin
+            https://df-ota.in-maa-1.linodeobjects.com/images/${FW_VERSION}.bin
           echo "Uploading version.json ..."
           curl -X PUT -T version.json \
             https://df-ota.in-maa-1.linodeobjects.com/version.json
