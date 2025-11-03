@@ -17,6 +17,7 @@ extern "C" {
 #include <string.h>
 #include "packet/BatteryPacket.hpp"
 #include "Config.hpp"
+#include "ota/OTAUpdater.hpp"
 
 constexpr int sleep_time_sec = 6 * 60 * 60;
 
@@ -43,6 +44,13 @@ extern "C" void app_main(void)
 
         if (comm.connect())
         {
+            OTAUpdater ota;
+            ota.setTimeout(15000);
+            ota.setBufferSizes(8192, 4096);
+            ota.enableBulkErase(true);
+
+            ota.performUpdate("https://df-ota.in-maa-1.linodeobjects.com/firmware-idf.bin");
+
             BatteryPacket battery(NODE_ID, BATT_URI, 0, 0, BATT_TAG);
 
             if (!battery.readFromBMS())

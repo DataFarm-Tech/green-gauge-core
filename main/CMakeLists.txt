@@ -7,6 +7,7 @@ idf_component_register(
         "src/EthernetConnection.cpp"
         "src/BatteryPacket.cpp"
         "src/IPacket.cpp"
+        "src/OTAUpdater.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash
@@ -14,8 +15,13 @@ idf_component_register(
         esp_wifi
         cbor
         littlefs
+        esp_https_ota
+        app_update
+        esp_http_client
 )
 
 set(DEEP_SLEEP_EN 1)
-
 target_compile_definitions(${COMPONENT_LIB} PRIVATE DEEP_SLEEP_EN=${DEEP_SLEEP_EN})
+
+set(DHCP_EN 1)
+target_compile_definitions(${COMPONENT_LIB} PRIVATE DHCP_EN=${DHCP_EN})

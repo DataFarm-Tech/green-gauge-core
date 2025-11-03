@@ -25,4 +25,4 @@ jobs:
           idf.py fullclean build
       - name: Upload BIN
         run: |
-          curl -X PUT -T build/firmware-idf.bin https://df-ota.in-maa-1.linodeobjects.com/firmware2.bin
+          curl -X PUT -T build/firmware-idf.bin https://df-ota.in-maa-1.linodeobjects.com/firmware-idf.bin
