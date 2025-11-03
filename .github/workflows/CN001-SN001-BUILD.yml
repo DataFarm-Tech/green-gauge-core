@@ -14,7 +14,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
-      
+
+      - name: Get short git hash
+        id: vars
+        run: echo "hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set firmware version
+        run: |
+          echo "FW_VERSION=g${{ steps.vars.outputs.hash }}" >> $GITHUB_ENV
+          echo "Firmware version: $FW_VERSION"
+
       - name: Install ESP-IDF
         uses: espressif/install-esp-idf-action@v1
         with:
@@ -23,6 +32,10 @@ jobs:
       - name: Build ESP-IDF project
         run: |
           idf.py fullclean build
-      - name: Upload BIN
+
+      - name: Upload BIN to Linode Object Storage
         run: |
-          curl -X PUT -T build/firmware-idf.bin https://df-ota.in-maa-1.linodeobjects.com/firmware-idf.bin
+          echo "Uploading firmware ${FW_VERSION}.bin ..."
+          curl -X PUT -T build/firmware-idf.bin \
+            https://df-ota.in-maa-1.linodeobjects.com/${FW_VERSION}.bin
+          echo "Upload complete ✅"
