@@ -46,8 +46,12 @@ void IPacket::sendPacket() {
     coap_addr_info_t * info_list = nullptr;
     coap_proto_t proto;
     uint16_t wait_ms = 500;
-
     uint8_t uri_path[BUFFER_SIZE];
+
+    if (buffer == nullptr || bufferLength == 0) {
+        ESP_LOGE(TAG, "Packet buffer is null or empty — aborting send");
+        return;
+    }
 
     coap_startup();
 
