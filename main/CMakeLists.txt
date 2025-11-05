@@ -7,7 +7,8 @@ idf_component_register(
         "src/EthernetConnection.cpp"
         "src/BatteryPacket.cpp"
         "src/IPacket.cpp"
-        "src/OTAUpdater.cpp"
+        # "src/OTAUpdater.cpp"
+        "src/ReadingPacket.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash

@@ -16,6 +16,7 @@ extern "C" {
 #include "lwip/inet.h"
 #include <string.h>
 #include "packet/BatteryPacket.hpp"
+#include "packet/ReadingPacket.hpp"
 #include "Config.hpp"
 #include "ota/OTAUpdater.hpp"
 
@@ -34,9 +35,6 @@ void init_nvs()
 
 extern "C" void app_main(void) 
 {
-    const esp_app_desc_t * app_desc = esp_app_get_description();
-    ESP_LOGI("MAIN", "Current firmware version: %s", app_desc->version);
-
     while (1)
     {
         init_nvs();
@@ -47,24 +45,28 @@ extern "C" void app_main(void)
 
         if (comm.connect())
         {
-            // OTAUpdater ota;
-            // ota.setTimeout(15000);
-            // ota.setBufferSizes(8192, 4096);
-            // ota.enableBulkErase(true);
+            ReadingPacket readings(NODE_ID, DATA_URI, "ReadingPacket");
 
-            // ota.performUpdate("https://df-ota.in-maa-1.linodeobjects.com/images/g683e322.bin");
+            ESP_LOGI("MAIN", "Collecting sensor readings...");
+            readings.readSensor();
 
+            ESP_LOGI("MAIN", "Sending readings packet...");
+            readings.sendPacket();
+            
+            
             BatteryPacket battery(NODE_ID, BATT_URI, 0, 0, BATT_TAG);
-
+            
             if (!battery.readFromBMS())
             {
                 ESP_LOGE("MAIN", "Failed to read battery from BMS");
             } 
             else 
             {
+                ESP_LOGI("MAIN", "Sending battery packet...");
                 battery.sendPacket();
             }
-            
+
+            //Close connection
             if (comm.isConnected()) 
             {
                 comm.disconnect();
