@@ -47,12 +47,12 @@ extern "C" void app_main(void)
 
         if (comm.connect())
         {
-            OTAUpdater ota;
-            ota.setTimeout(15000);
-            ota.setBufferSizes(8192, 4096);
-            ota.enableBulkErase(true);
+            // OTAUpdater ota;
+            // ota.setTimeout(15000);
+            // ota.setBufferSizes(8192, 4096);
+            // ota.enableBulkErase(true);
 
-            ota.performUpdate("https://df-ota.in-maa-1.linodeobjects.com/images/g683e322.bin");
+            // ota.performUpdate("https://df-ota.in-maa-1.linodeobjects.com/images/g683e322.bin");
 
             BatteryPacket battery(NODE_ID, BATT_URI, 0, 0, BATT_TAG);
 
