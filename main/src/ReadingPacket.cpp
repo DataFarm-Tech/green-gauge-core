@@ -1,0 +1,80 @@
+#include <cbor.h>
+#include <cstring>
+#include <esp_log.h>
+#include <cbor.h>
+#include <sys/socket.h>
+#include <cstdint>
+#include <cstddef>
+#include "packet/ReadingPacket.hpp"
+#include "Config.hpp"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <cstdlib>
+#include <ctime>
+
+const uint8_t * ReadingPacket::toBuffer()
+{
+    CborEncoder encoder, mapEncoder, arrayEncoder, readingEncoder;
+    cbor_encoder_init(&encoder, buffer, BUFFER_SIZE, 0);  // use member buffer
+
+    if (cbor_encoder_create_map(&encoder, &mapEncoder, 2) != CborNoError) 
+    {
+        ESP_LOGE(TAG.c_str(), "Failed to create root map");
+        return nullptr;
+    }
+
+    cbor_encode_text_stringz(&mapEncoder, "node_id");
+    cbor_encode_text_stringz(&mapEncoder, nodeId.c_str());
+
+    cbor_encode_text_stringz(&mapEncoder, "readings");
+    cbor_encoder_create_array(&mapEncoder, &arrayEncoder, readingList.size());
+
+    for (size_t i = 0; i < READING_SIZE; i++)
+    {
+        cbor_encoder_create_map(&arrayEncoder, &readingEncoder, 2);
+
+        cbor_encode_text_stringz(&readingEncoder, "temp");
+        cbor_encode_float(&readingEncoder, readingList[i].temp);
+
+        cbor_encode_text_stringz(&readingEncoder, "ph");
+        cbor_encode_float(&readingEncoder, readingList[i].ph);
+
+        cbor_encoder_close_container(&arrayEncoder, &readingEncoder);
+    }
+
+    cbor_encoder_close_container(&mapEncoder, &arrayEncoder);
+    cbor_encoder_close_container(&encoder, &mapEncoder);
+
+    bufferLength = cbor_encoder_get_buffer_size(&encoder, buffer);
+    ESP_LOGI(TAG.c_str(), "CBOR payload length: %d", (int)bufferLength);
+
+    return buffer;
+}
+
+
+void ReadingPacket::readSensor() 
+{
+    sensorReading reading;
+    
+    ESP_LOGI(TAG.c_str(), "Starting sensor reading sequence...");
+
+    // Seed the random generator once (you can also do this in setup/init)
+    srand(static_cast<unsigned>(time(nullptr)));
+
+    for (size_t i = 0; i < READING_SIZE; i++)
+    {
+        // Simulate sensor data with realistic random ranges
+        // Example: temperature between 20.0–30.0 °C, pH between 5.0–8.0
+        reading.temp = 20.0f + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 10.0f)); // [20–30]
+        reading.ph   = 5.0f  + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / 3.0f));  // [5–8]
+
+        readingList.at(i) = reading; // store into array
+
+        ESP_LOGI(TAG.c_str(), "Reading %02d -> Temp: %.2f °C, pH: %.2f", (int)i, reading.temp, reading.ph);
+
+        vTaskDelay(pdMS_TO_TICKS(10)); // 10 ms delay between readings
+    }
+
+    ESP_LOGI(TAG.c_str(), "Finished collecting %d readings", (int)READING_SIZE);
+}
+

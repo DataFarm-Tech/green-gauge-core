@@ -36,7 +36,7 @@ protected:
     std::string uri;           ///< URI endpoint for the CoAP packet
 
     /// Default buffer size for packet serialization
-    static constexpr size_t BUFFER_SIZE = 128;
+    static constexpr size_t BUFFER_SIZE = 1024;
 
     /// Internal buffer to store serialized packet data
     uint8_t buffer[BUFFER_SIZE];

@@ -22,6 +22,7 @@ const uint8_t * BatteryPacket::toBuffer()
 
     if (level == 0 || health == 0)
     {
+        ESP_LOGE(TAG.c_str(), "Cannot append empty battery diagnostics to buffer");
         return nullptr;
     }
     
