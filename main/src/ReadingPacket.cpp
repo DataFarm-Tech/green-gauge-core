@@ -33,7 +33,7 @@ const uint8_t * ReadingPacket::toBuffer()
     {
         cbor_encoder_create_map(&arrayEncoder, &readingEncoder, 2);
 
-        cbor_encode_text_stringz(&readingEncoder, "temp");
+        cbor_encode_text_stringz(&readingEncoder, "temperature");
         cbor_encode_float(&readingEncoder, readingList[i].temp);
 
         cbor_encode_text_stringz(&readingEncoder, "ph");

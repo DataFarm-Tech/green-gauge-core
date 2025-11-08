@@ -20,7 +20,7 @@ extern "C" {
 #include "Config.hpp"
 #include "ota/OTAUpdater.hpp"
 
-constexpr int sleep_time_sec = 6 * 60 * 60;
+constexpr int sleep_time_sec = 1 * 60 * 60;
 
 void init_nvs()
 {

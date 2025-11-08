@@ -6,8 +6,8 @@
 #include "lwip/ip4_addr.h"
 #include "esp_netif_ip_addr.h"
 
-#define WIFI_SSID "Lucas Aponso"
-#define WIFI_PASS "tess1234"
+#define WIFI_SSID "Origin_392531"
+#define WIFI_PASS "84692527"
 
 // #define DHCP_EN 1
 
