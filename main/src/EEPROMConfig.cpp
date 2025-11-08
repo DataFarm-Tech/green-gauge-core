@@ -1,7 +1,5 @@
 #include "EEPROMConfig.hpp"
 
-EEPROMConfig::EEPROMConfig() : handle(0) {}
-
 bool EEPROMConfig::begin() {
     esp_err_t err = nvs_open(NAMESPACE, NVS_READWRITE, &handle);
     if (err != ESP_OK) {

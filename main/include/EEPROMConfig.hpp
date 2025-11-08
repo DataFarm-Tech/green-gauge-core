@@ -4,27 +4,25 @@
 #include "nvs.h"
 #include "esp_log.h"
 
-
 // Define the device configuration structure
 typedef struct {
     bool has_activated;
 } DeviceConfig;
-
-
 
 /**
  * @brief Handles saving, loading, and erasing configuration data
  *        from the ESP32 NVS (EEPROM-like) storage.
  */
 class EEPROMConfig {
-    private:
+private:
     nvs_handle_t handle;
     const char* TAG = "EEPROMConfig";
     const char* NAMESPACE = "config_ns";
     const char* KEY = "device_cfg";
-    
-    public:
-    EEPROMConfig();
+
+public:
+    // Inline constructor
+    EEPROMConfig() : handle(0) {}
 
     bool begin();
     void close();

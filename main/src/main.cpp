@@ -22,7 +22,6 @@ extern "C" {
 #include "ota/OTAUpdater.hpp"
 #include "EEPROMConfig.hpp"
 
-// constexpr int sleep_time_sec = 1 * 60 * 60;
 constexpr int sleep_time_sec = 60;
 
 DeviceConfig g_device_config = { false };
