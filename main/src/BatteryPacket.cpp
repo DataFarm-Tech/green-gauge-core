@@ -45,7 +45,10 @@ const uint8_t * BatteryPacket::toBuffer()
     cbor_encoder_close_container(&encoder, &mapEncoder);
 
     bufferLength = cbor_encoder_get_buffer_size(&encoder, buffer);
-    ESP_LOGI(TAG.c_str(), "CBOR payload length: %d", (int)bufferLength);
+    if (bufferLength > BUFFER_SIZE) {
+        ESP_LOGE(TAG.c_str(), "CBOR buffer overflow: %d bytes (max %d)", (int)bufferLength, BUFFER_SIZE);
+        return nullptr;
+    }
 
     return buffer;
 }
