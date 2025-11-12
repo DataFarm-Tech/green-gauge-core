@@ -76,7 +76,7 @@ bool BatteryPacket::readFromBMS()
 
     // ADC Configuration
     adc_oneshot_chan_cfg_t config = {
-        .atten = ADC_ATTEN_DB_11,
+        .atten = ADC_ATTEN_DB_12,
         .bitwidth = ADC_BITWIDTH_DEFAULT,
     };
     if (adc_oneshot_config_channel(adc1_handle, BATT_ADC_CHANNEL, &config) != ESP_OK) {
@@ -87,12 +87,12 @@ bool BatteryPacket::readFromBMS()
 
     // ADC Calibration
     adc_cali_handle_t cali_handle = NULL;
-    adc_cali_line_fitting_config_t cali_config = {
+    adc_cali_curve_fitting_config_t cali_config = {
         .unit_id = ADC_UNIT_1,
-        .atten = ADC_ATTEN_DB_11,
+        .atten = ADC_ATTEN_DB_12,
         .bitwidth = ADC_BITWIDTH_DEFAULT,
     };
-    if (adc_cali_create_scheme_line_fitting(&cali_config, &cali_handle) != ESP_OK) {
+    if (adc_cali_create_scheme_curve_fitting(&cali_config, &cali_handle) != ESP_OK) {
         ESP_LOGW(TAG.c_str(), "ADC calibration scheme creation failed");
     }
 
@@ -113,7 +113,7 @@ bool BatteryPacket::readFromBMS()
     // Cleanup
     adc_oneshot_del_unit(adc1_handle);
     if (cali_handle) {
-        adc_cali_delete_scheme_line_fitting(cali_handle);
+        adc_cali_delete_scheme_curve_fitting(cali_handle);
     }
 
     if (voltage_mv > 0) {
