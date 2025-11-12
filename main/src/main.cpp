@@ -26,6 +26,21 @@ DeviceConfig g_device_config = { false };
 
 extern "C" void app_main(void)
 {
+    // --- Battery Test Code ---
+    ESP_LOGI("MAIN", "Starting battery percentage test...");
+    BatteryPacket battery(NODE_ID, BATT_URI, 0, 0, BATT_TAG);
+
+    while (1) {
+        if (!battery.readFromBMS()) {
+            ESP_LOGE("MAIN", "Failed to read battery from BMS");
+        }
+        // The battery level is logged inside readFromBMS()
+        vTaskDelay(pdMS_TO_TICKS(5000)); // Wait 5 seconds
+    }
+
+
+    // --- Original Application Code ---
+    /*
     EEPROMConfig eeprom;
 
     if (!eeprom.begin()) {
@@ -101,4 +116,5 @@ extern "C" void app_main(void)
         esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);  // Convert to microseconds
         esp_deep_sleep_start();
     #endif
+    */
 }
