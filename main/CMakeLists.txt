@@ -20,7 +20,7 @@ idf_component_register(
         esp_https_ota
         app_update
         esp_http_client
-        esp_adc
+    driver
 )
 
 # Enable all warnings for GCC/Clang
