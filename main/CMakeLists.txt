@@ -10,6 +10,7 @@ idf_component_register(
         "src/ReadingPacket.cpp"
         "src/ActivatePacket.cpp"
         "src/EEPROMConfig.cpp"
+        "src/I2CDriver.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash
