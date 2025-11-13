@@ -94,7 +94,7 @@ extern "C" void app_main(void)
                 battery.sendPacket();
             }
 
-            Close connection
+            // Close connection
             if (comm.isConnected()) 
             {
                 comm.disconnect();
