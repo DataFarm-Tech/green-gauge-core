@@ -69,8 +69,8 @@ const uint8_t * BatteryPacket::toBuffer()
 
 bool BatteryPacket::readFromBMS()
 {
-    // Create and initialize I2C driver for the battery bus
-    I2CDriver i2c(BATT_I2C_PORT, BATT_I2C_SDA, BATT_I2C_SCL, BATT_I2C_FREQ_HZ);
+    // Static I2C driver instance - initialized once and reused
+    static I2CDriver i2c(BATT_I2C_PORT, BATT_I2C_SDA, BATT_I2C_SCL, BATT_I2C_FREQ_HZ);
 
     //Reading voltage into rawVcell
     uint8_t rawVcell[2] = {0};
