@@ -3,10 +3,12 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "esp_log.h"
+#include "Node.hpp"
 
 // Define the device configuration structure
 typedef struct {
     bool has_activated;
+    Node nodeId;    
 } DeviceConfig;
 
 /**

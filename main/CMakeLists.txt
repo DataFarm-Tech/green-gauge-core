@@ -11,6 +11,7 @@ idf_component_register(
         "src/ActivatePacket.cpp"
         "src/EEPROMConfig.cpp"
         "src/I2CDriver.cpp"
+        "src/Node.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash
@@ -24,15 +25,15 @@ idf_component_register(
     driver
 )
 
-# Enable all warnings for GCC/Clang
-target_compile_options(${COMPONENT_LIB} PRIVATE
-    -Wall          # Enable all standard warnings
-    -Wextra        # Extra warnings
-    -Wpedantic     # Strict ISO compliance
-    -Wconversion   # Warn on implicit type conversions
-    -Wshadow       # Warn when local variables shadow others
-    -Wnon-virtual-dtor  # Warn if a class has virtual methods but no virtual destructor
-)
+# # Enable all warnings for GCC/Clang
+# target_compile_options(${COMPONENT_LIB} PRIVATE
+#     -Wall          # Enable all standard warnings
+#     -Wextra        # Extra warnings
+#     -Wpedantic     # Strict ISO compliance
+#     -Wconversion   # Warn on implicit type conversions
+#     -Wshadow       # Warn when local variables shadow others
+#     -Wnon-virtual-dtor  # Warn if a class has virtual methods but no virtual destructor
+# )
 
 set(DEEP_SLEEP_EN 1)
 target_compile_definitions(${COMPONENT_LIB} PRIVATE DEEP_SLEEP_EN=${DEEP_SLEEP_EN})

@@ -21,8 +21,10 @@ extern "C" {
 #include "Config.hpp"
 #include "ota/OTAUpdater.hpp"
 #include "EEPROMConfig.hpp"
+#include "Node.hpp"
 
-DeviceConfig g_device_config = { false };
+Node nodeId;
+DeviceConfig g_device_config = { false, nodeId};
 
 extern "C" void app_main(void)
 {
@@ -65,7 +67,7 @@ extern "C" void app_main(void)
             if (!g_device_config.has_activated) 
             {
                 ESP_LOGI("MAIN", "Sending activation packet...");
-                ActivatePacket activate(NODE_ID, ACT_URI, "activate");
+                ActivatePacket activate(g_device_config.nodeId.getNodeID(), ACT_URI, ACT_TAG);
                 activate.sendPacket();
 
                 g_device_config.has_activated = true; // Mark as activated and save it
@@ -76,13 +78,13 @@ extern "C" void app_main(void)
                 ESP_LOGI("MAIN", "Already activated — skipping activation packet.");
             }
         
-            ReadingPacket readings(NODE_ID, DATA_URI, DATA_TAG); // Send readings
+            ReadingPacket readings(g_device_config.nodeId.getNodeID(), DATA_URI, DATA_TAG); // Send readings
             ESP_LOGI("MAIN", "Collecting sensor readings...");
             
             readings.readSensor();
             readings.sendPacket();
 
-            BatteryPacket battery(NODE_ID, BATT_URI, 0, 0, BATT_TAG);
+            BatteryPacket battery(g_device_config.nodeId.getNodeID(), BATT_URI, 0, 0, BATT_TAG);
             
             if (!battery.readFromBMS())
             {
