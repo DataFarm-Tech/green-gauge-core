@@ -18,6 +18,14 @@ struct Command {
     int min_args;
 };
 
+
+#define HISTORY_SIZE 8
+static char history[HISTORY_SIZE][BUF_SIZE];
+static int history_count = 0;
+static int history_index = -1;
+
+
+
 // ───────────────────────── COMMAND HANDLERS ─────────────────────────
 
 static void cmd_help(int, char**);
@@ -98,6 +106,8 @@ static void exec(char* line) {
 extern "C" void cli_task(void*) {
     char line[BUF_SIZE];
     int idx = 0;
+    bool esc_seq = false;
+    int esc_state = 0;
 
     UARTConsole::write("CLI Ready\r\n> ");
 
@@ -105,33 +115,113 @@ extern "C" void cli_task(void*) {
         uint8_t c;
         if (UARTConsole::readByte(c) > 0) {
 
-            // ──────────────── Handle ENTER ────────────────
-            if (c == '\n' || c == '\r') {
-                line[idx] = 0;
-                UARTConsole::write("\r\n");
-                exec(line);
-                idx = 0;
-                UARTConsole::write("> ");
+            // ───────────────── ESCAPE SEQUENCES (arrow keys) ─────────────────
+            if (c == 0x1B) {  // ESC
+                esc_seq = true;
+                esc_state = 1;
+                continue;
             }
 
-            // ──────────────── Handle BACKSPACE ────────────────
-            else if ((c == 0x08 || c == 0x7F)) {  // 0x08 = BS, 0x7F = DEL
-                if (idx > 0) {
-                    idx--;
+            if (esc_seq) {
+                if (esc_state == 1 && c == '[') {
+                    esc_state = 2;
+                    continue;
+                }
+                if (esc_state == 2) {
+                    // UP arrow
+                    if (c == 'A') {
+                        if (history_count > 0 && history_index < history_count - 1) {
+                            history_index++;
 
-                    // Erase character from terminal
-                    UARTConsole::write("\b \b");
+                            // Clear current line
+                            while (idx > 0) {
+                                UARTConsole::write("\b \b");
+                                idx--;
+                            }
+
+                            // Load history entry
+                            strcpy(line, history[history_count - 1 - history_index]);
+                            idx = strlen(line);
+                            UARTConsole::write(line);
+                        }
+                    }
+
+                    // DOWN arrow
+                    else if (c == 'B') {
+                        if (history_index > 0) {
+                            history_index--;
+
+                            // Clear current line
+                            while (idx > 0) {
+                                UARTConsole::write("\b \b");
+                                idx--;
+                            }
+
+                            // Load the next newer entry
+                            strcpy(line, history[history_count - 1 - history_index]);
+                            idx = strlen(line);
+                            UARTConsole::write(line);
+                        }
+                        else if (history_index == 0) {
+                            // Clear history selection — blank line
+                            history_index = -1;
+                            while (idx > 0) {
+                                UARTConsole::write("\b \b");
+                                idx--;
+                            }
+                        }
+                    }
+
+                    esc_seq = false;
+                    continue;
                 }
             }
 
-            // ──────────────── Printable characters ────────────────
-            else if (c >= 32 && c < 127 && idx < BUF_SIZE - 1) {
+            // ───────────────── ENTER / EXECUTE ─────────────────
+            if (c == '\n' || c == '\r') {
+                UARTConsole::write("\r\n");
+                line[idx] = 0;
+
+                if (idx > 0) {
+                    // Save to history
+                    if (history_count < HISTORY_SIZE) {
+                        strcpy(history[history_count++], line);
+                    } else {
+                        // Shift left
+                        for (int i = 1; i < HISTORY_SIZE; i++)
+                            strcpy(history[i - 1], history[i]);
+                        strcpy(history[HISTORY_SIZE - 1], line);
+                    }
+                }
+
+                history_index = -1;
+
+                exec(line);
+                idx = 0;
+
+                UARTConsole::write("> ");
+                continue;
+            }
+
+            // ───────────────── BACKSPACE ─────────────────
+            if ((c == 0x08 || c == 0x7F)) {
+                if (idx > 0) {
+                    idx--;
+                    UARTConsole::write("\b \b");
+                }
+                continue;
+            }
+
+            // ───────────────── PRINTABLE ─────────────────
+            if (c >= 32 && c < 127 && idx < BUF_SIZE - 1) {
                 line[idx++] = c;
                 uart_write_bytes(UART_NUM_0, (char*)&c, 1);
+                continue;
             }
         }
     }
 }
+
 
 
 void CLI::start() {
