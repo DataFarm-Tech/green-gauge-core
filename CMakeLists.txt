@@ -6,6 +6,9 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 # set(PROJECT_VER "0.0.0")
 
+set(PARTITION_TABLE_CSV partitions.csv)
+
+
 
 set(COMPONENTS main esp_eth)
 project(firmware-idf)

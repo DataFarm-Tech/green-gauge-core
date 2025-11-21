@@ -1,55 +1,50 @@
-// #include "ota/OTAUpdater.hpp"
-// #include "esp_system.h"
+#include "ota/OTAUpdater.hpp"
+#include "esp_https_ota.h"
+#include "esp_log.h"
+#include "esp_ota_ops.h"
+#include <string.h>
 
-// OTAUpdater::OTAUpdater(const char * tag)
-//     : TAG(tag),
-//       timeout_ms(10000),
-//       buffer_size(8192),
-//       buffer_size_tx(2048),
-//       bulk_erase(true)
-// {
-//     memset(&httpConfig, 0, sizeof(httpConfig));
-//     memset(&otaConfig, 0, sizeof(otaConfig));
+static const char *TAG = "OTA";
 
-//     // set default config values
-//     httpConfig.keep_alive_enable = true;
-//     httpConfig.crt_bundle_attach = esp_crt_bundle_attach;
-//     otaConfig.http_config = &httpConfig;
-// }
+static esp_err_t http_events(esp_http_client_event_t *evt) {
+    switch (evt->event_id) {
+        case HTTP_EVENT_ON_CONNECTED:
+            ESP_LOGI(TAG, "Connected");
+            break;
+        case HTTP_EVENT_ON_DATA:
+            break;
+        case HTTP_EVENT_DISCONNECTED:
+            ESP_LOGI(TAG, "Disconnected");
+            break;
+        default:
+            break;
+    }
+    return ESP_OK;
+}
 
-// void OTAUpdater::setTimeout(uint32_t ms) {
-//     timeout_ms = ms;
-// }
+bool OTAUpdater::update(const char* url) {
+    ESP_LOGI(TAG, "Starting OTA from: %s", url);
 
-// void OTAUpdater::setBufferSizes(int rx, int tx) {
-//     buffer_size = rx;
-//     buffer_size_tx = tx;
-// }
+    esp_http_client_config_t http = {};
+    http.url = url;
+    http.event_handler = http_events;
+    http.timeout_ms = 30000;
+    http.keep_alive_enable = true;
+    http.buffer_size = 1024;
 
-// void OTAUpdater::enableBulkErase(bool enable) {
-//     bulk_erase = enable;
-// }
+    // If HTTP instead of HTTPS — bypass cert
+    if (strncmp(url, "https://", 8) != 0) {
+        http.cert_pem = ""; 
+    }
 
-// void OTAUpdater::applyConfig(const char* url) {
-//     httpConfig.url = url;
-//     httpConfig.timeout_ms = timeout_ms;
-//     httpConfig.buffer_size = buffer_size;
-//     httpConfig.buffer_size_tx = buffer_size_tx;
-//     otaConfig.bulk_flash_erase = bulk_erase;
-// }
+    esp_https_ota_config_t cfg = {};
+    cfg.http_config = &http;
 
-// esp_err_t OTAUpdater::performUpdate(const char* url) {
-//     applyConfig(url);
-//     ESP_LOGI(TAG, "Starting OTA update from %s", url);
+    esp_err_t ret = esp_https_ota(&cfg);
+    return ret == ESP_OK;
+}
 
-//     esp_err_t ret = esp_https_ota(&otaConfig);
-
-//     if (ret == ESP_OK) {
-//         ESP_LOGI(TAG, "OTA successful, restarting...");
-//         esp_restart();
-//     } else {
-//         ESP_LOGE(TAG, "OTA failed: %s", esp_err_to_name(ret));
-//     }
-
-//     return ret;
-// }
+void OTAUpdater::printInfo() {
+    const esp_partition_t *p = esp_ota_get_running_partition();
+    ESP_LOGI(TAG, "Running partition: %s @ 0x%lx", p->label, p->address);
+}

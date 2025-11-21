@@ -12,6 +12,9 @@ idf_component_register(
         "src/EEPROMConfig.cpp"
         "src/I2CDriver.cpp"
         "src/Node.cpp"
+        "src/CLI.cpp"
+        "src/UARTConsole.cpp"
+        "src/OTAUpdater.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash
@@ -22,6 +25,9 @@ idf_component_register(
         esp_https_ota
         app_update
         esp_http_client
+        driver
+        esp_driver_uart
+        esp_driver_gpio
     driver
 )
 
@@ -35,7 +41,7 @@ idf_component_register(
 #     -Wnon-virtual-dtor  # Warn if a class has virtual methods but no virtual destructor
 # )
 
-set(DEEP_SLEEP_EN 1)
+set(DEEP_SLEEP_EN 0)
 target_compile_definitions(${COMPONENT_LIB} PRIVATE DEEP_SLEEP_EN=${DEEP_SLEEP_EN})
 
 set(DHCP_EN 1)
