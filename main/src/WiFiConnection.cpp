@@ -6,8 +6,8 @@
 #include "lwip/ip4_addr.h"
 #include "esp_netif_ip_addr.h"
 
-#define WIFI_SSID "MyWifi6E"
-#define WIFI_PASS "ExpZZLN9U8V2"
+#define WIFI_SSID "NETGEAR77"
+#define WIFI_PASS "aquaticcarrot628"
 
 void WifiConnection::wifi_event_handler(void * arg, esp_event_base_t event_base, int32_t event_id, void * event_data) 
 {
