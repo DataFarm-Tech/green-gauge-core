@@ -35,27 +35,24 @@ DeviceConfig g_device_config = { false, nodeId };
 
 extern "C" void app_main(void)
 {   
-    // Check wakeup cause and reset reason
     esp_sleep_wakeup_cause_t wakeup_reason;
     esp_reset_reason_t reset_reason;
-    OTAUpdater ota;
     EEPROMConfig eeprom;
     Communication comm(ConnectionType::WIFI);
     ActivatePacket activate(g_device_config.nodeId.getNodeID(), ACT_URI, ACT_TAG);
     ReadingPacket readings(g_device_config.nodeId.getNodeID(), DATA_URI, DATA_TAG);
-    const char* url = "http://45.79.118.187:8080/release/latest/cn1.bin";
-
-
-    // Start CLI task
-    UARTConsole::init(115200);
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    CLI::start();
 
     wakeup_reason = esp_sleep_get_wakeup_cause();
     reset_reason = esp_reset_reason();
-    
-    // Original application code
+
+    // Start CLI task
+    #if CLI_EN == 1
+        UARTConsole::init(115200);
+        ESP_ERROR_CHECK(esp_netif_init());
+        ESP_ERROR_CHECK(esp_event_loop_create_default());
+        CLI::start();
+    #endif
+
     vTaskDelay(pdMS_TO_TICKS(500));
     
     if (!eeprom.begin()) 
@@ -86,6 +83,7 @@ extern "C" void app_main(void)
             {
                 ESP_LOGI("MAIN", "Already activated.");
             }
+
             ESP_LOGI("MAIN", "Collecting sensor readings...");
             readings.readSensor();
             readings.sendPacket();
@@ -99,30 +97,45 @@ extern "C" void app_main(void)
             // }
 
             // Only run OTA update on power-on (not on reboot or deep sleep wakeup)
-            if (reset_reason == ESP_RST_POWERON) 
-            {
-                printf("Power-on detected. Checking for OTA update...\n");
-                   
-                if (ota.update("http://45.79.118.187:8080/release/latest/cn1.bin")) 
-                {
-                    printf("OTA OK. Rebooting...\n");
-                    vTaskDelay(pdMS_TO_TICKS(2000));
-                    esp_restart();
-                } 
-                else 
-                {
-                    printf("OTA FAILED or no update needed\n");
-                }
-            }
 
-            for (;;) //WILL REMOVE THIS LATER...
-            {
-                vTaskDelay(pdMS_TO_TICKS(1000));
-            }
+            #if OTA_EN == 1
+                {
+                    OTAUpdater ota;
+
+                    if (reset_reason == ESP_RST_POWERON) 
+                    {
+                        const char * url = "http://45.79.118.187:8080/release/latest/cn1.bin";
+                        printf("Power-on detected. Checking for OTA update...\n");
+
+                        if (ota.update(url)) 
+                        {
+                            printf("OTA OK. Rebooting...\n");
+                            vTaskDelay(pdMS_TO_TICKS(2000));
+                            esp_restart();
+                        } 
+                        else 
+                        {
+                            printf("OTA FAILED or no update needed\n");
+                        }
+                    }
+                }
+            #endif
+
+            /**
+             * Existing bug: If CLI is enabled, after executing battery section 
+             * CLI is non-responsive. May be becuase of the UART pins. Battery could
+             * be using UART0 for communication with BMS???
+             */
+            #if CLI_EN == 1
+                for (;;) //WILL REMOVE THIS LATER...
+                {
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                }
+            #endif
 
             
-            // if (comm.isConnected())
-            //     comm.disconnect();
+            if (comm.isConnected())
+                comm.disconnect();
         }
         else {
             ESP_LOGI("MAIN", "Unable to connect");

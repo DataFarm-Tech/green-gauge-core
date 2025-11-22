@@ -41,11 +41,12 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
     # -Wnon-virtual-dtor  # Warn if a class has virtual methods but no virtual destructor
 )
 
+set(CLI_EN 1)
+set(OTA_EN 1)
 set(DEEP_SLEEP_EN 1)
-target_compile_definitions(${COMPONENT_LIB} PRIVATE DEEP_SLEEP_EN=${DEEP_SLEEP_EN})
 
-set(DHCP_EN 1)
-target_compile_definitions(${COMPONENT_LIB} PRIVATE DHCP_EN=${DHCP_EN})
-
-set(ACT_EN 1)
-target_compile_definitions(${COMPONENT_LIB} PRIVATE ACT_EN=${ACT_EN})
+target_compile_definitions(${COMPONENT_LIB} PRIVATE
+    CLI_EN=${CLI_EN}
+    OTA_EN=${OTA_EN}
+    DEEP_SLEEP_EN=${DEEP_SLEEP_EN}
+)

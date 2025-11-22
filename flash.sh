@@ -3,7 +3,8 @@
 set -e
 
 echo "=== Building firmware ==="
-idf.py build
+idf.py build -DCLI_EN=1 -DOTA_EN=1 -DDEEP_SLEEP_EN=1
+
 
 # Path to the built firmware
 BIN_FILE="build/firmware-idf.bin"
