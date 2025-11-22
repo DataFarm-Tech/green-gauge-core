@@ -30,9 +30,3 @@ jobs:
       - name: Build ESP-IDF project
         run: |
           idf.py fullclean build -D PROJECT_VER=$FW_VERSION
-
-      - name: Upload BIN and version.json to Linode Object Storage
-        run: |
-          echo "Uploading firmware ${FW_VERSION}.bin ..."
-          curl -X PUT -T build/firmware-idf.bin \
-            https://df-ota.in-maa-1.linodeobjects.com/images/${FW_VERSION}.bin
