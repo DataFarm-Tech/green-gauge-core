@@ -78,10 +78,7 @@ extern "C" void app_main(void)
             readings.readSensor();
             readings.sendPacket();
 
-            for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
+            
             BatteryPacket battery(g_device_config.nodeId.getNodeID(), BATT_URI, 0, 0, BATT_TAG);
             if (!battery.readFromBMS()) {
                 ESP_LOGE("MAIN", "Failed to read battery.");
@@ -89,9 +86,12 @@ extern "C" void app_main(void)
                 ESP_LOGI("MAIN", "Sending battery packet...");
                 battery.sendPacket();
             }
-
+            
             // if (comm.isConnected())
             //     comm.disconnect();
+            for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
         }
 
         eeprom.close();
