@@ -15,13 +15,6 @@ jobs:
         with:
           submodules: true
 
-      - name: Set firmware version from git hash and create version.json
-        run: |
-          HASH=$(git rev-parse --short HEAD)
-          FW_VERSION="g$HASH"
-          echo "FW_VERSION=$FW_VERSION" >> $GITHUB_ENV
-          FW_URL="https://df-ota.in-maa-1.linodeobjects.com/images/${FW_VERSION}.bin"
-
       - name: Install ESP-IDF
         uses: espressif/install-esp-idf-action@v1
         with:
