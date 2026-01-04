@@ -37,10 +37,10 @@ extern "C" void app_main(void)
 {   
     esp_sleep_wakeup_cause_t wakeup_reason;
     esp_reset_reason_t reset_reason;
-    EEPROMConfig eeprom;
+    // EEPROMConfig eeprom;
     Communication comm(ConnectionType::WIFI);
-    ActivatePacket activate(g_device_config.nodeId.getNodeID(), ACT_URI, ACT_TAG);
-    ReadingPacket readings(g_device_config.nodeId.getNodeID(), DATA_URI, DATA_TAG);
+    ActivatePacket activate(std::string(g_device_config.nodeId.getNodeID()), ACT_URI, ACT_TAG);
+    ReadingPacket readings(std::string(g_device_config.nodeId.getNodeID()), DATA_URI, DATA_TAG);
 
     wakeup_reason = esp_sleep_get_wakeup_cause();
     reset_reason = esp_reset_reason();

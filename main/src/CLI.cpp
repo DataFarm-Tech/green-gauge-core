@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <string.h>
+#include "EEPROMConfig.hpp"
 
 #define MAX_ARGS 4
 #define BUF_SIZE 128
@@ -31,11 +32,15 @@ static int history_index = -1;
 static void cmd_help(int, char**);
 static void cmd_reset(int, char**);
 static void cmd_install(int argc, char** argv);
+static void cmd_reset_eeprom(int argc, char** argv);
+static void cmd_get_config(int argc, char** argv);
 
 static const Command commands[] = {
     {"help",      "Show commands",           cmd_help,      0},
     {"reset",     "Reboot",                  cmd_reset,     0},
     {"install",   "install <ip> <file>",     cmd_install,   2},
+    {"clean",     "Reset EEPROM",            cmd_reset_eeprom, 0},
+    {"getconfig", "Get device config",      cmd_get_config, 0},
     {nullptr, nullptr, nullptr, 0}
 };
 
@@ -68,6 +73,25 @@ static void cmd_install(int argc, char** argv) {
         esp_restart();
     } else {
         UARTConsole::write("OTA FAILED\r\n");
+    }
+}
+
+static void cmd_reset_eeprom(int argc, char** argv) {
+    //TODO
+    eeprom.begin();
+    UARTConsole::write("Erasing EEPROM config...\r\n");
+    eeprom.eraseConfig();
+}
+
+
+static void cmd_get_config(int argc, char** argv) {
+    DeviceConfig config;
+    eeprom.begin();
+    if (eeprom.loadConfig(config)) {
+        UARTConsole::writef("Activated: %s\r\n", config.has_activated ? "Yes" : "No");
+        UARTConsole::writef("Node ID: %s\r\n", config.nodeId.getNodeID());
+    } else {
+        UARTConsole::write("No config found.\r\n");
     }
 }
 
