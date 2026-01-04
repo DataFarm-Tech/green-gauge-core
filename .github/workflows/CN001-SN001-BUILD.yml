@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v5.3.2  # or v5.5.2
 
     steps:
       - name: Checkout code
@@ -15,13 +17,9 @@ jobs:
         with:
           submodules: true
 
-      - name: Install ESP-IDF
-        uses: espressif/esp-idf-ci-action@v1
-        with:
-          esp_idf_version: v6.0
-          target: esp32  # Change to your target: esp32, esp32s2, esp32s3, esp32c3, etc.
-
       - name: Build ESP-IDF project
+        shell: bash
         run: |
-          . $IDF_PATH/export.sh
+          export IDF_TARGET=esp32
+          . /opt/esp/idf/export.sh
           idf.py fullclean build -D PROJECT_VER=$FW_VERSION
