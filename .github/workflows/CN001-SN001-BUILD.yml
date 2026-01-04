@@ -18,7 +18,7 @@ jobs:
       - name: Install ESP-IDF
         uses: espressif/esp-idf-ci-action@v1
         with:
-          esp_idf_version: v5.0
+          esp_idf_version: v6.0
           target: esp32  # Change to your target: esp32, esp32s2, esp32s3, esp32c3, etc.
 
       - name: Build ESP-IDF project
