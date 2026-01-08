@@ -1,7 +1,7 @@
-#include "comm/SimConnection.hpp"
+#include "EthernetConnection.hpp"
 #include "esp_log.h"
 
-static const char* TAG = "SIM";
+static const char* TAG = "ETH";
 
 extern "C" {
     #include "freertos/FreeRTOS.h"
@@ -9,27 +9,26 @@ extern "C" {
 }
 
 
-bool SimConnection::connect() 
+bool EthernetConnection::connect() 
 {
-    ESP_LOGI(TAG, "Connecting via SIM (stub)...");
+    ESP_LOGI(TAG, "Connecting via ETH (stub)...");
 
     // TODO: Send AT commands via UART to initialize the modem and connect
     // This would use UART APIs and maybe PPPoS if using esp_modem
 
-    vTaskDelay(pdMS_TO_TICKS(3000)); // Simulate connection time
+    vTaskDelay(pdMS_TO_TICKS(3000));
     ESP_LOGI(TAG, "SIM connected (simulated)");
     return false;
 }
 
-bool SimConnection::isConnected() 
+bool EthernetConnection::isConnected() 
 {
-    // TODO: Check modem status
     return false; // Simulated
 }
 
-void SimConnection::disconnect() 
+void EthernetConnection::disconnect() 
 {
-    ESP_LOGI(TAG, "Disconnecting SIM (stub)...");
+    ESP_LOGI(TAG, "Disconnecting ETH (stub)...");
     // TODO: Send AT command to disconnect or power down modem
     vTaskDelay(pdMS_TO_TICKS(1000)); // Simulate
 }

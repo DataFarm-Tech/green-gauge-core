@@ -1,4 +1,4 @@
-#include "packet/ActivatePacket.hpp"
+#include "ActivatePacket.hpp"
 #include <mbedtls/md.h>
 #include "Config.hpp"
 

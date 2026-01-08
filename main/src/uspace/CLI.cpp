@@ -1,6 +1,6 @@
 #include "CLI.hpp"
 #include "UARTConsole.hpp"
-#include "ota/OTAUpdater.hpp"
+#include "OTAUpdater.hpp"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -32,15 +32,13 @@ static int history_index = -1;
 static void cmd_help(int, char**);
 static void cmd_reset(int, char**);
 static void cmd_install(int argc, char** argv);
-static void cmd_reset_eeprom(int argc, char** argv);
-static void cmd_get_config(int argc, char** argv);
+static void cmd_eeprom(int argc, char** argv);
 
 static const Command commands[] = {
-    {"help",      "Show commands",           cmd_help,      0},
-    {"reset",     "Reboot",                  cmd_reset,     0},
-    {"install",   "install <ip> <file>",     cmd_install,   2},
-    {"clean",     "Reset EEPROM",            cmd_reset_eeprom, 0},
-    {"getconfig", "Get device config",      cmd_get_config, 0},
+    {"help",      "Show commands",              cmd_help,      0},
+    {"reset",     "Reboot",                     cmd_reset,     0},
+    {"install",   "install <ip> <file>",        cmd_install,   2},
+    {"eeprom",    "eeprom <clean|get>",         cmd_eeprom,    1},
     {nullptr, nullptr, nullptr, 0}
 };
 
@@ -76,22 +74,36 @@ static void cmd_install(int argc, char** argv) {
     }
 }
 
-static void cmd_reset_eeprom(int argc, char** argv) {
-    //TODO
-    eeprom.begin();
-    UARTConsole::write("Erasing EEPROM config...\r\n");
-    eeprom.eraseConfig();
-}
+static void cmd_eeprom(int argc, char** argv) {
+    if (argc < 2) {
+        UARTConsole::write("Usage: eeprom <clean|get>\r\n");
+        return;
+    }
 
+    const char* subcommand = argv[1];
 
-static void cmd_get_config(int argc, char** argv) {
-    DeviceConfig config;
-    eeprom.begin();
-    if (eeprom.loadConfig(config)) {
-        UARTConsole::writef("Activated: %s\r\n", config.has_activated ? "Yes" : "No");
-        UARTConsole::writef("Node ID: %s\r\n", config.nodeId.getNodeID());
-    } else {
-        UARTConsole::write("No config found.\r\n");
+    // ─────────── EEPROM CLEAN ───────────
+    if (strcmp(subcommand, "clean") == 0) {
+        eeprom.begin();
+        UARTConsole::write("Erasing EEPROM config...\r\n");
+        eeprom.eraseConfig();
+        UARTConsole::write("EEPROM cleaned.\r\n");
+    }
+    // ─────────── EEPROM GET ───────────
+    else if (strcmp(subcommand, "get") == 0) {
+        DeviceConfig config;
+        eeprom.begin();
+        if (eeprom.loadConfig(config)) {
+            UARTConsole::writef("Activated: %s\r\n", config.has_activated ? "Yes" : "No");
+            UARTConsole::writef("Node ID: %s\r\n", config.nodeId.getNodeID());
+        } else {
+            UARTConsole::write("No config found.\r\n");
+        }
+    }
+    // ─────────── UNKNOWN SUBCOMMAND ───────────
+    else {
+        UARTConsole::writef("Unknown subcommand: %s\r\n", subcommand);
+        UARTConsole::write("Usage: eeprom <clean|get>\r\n");
     }
 }
 
@@ -117,7 +129,7 @@ static void exec(char* line) {
     for (int i = 0; commands[i].name; i++) {
         if (strcmp(argv[0], commands[i].name) == 0) {
             if (argc - 1 < commands[i].min_args) {
-                UARTConsole::write("Not enough args\r\n");
+                UARTConsole::writef("Usage: %s\r\n", commands[i].help);
                 return;
             }
             commands[i].handler(argc, argv);

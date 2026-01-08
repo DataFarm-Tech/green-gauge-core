@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include <cstdint>
 #include <cstddef>
-#include "packet/ReadingPacket.hpp"
+#include "ReadingPacket.hpp"
 #include "Config.hpp"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>

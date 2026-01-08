@@ -1,5 +1,5 @@
 #include <iostream>
-#include "comm/Communication.hpp"
+#include "Communication.hpp"
 #include "esp_log.h"
 
 extern "C" {
@@ -16,9 +16,9 @@ extern "C" {
 #include "lwip/sockets.h"
 #include "lwip/inet.h"
 #include <string.h>
-#include "packet/BatteryPacket.hpp"
-#include "packet/ReadingPacket.hpp"
-#include "packet/ActivatePacket.hpp"
+#include "BatteryPacket.hpp"
+#include "ReadingPacket.hpp"
+#include "ActivatePacket.hpp"
 #include "Config.hpp"
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
@@ -27,7 +27,8 @@ extern "C" {
 #include "Node.hpp"
 #include "UARTConsole.hpp"
 #include "CLI.hpp"
-#include "ota/OTAUpdater.hpp"
+#include "OTAUpdater.hpp"
+#include "Logger.hpp"
 
 Node nodeId;
 DeviceConfig g_device_config = { false, nodeId };
@@ -41,7 +42,10 @@ extern "C" void app_main(void)
     Communication comm(ConnectionType::WIFI);
     ActivatePacket activate(std::string(g_device_config.nodeId.getNodeID()), ACT_URI, ACT_TAG);
     ReadingPacket readings(std::string(g_device_config.nodeId.getNodeID()), DATA_URI, DATA_TAG);
+    Logger logger;
 
+    
+    
     wakeup_reason = esp_sleep_get_wakeup_cause();
     reset_reason = esp_reset_reason();
 
@@ -53,7 +57,18 @@ extern "C" void app_main(void)
         CLI::start();
     #endif
 
+    
+    
+    
     vTaskDelay(pdMS_TO_TICKS(500));
+    
+    logger.open();
+
+    logger.log("hello.txt", "hello");
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    logger.close();
     
     if (!eeprom.begin()) 
     {
