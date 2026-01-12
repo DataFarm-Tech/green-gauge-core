@@ -38,14 +38,11 @@ extern "C" void app_main(void)
 {   
     esp_sleep_wakeup_cause_t wakeup_reason;
     esp_reset_reason_t reset_reason;
-    // EEPROMConfig eeprom;
     Communication comm(ConnectionType::WIFI);
     ActivatePacket activate(std::string(g_device_config.nodeId.getNodeID()), ACT_URI, ACT_TAG);
     ReadingPacket readings(std::string(g_device_config.nodeId.getNodeID()), DATA_URI, DATA_TAG);
     Logger logger;
 
-    
-    
     wakeup_reason = esp_sleep_get_wakeup_cause();
     reset_reason = esp_reset_reason();
 
@@ -57,18 +54,13 @@ extern "C" void app_main(void)
         CLI::start();
     #endif
 
-    
-    
-    
     vTaskDelay(pdMS_TO_TICKS(500));
     
     logger.open();
 
-    logger.log("hello.txt", "hello");
+    logger.log("system.log", "System booting...");
 
     vTaskDelay(pdMS_TO_TICKS(1000));
-
-    logger.close();
     
     if (!eeprom.begin()) 
     {

@@ -6,6 +6,7 @@
 #include "freertos/task.h"
 #include <string.h>
 #include "EEPROMConfig.hpp"
+#include "Logger.hpp"
 
 #define MAX_ARGS 4
 #define BUF_SIZE 128
@@ -33,16 +34,31 @@ static void cmd_help(int, char**);
 static void cmd_reset(int, char**);
 static void cmd_install(int argc, char** argv);
 static void cmd_eeprom(int argc, char** argv);
+static void cmd_log(int argc, char** argv);
 
 static const Command commands[] = {
     {"help",      "Show commands",              cmd_help,      0},
     {"reset",     "Reboot",                     cmd_reset,     0},
     {"install",   "install <ip> <file>",        cmd_install,   2},
     {"eeprom",    "eeprom <clean|get>",         cmd_eeprom,    1},
+    {"log",       "Get System Log",             cmd_log,       0},  // <-- changed 1 -> 0
     {nullptr, nullptr, nullptr, 0}
 };
 
 // ───────────────────────── IMPLEMENTATIONS ─────────────────────────
+
+static void cmd_log(int argc, char **argv) {
+    
+    std::string contents;
+    esp_err_t err = logger.readAll("system.log", contents);
+    if (err == ESP_OK) {
+        UARTConsole::writef("%s\r\n", contents.c_str());
+    } else {
+        UARTConsole::write("File does not exist: system.log\r\n");
+    }
+
+}
+
 
 static void cmd_help(int, char**) {
     UARTConsole::write("Commands:\r\n");
