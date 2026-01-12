@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:latest
 
     steps:
       - name: Checkout code
@@ -15,11 +17,9 @@ jobs:
         with:
           submodules: true
 
-      - name: Install ESP-IDF
-        uses: espressif/install-esp-idf-action@v1
-        with:
-          version: v6.0
-
       - name: Build ESP-IDF project
+        shell: bash
         run: |
+          export IDF_TARGET=esp32
+          . /opt/esp/idf/export.sh
           idf.py fullclean build -D PROJECT_VER=$FW_VERSION

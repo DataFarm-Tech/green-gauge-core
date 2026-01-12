@@ -12,7 +12,7 @@
  */
 class Node {
 private:
-    std::string nodeID;  ///< Stores the unique node identifier
+    char nodeID[7];  ///< Stores the unique node identifier (6 chars + null terminator)
 
 public:
     /**
@@ -23,7 +23,7 @@ public:
     /**
      * @brief Retrieves the current node ID.
      *
-     * @return The 6-character node ID as a std::string.
+     * @return The 6-character node ID as a C-style string.
      */
-    std::string getNodeID() const;
+    const char* getNodeID() const;
 };

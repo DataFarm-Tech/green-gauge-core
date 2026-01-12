@@ -1,0 +1,35 @@
+name: Auto Tag on Merge
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          git fetch --tags
+          LATEST_TAG=$(git describe --tags --abbrev=0 || echo "v0.0.0")
+          echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_ENV
+
+      - name: Bump version (patch)
+        id: bump
+        run: |
+          IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST_TAG#v}"
+          PATCH=$((PATCH + 1))
+          NEW_TAG="v$MAJOR.$MINOR.$PATCH"
+          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
+
+      - name: Create new tag
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag $NEW_TAG
+          git push origin $NEW_TAG

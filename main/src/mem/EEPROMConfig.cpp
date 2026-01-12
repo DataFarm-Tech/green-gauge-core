@@ -1,5 +1,8 @@
 #include "EEPROMConfig.hpp"
 
+
+EEPROMConfig eeprom;
+
 void EEPROMConfig::init_nvs()
 {
     esp_err_t ret = nvs_flash_init();

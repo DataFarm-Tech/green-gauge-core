@@ -1,7 +1,7 @@
 #include "Node.hpp"
 #include <cstdlib>   // for rand() and srand()
 #include <ctime>     // for time()
-#include <string>
+#include <cstring>   // for strcpy
 
 Node::Node() {
     // Seed the random number generator once
@@ -26,10 +26,11 @@ Node::Node() {
             c = 'a' + (rand_val - 36);   // lowercase a-z
         }
 
-        nodeID += c;
+        nodeID[i] = c;
     }
+    nodeID[id_len] = '\0';  // Null terminate
 }
 
-std::string Node::getNodeID() const {
+const char* Node::getNodeID() const {
     return nodeID;
 }

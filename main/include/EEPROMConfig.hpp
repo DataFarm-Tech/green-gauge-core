@@ -109,3 +109,5 @@ public:
 
 // Global config variable (declared extern here, defined in main.cpp)
 extern DeviceConfig g_device_config;
+
+extern EEPROMConfig eeprom;

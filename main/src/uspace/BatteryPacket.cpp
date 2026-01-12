@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <algorithm>
 #include <cmath>
-#include "packet/BatteryPacket.hpp"
+#include "BatteryPacket.hpp"
 #include "Config.hpp"
 #include "freertos/FreeRTOS.h"
 #include "I2CDriver.hpp"

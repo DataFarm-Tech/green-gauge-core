@@ -1,20 +1,21 @@
 idf_component_register(
     SRCS 
         "src/main.cpp"
-        "src/WiFiConnection.cpp"
-        "src/Communication.cpp"
-        "src/SimConnection.cpp"
-        "src/EthernetConnection.cpp"
-        "src/BatteryPacket.cpp"
-        "src/IPacket.cpp"
-        "src/ReadingPacket.cpp"
-        "src/ActivatePacket.cpp"
-        "src/EEPROMConfig.cpp"
-        "src/I2CDriver.cpp"
-        "src/Node.cpp"
-        "src/CLI.cpp"
-        "src/UARTConsole.cpp"
-        "src/OTAUpdater.cpp"
+        "src/net/WiFiConnection.cpp"
+        "src/net/Communication.cpp"
+        "src/net/SimConnection.cpp"
+        "src/net/EthernetConnection.cpp"
+        "src/uspace/BatteryPacket.cpp"
+        "src/net/IPacket.cpp"
+        "src/uspace/ReadingPacket.cpp"
+        "src/uspace/ActivatePacket.cpp"
+        "src/mem/EEPROMConfig.cpp"
+        "src/uspace/Node.cpp"
+        "src/uspace/CLI.cpp"
+        "src/sys/UARTConsole.cpp"
+        "src/sys/I2CDriver.cpp"
+        "src/sys/OTAUpdater.cpp"
+        "src/sys/Logger.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash
@@ -28,24 +29,24 @@ idf_component_register(
         driver
         esp_driver_uart
         esp_driver_gpio
-    driver
 )
 
 # Enable all warnings for GCC/Clang
 target_compile_options(${COMPONENT_LIB} PRIVATE
     -Wall          # Enable all standard warnings
     -Wextra        # Extra warnings
-    # -Wpedantic     # Strict ISO compliance
-    # -Wconversion   # Warn on implicit type conversions
-    # # -Wshadow       # Warn when local variables shadow others
-    # -Wnon-virtual-dtor  # Warn if a class has virtual methods but no virtual destructor
 )
 
-set(DEEP_SLEEP_EN 0)
-target_compile_definitions(${COMPONENT_LIB} PRIVATE DEEP_SLEEP_EN=${DEEP_SLEEP_EN})
+# Default values (can be overridden from command line)
+set(CLI_EN 1 CACHE STRING "Enable CLI")
+set(OTA_EN 1 CACHE STRING "Enable OTA")
+set(DEEP_SLEEP_EN 1 CACHE STRING "Enable Deep Sleep")
+set(FIRMWARE_VER "unknown" CACHE STRING "Firmware version")
 
-set(DHCP_EN 1)
-target_compile_definitions(${COMPONENT_LIB} PRIVATE DHCP_EN=${DHCP_EN})
-
-set(ACT_EN 1)
-target_compile_definitions(${COMPONENT_LIB} PRIVATE ACT_EN=${ACT_EN})
+# Apply compile definitions
+target_compile_definitions(${COMPONENT_LIB} PRIVATE
+    CLI_EN=${CLI_EN}
+    OTA_EN=${OTA_EN}
+    DEEP_SLEEP_EN=${DEEP_SLEEP_EN}
+    FIRMWARE_VERSION="${FIRMWARE_VER}"
+)

@@ -2,8 +2,12 @@
 
 set -e
 
+# Get the latest git tag
+PROJECT_VER=$(git describe --tags --abbrev=0)
+echo "Current Git tag: $PROJECT_VER"
+
 echo "=== Building firmware ==="
-idf.py build
+idf.py build -DCLI_EN=1 -DOTA_EN=1 -DDEEP_SLEEP_EN=1 -DPROJECT_VER="$PROJECT_VER"
 
 # Path to the built firmware
 BIN_FILE="build/firmware-idf.bin"

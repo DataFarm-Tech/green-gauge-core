@@ -1,4 +1,4 @@
-#include "ota/OTAUpdater.hpp"
+#include "OTAUpdater.hpp"
 #include "esp_https_ota.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
