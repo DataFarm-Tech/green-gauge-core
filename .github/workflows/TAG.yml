@@ -3,7 +3,7 @@ name: CI/CD ESP-IDF Build + Auto Tag + Release
 on:
   push:
     branches:
-      - cmd-reset-eeprom  # Only run on merges to main
+      - cmd-reset-eeprom  # Run only on this branch
 
 jobs:
   build-and-release:
@@ -11,15 +11,20 @@ jobs:
     container:
       image: espressif/idf:latest  # Official ESP-IDF Docker image
 
+    # Ensure all steps run in the repo directory
+    defaults:
+      run:
+        working-directory: /github/workspace
+
     steps:
       # 1️⃣ Checkout repository
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
           submodules: true
-          fetch-depth: 0  # fetch all history for tags
+          fetch-depth: 0  # Required for tags
 
-      # 2️⃣ Configure Git
+      # 2️⃣ Configure Git (inside container)
       - name: Configure Git
         run: |
           git config user.name "github-actions"
@@ -42,7 +47,7 @@ jobs:
           PATCH=$((PATCH + 1))
           NEW_TAG="v$MAJOR.$MINOR.$PATCH"
 
-          # Safety: avoid duplicate tags
+          # Avoid duplicate tags
           while git rev-parse "$NEW_TAG" >/dev/null 2>&1; do
             PATCH=$((PATCH + 1))
             NEW_TAG="v$MAJOR.$MINOR.$PATCH"
@@ -51,7 +56,7 @@ jobs:
           echo "NEW_TAG=$NEW_TAG"
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
-      # 5️⃣ Create and push tag
+      # 5️⃣ Create and push the new tag
       - name: Create and push tag
         run: |
           git tag "$NEW_TAG"
@@ -71,23 +76,15 @@ jobs:
           mkdir -p release
           cp build/firmware-idf.bin release/cn1.bin
 
-      # 8️⃣ Create GitHub Release
-      - name: Create GitHub Release
+      # 8️⃣ Create GitHub Release and upload firmware
+      - name: Create GitHub Release with firmware
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.NEW_TAG }}
           name: Release ${{ env.NEW_TAG }}
           body: "Firmware release ${{ env.NEW_TAG }}"
+          files: release/*
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # 9️⃣ Upload firmware to release
-      - name: Upload firmware binary to release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ env.NEW_TAG }}
-          files: release/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
