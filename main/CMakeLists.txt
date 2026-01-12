@@ -1,6 +1,6 @@
 idf_component_register(
     SRCS 
-        "src/uspace/main.cpp"
+        "src/main.cpp"
         "src/net/WiFiConnection.cpp"
         "src/net/Communication.cpp"
         "src/net/SimConnection.cpp"
@@ -29,7 +29,6 @@ idf_component_register(
         driver
         esp_driver_uart
         esp_driver_gpio
-    driver
 )
 
 # Enable all warnings for GCC/Clang
@@ -38,12 +37,16 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
     -Wextra        # Extra warnings
 )
 
-set(CLI_EN 1)
-set(OTA_EN 1)
-set(DEEP_SLEEP_EN 1)
+# Default values (can be overridden from command line)
+set(CLI_EN 1 CACHE STRING "Enable CLI")
+set(OTA_EN 1 CACHE STRING "Enable OTA")
+set(DEEP_SLEEP_EN 1 CACHE STRING "Enable Deep Sleep")
+set(FIRMWARE_VER "unknown" CACHE STRING "Firmware version")
 
+# Apply compile definitions
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
     CLI_EN=${CLI_EN}
     OTA_EN=${OTA_EN}
     DEEP_SLEEP_EN=${DEEP_SLEEP_EN}
+    FIRMWARE_VERSION="${FIRMWARE_VER}"
 )
