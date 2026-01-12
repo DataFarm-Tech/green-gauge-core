@@ -2,93 +2,169 @@
 #include <string>
 #include "esp_err.h"
 
-#define MAX_LOG_SIZE    (512 * 1024) // 512 KB
-#define MAX_LOG_BACKUPS 3             // Keep 3 rotated logs
-#define MIN_FREE_SPACE  (10 * 1024)  // 10 KB buffer
+#define MAX_LOG_SIZE    (512 * 1024) // 512 KB per log file
+#define MAX_LOG_BACKUPS 3            // Keep 3 rotated logs
+#define MIN_FREE_SPACE  (10 * 1024)  // 10 KB safety buffer
 
 /**
  * @class Logger
- * @brief Handles appending text to files on a LittleFS filesystem with log rotation.
- *
- * The Logger class provides methods to mount LittleFS, append log lines to files,
- * read file contents, and unmount the filesystem. It supports automatic log rotation
- * when a log exceeds MAX_LOG_SIZE and checks free space before writing.
+ * @brief Simple file logger with automatic rotation on LittleFS
+ * 
+ * Provides convenient logging to files stored on the LittleFS partition.
+ * Automatically handles filesystem mounting, log rotation when files exceed
+ * MAX_LOG_SIZE, and space management to prevent filesystem overflow.
  */
 class Logger {
 public:
     /**
-     * @brief Construct a new Logger object.
-     * @param basePath Base path where LittleFS is mounted. Default is "/rootfs".
+     * @brief Construct a new Logger object
+     * @param basePath Base mount path for LittleFS (default: "/rootfs")
      */
     Logger(const char* basePath = "/rootfs");
-
+    
     /**
-     * @brief Mount the LittleFS filesystem.
-     *
-     * Must be called before any file operations.
-     *
-     * @return ESP_OK if mounted successfully.
-     * @return esp_err_t Error code if mounting fails.
+     * @brief Initialize the LittleFS filesystem
+     * 
+     * Mounts the "littlefs" partition at the base path. This should be called
+     * once at startup, though log methods will auto-initialize if needed.
+     * 
+     * @return ESP_OK on success
+     * @return ESP error code on failure
      */
-    esp_err_t open();
-
+    esp_err_t init();
+    
     /**
-     * @brief Append a line of text to a log file.
-     *
-     * Automatically adds a newline at the end, checks free space, and rotates
-     * the log if it exceeds MAX_LOG_SIZE.
-     *
-     * @param filename Name of the log file.
-     * @param text Text to append.
-     * @return ESP_OK if the append was successful.
-     * @return esp_err_t Error code if appending fails or insufficient space.
+     * @brief Write formatted text to a specific log file
+     * 
+     * Auto-initializes filesystem if not already mounted. Supports printf-style
+     * formatting. Automatically rotates the log if it exceeds MAX_LOG_SIZE.
+     * 
+     * @param filename Name of the log file (e.g., "custom.log")
+     * @param format Printf-style format string
+     * @param ... Variable arguments for format string
+     * 
+     * @note Does not output to console - file only
+     * 
+     * Example:
+     * @code
+     * g_logger.log("network.log", "Connected to %s with IP %s", ssid, ip);
+     * @endcode
      */
-    esp_err_t log(const char* filename, const std::string& text);
-
+    void log(const char* filename, const char* format, ...);
+    
     /**
-     * @brief Read the entire contents of a file.
-     *
-     * @param filename Name of the file to read.
-     * @param out String to store the file contents.
-     * @return ESP_OK if the read was successful.
-     * @return esp_err_t Error code if reading fails.
+     * @brief Log informational message to console and system.log
+     * 
+     * Outputs to both ESP_LOGI console and appends to "system.log" file.
+     * Auto-initializes filesystem if needed.
+     * 
+     * @param format Printf-style format string
+     * @param ... Variable arguments for format string
+     * 
+     * Example:
+     * @code
+     * g_logger.info("System started, version %s", version);
+     * @endcode
      */
-    esp_err_t readAll(const char* filename, std::string& out);
-
+    void info(const char* format, ...);
+    
     /**
-     * @brief Unmount the LittleFS filesystem.
-     *
-     * Should be called when done logging.
+     * @brief Log error message to console and error.log
+     * 
+     * Outputs to both ESP_LOGE console and appends to "error.log" file.
+     * Auto-initializes filesystem if needed.
+     * 
+     * @param format Printf-style format string
+     * @param ... Variable arguments for format string
+     * 
+     * Example:
+     * @code
+     * g_logger.error("Failed to connect: error code %d", err);
+     * @endcode
      */
-    void close();
+    void error(const char* format, ...);
+    
+    /**
+     * @brief Log warning message to console and system.log
+     * 
+     * Outputs to both ESP_LOGW console and appends to "system.log" file.
+     * Auto-initializes filesystem if needed.
+     * 
+     * @param format Printf-style format string
+     * @param ... Variable arguments for format string
+     * 
+     * Example:
+     * @code
+     * g_logger.warning("Battery low: %d%%", battery_pct);
+     * @endcode
+     */
+    void warning(const char* format, ...);
+    
+    /**
+     * @brief Read entire contents of a log file
+     * 
+     * Reads the complete contents of the specified log file into a string.
+     * Useful for CLI commands or uploading logs.
+     * 
+     * @param filename Name of the log file to read
+     * @param out String to store the file contents
+     * @return ESP_OK if file was read successfully
+     * @return ESP_FAIL if file doesn't exist or read failed
+     * @return ESP_ERR_INVALID_STATE if filesystem not initialized
+     * 
+     * Example:
+     * @code
+     * std::string contents;
+     * if (g_logger.read("system.log", contents) == ESP_OK) {
+     *     printf("%s", contents.c_str());
+     * }
+     * @endcode
+     */
+    esp_err_t read(const char* filename, std::string& out);
+    
+    /**
+     * @brief Unmount the LittleFS filesystem
+     * 
+     * Should be called before deep sleep or system shutdown. Not typically
+     * needed for normal operation.
+     */
+    void deinit();
 
 private:
-    const char* basePath; /**< Base path where LittleFS is mounted */
-    bool mounted;         /**< True if filesystem is mounted */
-
+    const char* basePath;  ///< Mount path for LittleFS
+    bool initialized;      ///< True if filesystem is mounted
+    
     /**
-     * @brief Rotate log files if the current log exceeds MAX_LOG_SIZE.
-     *
-     * Old log files are shifted and the current file is renamed with a numeric
-     * suffix. Only MAX_LOG_BACKUPS backups are kept.
-     *
-     * @param filename Name of the log file.
-     * @param newLineSize Size of the new log line to append.
-     * @return ESP_OK on success.
-     * @return esp_err_t Error code on failure.
+     * @brief Internal method to write text to a log file
+     * @param filename Target log file
+     * @param text Text to append (newline will be added)
+     * @return ESP_OK on success, error code on failure
      */
-    esp_err_t rotateIfNeeded(const char* filename, size_t newLineSize);
-
+    esp_err_t writeLog(const char* filename, const std::string& text);
+    
     /**
-     * @brief Check if there is enough free space on the filesystem.
-     *
-     * Ensures that MIN_FREE_SPACE bytes are left free after writing.
-     *
-     * @param bytes Number of bytes intended to write.
-     * @return true if there is enough space.
-     * @return false if not enough space.
+     * @brief Rotate log file if it exceeds MAX_LOG_SIZE
+     * @param filename Log file to check
+     * @param newSize Size of data about to be appended
+     * @return ESP_OK on success
      */
-    bool hasEnoughSpace(size_t bytes);
+    esp_err_t rotateIfNeeded(const char* filename, size_t newSize);
+    
+    /**
+     * @brief Check if filesystem has enough free space
+     * @param bytes Number of bytes to write
+     * @return true if sufficient space available (with MIN_FREE_SPACE buffer)
+     * @return false if insufficient space
+     */
+    bool hasSpace(size_t bytes);
 };
 
-extern Logger logger;
+/**
+ * @brief Global logger instance
+ * 
+ * Use this instance throughout your application:
+ * - g_logger.info("message") - Info to console + system.log
+ * - g_logger.error("error") - Error to console + error.log  
+ * - g_logger.log("file.log", "msg") - Custom file
+ */
+extern Logger g_logger;

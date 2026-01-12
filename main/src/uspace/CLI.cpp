@@ -20,13 +20,10 @@ struct Command {
     int min_args;
 };
 
-
 #define HISTORY_SIZE 8
 static char history[HISTORY_SIZE][BUF_SIZE];
 static int history_count = 0;
 static int history_index = -1;
-
-
 
 // ───────────────────────── COMMAND HANDLERS ─────────────────────────
 
@@ -35,30 +32,41 @@ static void cmd_reset(int, char**);
 static void cmd_install(int argc, char** argv);
 static void cmd_eeprom(int argc, char** argv);
 static void cmd_log(int argc, char** argv);
+static void cmd_history(int argc, char** argv);
 
 static const Command commands[] = {
     {"help",      "Show commands",              cmd_help,      0},
     {"reset",     "Reboot",                     cmd_reset,     0},
     {"install",   "install <ip> <file>",        cmd_install,   2},
     {"eeprom",    "eeprom <clean|get>",         cmd_eeprom,    1},
-    {"log",       "Get System Log",             cmd_log,       0},  // <-- changed 1 -> 0
+    {"log",       "Get System Log",             cmd_log,       0},
+    {"history",   "Show command history",       cmd_history,   0},
     {nullptr, nullptr, nullptr, 0}
 };
 
 // ───────────────────────── IMPLEMENTATIONS ─────────────────────────
 
 static void cmd_log(int argc, char **argv) {
-    
     std::string contents;
-    esp_err_t err = logger.readAll("system.log", contents);
+    esp_err_t err = g_logger.read("system.log", contents);  // Changed from logger.readAll
     if (err == ESP_OK) {
         UARTConsole::writef("%s\r\n", contents.c_str());
     } else {
         UARTConsole::write("File does not exist: system.log\r\n");
     }
-
 }
 
+static void cmd_history(int argc, char** argv) {
+    if (history_count == 0) {
+        UARTConsole::write("No command history\r\n");
+        return;
+    }
+
+    UARTConsole::writef("Command history (%d):\r\n", history_count);
+    for (int i = 0; i < history_count; i++) {
+        UARTConsole::writef("  %2d: %s\r\n", i + 1, history[i]);
+    }
+}
 
 static void cmd_help(int, char**) {
     UARTConsole::write("Commands:\r\n");
@@ -273,8 +281,6 @@ extern "C" void cli_task(void*) {
         }
     }
 }
-
-
 
 void CLI::start() {
     xTaskCreate(cli_task, "cli_task", 4096, NULL, 1, NULL);

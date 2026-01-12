@@ -36,10 +36,6 @@ idf_component_register(
 target_compile_options(${COMPONENT_LIB} PRIVATE
     -Wall          # Enable all standard warnings
     -Wextra        # Extra warnings
-    # -Wpedantic     # Strict ISO compliance
-    # -Wconversion   # Warn on implicit type conversions
-    # # -Wshadow       # Warn when local variables shadow others
-    # -Wnon-virtual-dtor  # Warn if a class has virtual methods but no virtual destructor
 )
 
 set(CLI_EN 1)

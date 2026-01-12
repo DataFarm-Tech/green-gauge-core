@@ -33,18 +33,18 @@ extern "C" {
 Node nodeId;
 DeviceConfig g_device_config = { false, nodeId };
 
-
 extern "C" void app_main(void)
 {   
-    esp_sleep_wakeup_cause_t wakeup_reason;
-    esp_reset_reason_t reset_reason;
+    // Initialize logger (auto-mounts filesystem)
+    g_logger.init();
+    g_logger.info("System booting...");
+
+    esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
+    esp_reset_reason_t reset_reason = esp_reset_reason();
+
     Communication comm(ConnectionType::WIFI);
     ActivatePacket activate(std::string(g_device_config.nodeId.getNodeID()), ACT_URI, ACT_TAG);
     ReadingPacket readings(std::string(g_device_config.nodeId.getNodeID()), DATA_URI, DATA_TAG);
-    Logger logger;
-
-    wakeup_reason = esp_sleep_get_wakeup_cause();
-    reset_reason = esp_reset_reason();
 
     // Start CLI task
     #if CLI_EN == 1
@@ -53,24 +53,16 @@ extern "C" void app_main(void)
         ESP_ERROR_CHECK(esp_event_loop_create_default());
         CLI::start();
     #endif
-
-    vTaskDelay(pdMS_TO_TICKS(500));
-    
-    logger.open();
-
-    logger.log("system.log", "System booting...");
-
-    vTaskDelay(pdMS_TO_TICKS(1000));
     
     if (!eeprom.begin()) 
     {
-        ESP_LOGE("MAIN", "Failed to open EEPROM config");
+        g_logger.error("Failed to open EEPROM config");
         return;
     }
 
     if (!eeprom.loadConfig(g_device_config)) 
     {
-        ESP_LOGW("MAIN", "No previous config found, initializing default...");
+        g_logger.info("No previous config found, initializing defaults");
         g_device_config.has_activated = false;
         eeprom.saveConfig(g_device_config);
     }
@@ -79,74 +71,69 @@ extern "C" void app_main(void)
     {
         if (comm.connect()) 
         {
+            g_logger.info("Device connected to WLAN0");
+            
             if (!g_device_config.has_activated) 
             {
-                ESP_LOGI("MAIN", "Sending activation packet...");
+                g_logger.info("Sending activation packet...");
                 activate.sendPacket();
+
                 g_device_config.has_activated = true;
+                g_logger.info("Activation complete, saving config");
                 eeprom.saveConfig(g_device_config);
             } 
             else 
             {
-                ESP_LOGI("MAIN", "Already activated.");
+                g_logger.info("Already activated");
             }
 
-            ESP_LOGI("MAIN", "Collecting sensor readings...");
+            g_logger.info("Collecting sensor readings...");
             readings.readSensor();
             readings.sendPacket();
             
             // BatteryPacket battery(g_device_config.nodeId.getNodeID(), BATT_URI, 0, 0, BATT_TAG);
             // if (!battery.readFromBMS()) {
-            //     ESP_LOGE("MAIN", "Failed to read battery.");
+            //     g_logger.error("Failed to read battery");
             // } else {
-            //     ESP_LOGI("MAIN", "Sending battery packet...");
+            //     g_logger.info("Sending battery packet...");
             //     battery.sendPacket();
             // }
 
-            // Only run OTA update on power-on (not on reboot or deep sleep wakeup)
-
             #if OTA_EN == 1
+                if (reset_reason == ESP_RST_POWERON) 
                 {
                     OTAUpdater ota;
+                    const char * url = "http://45.79.118.187:8080/release/latest/cn1.bin";
+                    
+                    g_logger.info("Power-on detected, checking for OTA update");
 
-                    if (reset_reason == ESP_RST_POWERON) 
+                    if (ota.update(url)) 
                     {
-                        const char * url = "http://45.79.118.187:8080/release/latest/cn1.bin";
-                        printf("Power-on detected. Checking for OTA update...\n");
-
-                        if (ota.update(url)) 
-                        {
-                            printf("OTA OK. Rebooting...\n");
-                            vTaskDelay(pdMS_TO_TICKS(2000));
-                            esp_restart();
-                        } 
-                        else 
-                        {
-                            printf("OTA FAILED or no update needed\n");
-                        }
+                        g_logger.info("OTA successful, rebooting...");
+                        vTaskDelay(pdMS_TO_TICKS(2000));
+                        esp_restart();
+                    } 
+                    else 
+                    {
+                        g_logger.warning("OTA failed or no update needed");
                     }
                 }
             #endif
 
-            /**
-             * Existing bug: If CLI is enabled, after executing battery section 
-             * CLI is non-responsive. May be becuase of the UART pins. Battery could
-             * be using UART0 for communication with BMS???
-             */
             #if CLI_EN == 1
-                for (;;) //WILL REMOVE THIS LATER...
+                // Keep CLI running
+                for (;;) 
                 {
                     vTaskDelay(pdMS_TO_TICKS(1000));
                 }
             #endif
 
-            
             if (comm.isConnected())
                 comm.disconnect();
         }
-        else {
-            ESP_LOGI("MAIN", "Unable to connect");
-            //Start the web server.
+        else 
+        {
+            g_logger.error("Unable to connect to network");
         }
 
         eeprom.close();
@@ -159,7 +146,7 @@ extern "C" void app_main(void)
     }
 
     #if DEEP_SLEEP_EN == 1
-        ESP_LOGI("MAIN", "Going into deep sleep...");
+        g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
         esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
         esp_deep_sleep_start();
     #endif
