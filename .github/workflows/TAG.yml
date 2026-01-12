@@ -3,7 +3,7 @@ name: Auto Tag on Merge
 on:
   push:
     branches:
-      - main
+      - release
 
 jobs:
   tag:
