@@ -1,20 +1,49 @@
 #include "ActivatePacket.hpp"
-#include <mbedtls/md.h>
+#include "psa/crypto.h"
 #include "Config.hpp"
 
-
-
 void ActivatePacket::computeKey(uint8_t * out_hmac) const {
-    mbedtls_md_context_t ctx;
-    mbedtls_md_init(&ctx);
-    mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 1);
+    psa_status_t status;
+    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
+    psa_key_id_t key_id = 0;
+    size_t mac_length = 0;
 
-    // Use raw bytes of the secretKey
-    mbedtls_md_hmac_starts(&ctx, secretKey, HMAC_KEY_SIZE);
+    // Initialize PSA Crypto (safe to call multiple times)
+    psa_crypto_init();
 
-    // No update, finish immediately
-    mbedtls_md_hmac_finish(&ctx, out_hmac);
-    mbedtls_md_free(&ctx);
+    // Configure key attributes for HMAC-SHA256
+    psa_set_key_usage_flags(&attributes, PSA_KEY_USAGE_SIGN_HASH);
+    psa_set_key_algorithm(&attributes, PSA_ALG_HMAC(PSA_ALG_SHA_256));
+    psa_set_key_type(&attributes, PSA_KEY_TYPE_HMAC);
+    psa_set_key_bits(&attributes, HMAC_KEY_SIZE * 8);
+
+    // Import the secret key
+    status = psa_import_key(&attributes, secretKey, HMAC_KEY_SIZE, &key_id);
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG.c_str(), "Failed to import HMAC key: %d", status);
+        psa_reset_key_attributes(&attributes);
+        return;
+    }
+
+    // Since you're not hashing any additional data (no update calls),
+    // we compute HMAC of an empty message
+    status = psa_mac_compute(
+        key_id,
+        PSA_ALG_HMAC(PSA_ALG_SHA_256),
+        NULL,           // No input data (empty message)
+        0,              // Zero length
+        out_hmac,
+        32,             // SHA256 produces 32 bytes
+        &mac_length
+    );
+
+    if (status != PSA_SUCCESS) {
+        ESP_LOGE(TAG.c_str(), "Failed to compute HMAC: %d", status);
+    }
+
+    // Cleanup
+    psa_destroy_key(key_id);
+    psa_reset_key_attributes(&attributes);
 }
 
 const uint8_t * ActivatePacket::toBuffer()
