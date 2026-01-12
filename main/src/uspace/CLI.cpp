@@ -7,6 +7,8 @@
 #include <string.h>
 #include "EEPROMConfig.hpp"
 #include "Logger.hpp"
+#include "esp_app_desc.h"  // Add to CLI.cpp includes
+
 
 #define MAX_ARGS 4
 #define BUF_SIZE 128
@@ -33,6 +35,7 @@ static void cmd_install(int argc, char** argv);
 static void cmd_eeprom(int argc, char** argv);
 static void cmd_log(int argc, char** argv);
 static void cmd_history(int argc, char** argv);
+static void cmd_version(int argc, char **argv);
 
 static const Command commands[] = {
     {"help",      "Show commands",              cmd_help,      0},
@@ -41,6 +44,7 @@ static const Command commands[] = {
     {"eeprom",    "eeprom <clean|get>",         cmd_eeprom,    1},
     {"log",       "Get System Log",             cmd_log,       0},
     {"history",   "Show command history",       cmd_history,   0},
+    {"version",   "Show firmware version",      cmd_version,   0},
     {nullptr, nullptr, nullptr, 0}
 };
 
@@ -54,6 +58,16 @@ static void cmd_log(int argc, char **argv) {
     } else {
         UARTConsole::write("File does not exist: system.log\r\n");
     }
+}
+
+static void cmd_version(int argc, char **argv) {
+    const esp_app_desc_t* app_desc = esp_app_get_description();
+    
+    UARTConsole::writef("Project:  %s\r\n", app_desc->project_name);
+    UARTConsole::writef("Version:  %s\r\n", app_desc->version);
+    UARTConsole::writef("Compiled: %s %s\r\n", app_desc->date, app_desc->time);
+    UARTConsole::writef("IDF ver:  %s\r\n", app_desc->idf_ver);
+    UARTConsole::writef("Secure:   %d\r\n", app_desc->secure_version);
 }
 
 static void cmd_history(int argc, char** argv) {
