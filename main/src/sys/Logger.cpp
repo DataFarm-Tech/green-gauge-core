@@ -41,46 +41,61 @@ esp_err_t Logger::init() {
 void Logger::log(const char* filename, const char* format, ...) {
     if (!initialized && init() != ESP_OK) return;
 
-    char buffer[512];
+    char buffer[480];
     va_list args;
     va_start(args, format);
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
 
-    writeLog(filename, buffer);
+    // Add [LOG] prefix
+    std::string prefixed = "[LOG] ";
+    prefixed += buffer;
+    writeLog("system.log", prefixed);  // Changed to system.log
 }
 
 void Logger::info(const char* format, ...) {
-    char buffer[512];
+    char buffer[480];
     va_list args;
     va_start(args, format);
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
 
     ESP_LOGI(TAG, "%s", buffer);
-    writeLog("system.log", buffer);
+    
+    // Add [INFO] prefix and write to system.log
+    std::string prefixed = "[INFO] ";
+    prefixed += buffer;
+    writeLog("system.log", prefixed);
 }
 
 void Logger::error(const char* format, ...) {
-    char buffer[512];
+    char buffer[480];
     va_list args;
     va_start(args, format);
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
 
     ESP_LOGE(TAG, "%s", buffer);
-    writeLog("error.log", buffer);
+    
+    // Add [ERROR] prefix and write to system.log
+    std::string prefixed = "[ERROR] ";
+    prefixed += buffer;
+    writeLog("system.log", prefixed);  // Changed from error.log to system.log
 }
 
 void Logger::warning(const char* format, ...) {
-    char buffer[512];
+    char buffer[480];
     va_list args;
     va_start(args, format);
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
 
     ESP_LOGW(TAG, "%s", buffer);
-    writeLog("system.log", buffer);
+    
+    // Add [WARN] prefix and write to system.log
+    std::string prefixed = "[WARN] ";
+    prefixed += buffer;
+    writeLog("system.log", prefixed);
 }
 
 bool Logger::hasSpace(size_t bytes) {
