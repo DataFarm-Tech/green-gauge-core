@@ -16,15 +16,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
-          fetch-depth: 0   # important for git describe
-
-      - name: Mark workspace as safe for Git
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Build ESP-IDF project
         shell: bash
         run: |
           export IDF_TARGET=esp32
           . /opt/esp/idf/export.sh
-          ./flash.sh
+          idf.py fullclean build
