@@ -31,7 +31,12 @@ extern "C" {
 #include "Logger.hpp"
 
 Node nodeId;
-DeviceConfig g_device_config = { false, nodeId };
+DeviceConfig g_device_config = {
+    .has_activated = false,
+    .nodeId = nodeId,
+    .hw_ver = "",
+    .fw_ver = ""
+};
 
 #if CLI_EN == 1
 // Create UART console instance for serial monitor

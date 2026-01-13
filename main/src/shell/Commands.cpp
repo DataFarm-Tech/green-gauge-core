@@ -7,6 +7,8 @@
 #include "esp_app_desc.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 #include <string.h>
 
 
@@ -22,18 +24,17 @@ static void cmd_eeprom_clean(int, char**);
  */
 static void cmd_eeprom_get(int, char**);
 
-
+/**
+ * @brief Command handler for 'provision hwver' subcommand.
+ * Sets the hardware version/ID.
+ */
+static void cmd_provision_hwver(int, char**);
 
 /**
- * @brief EEPROM configuration subcommands.
- * Defines the 'clean' and 'get' subcommands for the 'eeprom' command.
+ * @brief Command handler for 'provision fwver' subcommand.
+ * Sets the firmware version.
  */
-static const Command eeprom_subcommands[] = {
-    {"clean", "Erase EEPROM configuration", cmd_eeprom_clean, 0},
-    {"get",   "Get EEPROM configuration",   cmd_eeprom_get,   0},
-    {nullptr, nullptr, nullptr, 0}
-};
-
+static void cmd_provision_fwver(int, char**);
 
 
 /**
@@ -73,6 +74,12 @@ static void cmd_log(int, char**);
 static void cmd_history(int, char**);
 
 /**
+ * @brief Command handler for 'provision' command.
+ * Manages device provisioning (hardware version, firmware version).
+ */
+static void cmd_provision(int, char**);
+
+/**
  * @brief Command handler for 'version' command.
  * Displays firmware version information.
  */
@@ -92,6 +99,27 @@ const Command commands[] = {
     {"log",     "Show system log",         cmd_log,     0},
     {"history", "Show command history",    cmd_history, 0},
     {"version", "Show firmware version",   cmd_version, 0},
+    {"provision", "provision <subcommand>", cmd_provision, 1},
+    {nullptr, nullptr, nullptr, 0}
+};
+
+/**
+ * @brief EEPROM configuration subcommands.
+ * Defines the 'clean' and 'get' subcommands for the 'eeprom' command.
+ */
+static const Command eeprom_subcommands[] = {
+    {"clean", "Erase EEPROM configuration", cmd_eeprom_clean, 0},
+    {"get",   "Get EEPROM configuration",   cmd_eeprom_get,   0},
+    {nullptr, nullptr, nullptr, 0}
+};
+
+/**
+ * @brief Provisioning subcommands.
+ * Defines the 'hwver' and 'fwver' subcommands for the 'provision' command.
+ */
+static const Command provision_subcommands[] = {
+    {"hwver", "hwver <hardware_version> - Set hardware version", cmd_provision_hwver, 1},
+    {"fwver", "fwver - Set firmware version", cmd_provision_fwver, 0},
     {nullptr, nullptr, nullptr, 0}
 };
 
@@ -157,6 +185,8 @@ static void cmd_eeprom_get(int, char**) {
             config.has_activated ? "Yes" : "No"
         );
         console->writef("Node ID: %s\r\n", config.nodeId.getNodeID());
+        console->writef("Hardware Version: %s\r\n", config.hw_ver);
+        console->writef("Firmware Version: %s\r\n", config.fw_ver);
 
     } else {
         console->write("No EEPROM configuration found\r\n");
@@ -199,4 +229,33 @@ static void cmd_version(int, char**) {
         "Project: %s\r\nVersion: %s\r\nBuilt: %s %s\r\nIDF: %s\r\n",
         a->project_name, a->version, a->date, a->time, a->idf_ver
     );
+}
+
+static void cmd_provision(int argc, char** argv) {
+    dispatch_subcommand(provision_subcommands, argc, argv, "provision <hwver|fwver> <value>");
+}
+
+static void cmd_provision_hwver(int argc, char** argv) {
+    UARTConsole* console = CLI::getConsole();
+    if (!console) return;
+
+    const char * hw_ver = argv[1];
+
+    console->writef("Setting hardware version to: %s\r\n", hw_ver);
+
+    strncpy(g_device_config.hw_ver, hw_ver, sizeof(g_device_config.hw_ver)-1);
+
+    eeprom.saveConfig(g_device_config);
+}
+
+static void cmd_provision_fwver(int argc, char** argv) {
+    UARTConsole* console = CLI::getConsole();
+    if (!console) return;
+    
+    const esp_app_desc_t* a = esp_app_get_description();
+
+    console->writef("Setting firmware version to: %s\r\n", a->version);
+
+    strncpy(g_device_config.fw_ver, a->version, sizeof(g_device_config.fw_ver)-1);
+    eeprom.saveConfig(g_device_config);
 }
