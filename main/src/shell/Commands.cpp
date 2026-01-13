@@ -1,5 +1,5 @@
 #include "CLI.hpp"
-#include "UARTConsole.hpp"
+#include "UARTDriver.hpp"
 #include "OTAUpdater.hpp"
 #include "EEPROMConfig.hpp"
 #include "Logger.hpp"
@@ -124,7 +124,7 @@ static const Command provision_subcommands[] = {
 };
 
 static void cmd_help(int, char**) {
-    UARTConsole* console = CLI::getConsole();
+    UARTDriver* console = CLI::getConsole();
     if (!console) return;
 
     console->write("Commands:\r\n");
@@ -134,7 +134,7 @@ static void cmd_help(int, char**) {
 }
 
 static void cmd_reset(int, char**) {
-    UARTConsole* console = CLI::getConsole();
+    UARTDriver* console = CLI::getConsole();
     if (!console) return;
 
     console->write("Rebooting...\r\n");
@@ -143,7 +143,7 @@ static void cmd_reset(int, char**) {
 }
 
 static void cmd_install(int argc, char** argv) {
-    UARTConsole* console = CLI::getConsole();
+    UARTDriver* console = CLI::getConsole();
     if (!console) return;
 
     char url[256];
@@ -166,7 +166,7 @@ static void cmd_eeprom(int argc, char** argv) {
 }
 
 static void cmd_eeprom_clean(int, char**) {
-    UARTConsole* console = CLI::getConsole();
+    UARTDriver* console = CLI::getConsole();
     if (!console) return;
 
     eeprom.begin();
@@ -175,7 +175,7 @@ static void cmd_eeprom_clean(int, char**) {
 }
 
 static void cmd_eeprom_get(int, char**) {
-    UARTConsole* console = CLI::getConsole();
+    UARTDriver* console = CLI::getConsole();
     if (!console) return;
 
     DeviceConfig config;
@@ -194,7 +194,7 @@ static void cmd_eeprom_get(int, char**) {
 }
 
 static void cmd_log(int, char**) {
-    UARTConsole* console = CLI::getConsole();
+    UARTDriver* console = CLI::getConsole();
     if (!console) return;
 
     std::string contents;
@@ -214,14 +214,14 @@ static void cmd_log(int, char**) {
 }
 
 static void cmd_history(int, char**) {
-    UARTConsole* console = CLI::getConsole();
+    UARTDriver* console = CLI::getConsole();
     if (!console) return;
 
     console->write("History shown inline\r\n");
 }
 
 static void cmd_version(int, char**) {
-    UARTConsole* console = CLI::getConsole();
+    UARTDriver* console = CLI::getConsole();
     if (!console) return;
 
     const esp_app_desc_t* a = esp_app_get_description();
@@ -236,7 +236,7 @@ static void cmd_provision(int argc, char** argv) {
 }
 
 static void cmd_provision_hwver(int argc, char** argv) {
-    UARTConsole* console = CLI::getConsole();
+    UARTDriver* console = CLI::getConsole();
     if (!console) return;
 
     const char * hw_ver = argv[1];
@@ -249,7 +249,7 @@ static void cmd_provision_hwver(int argc, char** argv) {
 }
 
 static void cmd_provision_fwver(int argc, char** argv) {
-    UARTConsole* console = CLI::getConsole();
+    UARTDriver* console = CLI::getConsole();
     if (!console) return;
     
     const esp_app_desc_t* a = esp_app_get_description();

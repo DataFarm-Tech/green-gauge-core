@@ -1,7 +1,7 @@
 #pragma once
 
 // Forward declaration
-class UARTConsole;
+class UARTDriver;
 
 /**
  * @brief Command handler function prototype.
@@ -40,7 +40,7 @@ struct Command {
  *
  * Typical usage:
  * @code
- *   UARTConsole console(UART_NUM_0);
+ *   UARTDriver console(UART_NUM_0);
  *   console.init(115200);
  *   CLI::start(console);
  * @endcode
@@ -57,22 +57,22 @@ public:
      * This function should be called once during system initialization,
      * after the UART console has been initialized.
      *
-     * @param console Reference to the UARTConsole instance to use for I/O.
+     * @param console Reference to the UARTDriver instance to use for I/O.
      */
-    static void start(UARTConsole& console);
+    static void start(UARTDriver& console);
 
     /**
      * @brief Get the current console instance.
      *
-     * Returns a pointer to the UARTConsole instance being used by the CLI.
+     * Returns a pointer to the UARTDriver instance being used by the CLI.
      * This allows command handlers to access the console for output.
      *
-     * @return Pointer to the active UARTConsole instance, or nullptr if not initialized.
+     * @return Pointer to the active UARTDriver instance, or nullptr if not initialized.
      */
-    static UARTConsole* getConsole();
+    static UARTDriver* getConsole();
 
 private:
-    static UARTConsole* s_console;  ///< Console instance used by CLI
+    static UARTDriver* s_console;  ///< Console instance used by CLI
 };
 
 /**

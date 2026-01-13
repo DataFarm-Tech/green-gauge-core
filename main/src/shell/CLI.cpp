@@ -1,5 +1,5 @@
 #include "CLI.hpp"
-#include "UARTConsole.hpp"
+#include "UARTDriver.hpp"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -11,7 +11,7 @@
 #define HISTORY_SIZE 8
 
 // Static console pointer
-UARTConsole* CLI::s_console = nullptr;
+UARTDriver* CLI::s_console = nullptr;
 
 static char history[HISTORY_SIZE][BUF_SIZE];
 static int history_count = 0;
@@ -19,7 +19,7 @@ static int history_index = -1;
 
 // ───────────────────────── PUBLIC INTERFACE ─────────────────────────
 
-UARTConsole* CLI::getConsole() {
+UARTDriver* CLI::getConsole() {
     return s_console;
 }
 
@@ -43,7 +43,7 @@ void dispatch_subcommand(
     char** argv,
     const char* usage
 ) {
-    UARTConsole* console = CLI::getConsole();
+    UARTDriver* console = CLI::getConsole();
     if (!console) return;
 
     if (argc < 2) {
@@ -68,7 +68,7 @@ void dispatch_subcommand(
 // ───────────────────────── EXEC ─────────────────────────
 
 static void exec(char* line) {
-    UARTConsole* console = CLI::getConsole();
+    UARTDriver* console = CLI::getConsole();
     if (!console) return;
 
     char* argv[MAX_ARGS];
@@ -92,7 +92,7 @@ static void exec(char* line) {
 // ───────────────────────── CLI TASK ─────────────────────────
 
 extern "C" void cli_task(void* param) {
-    UARTConsole* console = static_cast<UARTConsole*>(param);
+    UARTDriver* console = static_cast<UARTDriver*>(param);
     if (!console) return;
 
     char line[BUF_SIZE] = {};
@@ -164,7 +164,7 @@ extern "C" void cli_task(void* param) {
     }
 }
 
-void CLI::start(UARTConsole& console) {
+void CLI::start(UARTDriver& console) {
     s_console = &console;
     xTaskCreate(cli_task, "cli_task", 4096, s_console, 1, nullptr);
 }

@@ -1,9 +1,10 @@
 #pragma once
 #include "driver/uart.h"
 #include <string>
+#include "Types.hpp"
 
 /**
- * @class   UARTConsole
+ * @class   UARTDriver
  * @brief   Lightweight UART wrapper for console I/O.
  *
  * This class provides simple formatted printing and byte-level input handling
@@ -14,7 +15,7 @@
  * The console must be initialized with `init()` before any read or write
  * operations are performed.
  */
-class UARTConsole {
+class UARTDriver {
 public:
     /**
      * @brief Construct a new UART Console instance.
@@ -24,7 +25,7 @@ public:
      *
      * @param uart_num UART port number (e.g., UART_NUM_0, UART_NUM_1, UART_NUM_2)
      */
-    UARTConsole(uart_port_t uart_num);
+    UARTDriver(uart_port_t uart_num);
 
     /**
      * @brief Initialize the UART console.
@@ -46,7 +47,7 @@ public:
               int rx_pin = UART_PIN_NO_CHANGE,
               int rts_pin = UART_PIN_NO_CHANGE,
               int cts_pin = UART_PIN_NO_CHANGE,
-              int rx_buffer_size = 1024,
+              int rx_buffer_size = GEN_BUFFER_SIZE,
               int tx_buffer_size = 0);
 
     /**

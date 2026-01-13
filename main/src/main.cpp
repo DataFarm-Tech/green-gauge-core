@@ -25,7 +25,7 @@ extern "C" {
 #include "esp_https_ota.h"
 #include "EEPROMConfig.hpp"
 #include "Node.hpp"
-#include "UARTConsole.hpp"
+#include "UARTDriver.hpp"
 #include "CLI.hpp"
 #include "OTAUpdater.hpp"
 #include "Logger.hpp"
@@ -40,7 +40,7 @@ DeviceConfig g_device_config = {
 
 #if CLI_EN == 1
 // Create UART console instance for serial monitor
-static UARTConsole serialConsole(UART_NUM_0);
+static UARTDriver serialConsole(UART_NUM_0);
 #endif
 
 extern "C" void app_main(void)

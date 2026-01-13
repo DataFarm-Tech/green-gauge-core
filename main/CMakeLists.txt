@@ -13,7 +13,7 @@ idf_component_register(
         "src/uspace/Node.cpp"
         "src/shell/CLI.cpp"
         "src/shell/Commands.cpp"
-        "src/sys/UARTConsole.cpp"
+        "src/sys/UARTDriver.cpp"
         "src/sys/I2CDriver.cpp"
         "src/sys/OTAUpdater.cpp"
         "src/sys/Logger.cpp"

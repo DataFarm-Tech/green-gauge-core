@@ -25,7 +25,7 @@ constexpr uint32_t BATT_I2C_FREQ_HZ = 400000;
 const uint8_t * BatteryPacket::toBuffer()
 {
     CborEncoder encoder, mapEncoder, arrayEncoder, batteryEncoder;
-    cbor_encoder_init(&encoder, buffer, BUFFER_SIZE, 0);  // use member buffer
+    cbor_encoder_init(&encoder, buffer, GEN_BUFFER_SIZE, 0);  // use member buffer
 
     if (cbor_encoder_create_map(&encoder, &mapEncoder, 2) != CborNoError) 
     {
@@ -58,8 +58,8 @@ const uint8_t * BatteryPacket::toBuffer()
     cbor_encoder_close_container(&encoder, &mapEncoder);
 
     bufferLength = cbor_encoder_get_buffer_size(&encoder, buffer);
-    if (bufferLength > BUFFER_SIZE) {
-        ESP_LOGE(TAG.c_str(), "CBOR buffer overflow: %d bytes (max %d)", (int)bufferLength, BUFFER_SIZE);
+    if (bufferLength > GEN_BUFFER_SIZE) {
+        ESP_LOGE(TAG.c_str(), "CBOR buffer overflow: %d bytes (max %d)", (int)bufferLength, GEN_BUFFER_SIZE);
         return nullptr;
     }
 

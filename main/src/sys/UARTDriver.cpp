@@ -1,12 +1,12 @@
-#include "UARTConsole.hpp"
+#include "UARTDriver.hpp"
 #include <string.h>
 #include <stdarg.h>
 
-UARTConsole::UARTConsole(uart_port_t uart_num) 
+UARTDriver::UARTDriver(uart_port_t uart_num) 
     : m_uart_num(uart_num) {
 }
 
-void UARTConsole::init(int baud, int tx_pin, int rx_pin, 
+void UARTDriver::init(int baud, int tx_pin, int rx_pin, 
                        int rts_pin, int cts_pin,
                        int rx_buffer_size, int tx_buffer_size) {
     uart_config_t cfg = {};
@@ -22,11 +22,11 @@ void UARTConsole::init(int baud, int tx_pin, int rx_pin,
     uart_driver_install(m_uart_num, rx_buffer_size, tx_buffer_size, 0, NULL, 0);
 }
 
-void UARTConsole::write(const char* text) {
+void UARTDriver::write(const char* text) {
     uart_write_bytes(m_uart_num, text, strlen(text));
 }
 
-void UARTConsole::writef(const char* fmt, ...) {
+void UARTDriver::writef(const char* fmt, ...) {
     char buf[256];
     va_list ap;
     va_start(ap, fmt);
@@ -35,6 +35,6 @@ void UARTConsole::writef(const char* fmt, ...) {
     write(buf);
 }
 
-int UARTConsole::readByte(uint8_t &out) {
+int UARTDriver::readByte(uint8_t &out) {
     return uart_read_bytes(m_uart_num, &out, 1, 10 / portTICK_PERIOD_MS);
 }

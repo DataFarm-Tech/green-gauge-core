@@ -47,7 +47,7 @@ void IPacket::sendPacket() {
     coap_addr_info_t * info_list = nullptr;
     coap_proto_t proto;
     int wait_ms = 500;
-    uint8_t uri_path[BUFFER_SIZE];
+    uint8_t uri_path[GEN_BUFFER_SIZE];
 
     if (buf_ptr == nullptr || bufferLength == 0) {
         ESP_LOGE(TAG, "Packet buf_ptr is null or empty — aborting send");

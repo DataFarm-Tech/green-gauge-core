@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include "esp_log.h"
 #include <cstddef>
+#include "Types.hpp"
 
 /**
  * @enum CoAPResponseType
@@ -35,11 +36,8 @@ protected:
     size_t bufferLength = 0;   ///< Length of the serialized packet buffer
     std::string uri;           ///< URI endpoint for the CoAP packet
 
-    /// Default buffer size for packet serialization
-    static constexpr size_t BUFFER_SIZE = 1024;
-
     /// Internal buffer to store serialized packet data
-    uint8_t buffer[BUFFER_SIZE];
+    uint8_t buffer[GEN_BUFFER_SIZE];
 
     /**
      * @brief CoAP message handler callback.

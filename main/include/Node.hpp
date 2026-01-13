@@ -2,7 +2,7 @@
 
 #include <string>
 #include <cstdint>
-
+#include "Types.hpp"
 /**
  * @class Node
  * @brief Represents a node with a unique identifier.
@@ -12,7 +12,7 @@
  */
 class Node {
 private:
-    char nodeID[7];  ///< Stores the unique node identifier (6 chars + null terminator)
+    char nodeID[GEN_STRING_SIZE];  ///< Stores the unique node identifier (6 chars + null terminator)
 
 public:
     /**
