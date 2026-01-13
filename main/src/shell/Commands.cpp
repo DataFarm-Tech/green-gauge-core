@@ -11,18 +11,6 @@
 
 
 /**
- * @brief Dispatches a subcommand from a command table.
- * Searches the provided command table for a matching subcommand
- * and invokes its handler if found.
- */
-extern void dispatch_subcommand(
-    const Command* table,
-    int argc,
-    char** argv,
-    const char* usage
-);
-
-/**
  * @brief Command handler for 'eeprom clean' subcommand.
  * Erases the stored EEPROM configuration.
  */
@@ -37,7 +25,7 @@ static void cmd_eeprom_get(int, char**);
 
 
 /**
- * @brief EEPRROM configuration subcommands.
+ * @brief EEPROM configuration subcommands.
  * Defines the 'clean' and 'get' subcommands for the 'eeprom' command.
  */
 static const Command eeprom_subcommands[] = {
@@ -101,38 +89,47 @@ const Command commands[] = {
     {"reset",   "Reboot device",           cmd_reset,   0},
     {"install", "install <ip> <file>",     cmd_install, 2},
     {"eeprom",  "eeprom <clean|get>",      cmd_eeprom,  1},
-    {"log",     "Show system log",          cmd_log,     0},
+    {"log",     "Show system log",         cmd_log,     0},
     {"history", "Show command history",    cmd_history, 0},
     {"version", "Show firmware version",   cmd_version, 0},
     {nullptr, nullptr, nullptr, 0}
 };
 
 static void cmd_help(int, char**) {
-    UARTConsole::write("Commands:\r\n");
+    UARTConsole* console = CLI::getConsole();
+    if (!console) return;
+
+    console->write("Commands:\r\n");
     for (int i = 0; commands[i].name; i++) {
-        UARTConsole::writef("  %-10s %s\r\n", commands[i].name, commands[i].help);
+        console->writef("  %-10s %s\r\n", commands[i].name, commands[i].help);
     }
 }
 
 static void cmd_reset(int, char**) {
-    UARTConsole::write("Rebooting...\r\n");
+    UARTConsole* console = CLI::getConsole();
+    if (!console) return;
+
+    console->write("Rebooting...\r\n");
     vTaskDelay(pdMS_TO_TICKS(300));
     esp_restart();
 }
 
 static void cmd_install(int argc, char** argv) {
+    UARTConsole* console = CLI::getConsole();
+    if (!console) return;
+
     char url[256];
     snprintf(url, sizeof(url), "http://%s%s", argv[1], argv[2]);
 
-    UARTConsole::writef("OTA from %s\r\n", url);
+    console->writef("OTA from %s\r\n", url);
 
     OTAUpdater ota;
     if (ota.update(url)) {
-        UARTConsole::write("OTA OK. Rebooting...\r\n");
+        console->write("OTA OK. Rebooting...\r\n");
         vTaskDelay(pdMS_TO_TICKS(2000));
         esp_restart();
     } else {
-        UARTConsole::write("OTA FAILED\r\n");
+        console->write("OTA FAILED\r\n");
     }
 }
 
@@ -141,26 +138,35 @@ static void cmd_eeprom(int argc, char** argv) {
 }
 
 static void cmd_eeprom_clean(int, char**) {
+    UARTConsole* console = CLI::getConsole();
+    if (!console) return;
+
     eeprom.begin();
     eeprom.eraseConfig();
-    UARTConsole::write("EEPROM configuration erased\r\n");
+    console->write("EEPROM configuration erased\r\n");
 }
 
 static void cmd_eeprom_get(int, char**) {
+    UARTConsole* console = CLI::getConsole();
+    if (!console) return;
+
     DeviceConfig config;
     eeprom.begin();
     if (eeprom.loadConfig(config)) {
-        UARTConsole::writef("Activated: %s\r\n",
+        console->writef("Activated: %s\r\n",
             config.has_activated ? "Yes" : "No"
         );
-        UARTConsole::writef("Node ID: %s\r\n", config.nodeId.getNodeID());
+        console->writef("Node ID: %s\r\n", config.nodeId.getNodeID());
 
     } else {
-        UARTConsole::write("No EEPROM configuration found\r\n");
+        console->write("No EEPROM configuration found\r\n");
     }
 }
 
 static void cmd_log(int, char**) {
+    UARTConsole* console = CLI::getConsole();
+    if (!console) return;
+
     std::string contents;
     if (g_logger.read("system.log", contents) == ESP_OK) {
         // Simple find-replace: \n -> \r\n
@@ -170,20 +176,26 @@ static void cmd_log(int, char**) {
                 i++; // Skip the inserted \r
             }
         }
-        UARTConsole::write(contents.c_str());
-        UARTConsole::write("\r\n");
+        console->write(contents.c_str());
+        console->write("\r\n");
     } else {
-        UARTConsole::write("No log file\r\n");
+        console->write("No log file\r\n");
     }
 }
 
 static void cmd_history(int, char**) {
-    UARTConsole::write("History shown inline\r\n");
+    UARTConsole* console = CLI::getConsole();
+    if (!console) return;
+
+    console->write("History shown inline\r\n");
 }
 
 static void cmd_version(int, char**) {
+    UARTConsole* console = CLI::getConsole();
+    if (!console) return;
+
     const esp_app_desc_t* a = esp_app_get_description();
-    UARTConsole::writef(
+    console->writef(
         "Project: %s\r\nVersion: %s\r\nBuilt: %s %s\r\nIDF: %s\r\n",
         a->project_name, a->version, a->date, a->time, a->idf_ver
     );

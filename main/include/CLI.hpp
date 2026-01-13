@@ -1,5 +1,8 @@
 #pragma once
 
+// Forward declaration
+class UARTConsole;
+
 /**
  * @brief Command handler function prototype.
  *
@@ -37,7 +40,9 @@ struct Command {
  *
  * Typical usage:
  * @code
- *   CLI::start();
+ *   UARTConsole console(UART_NUM_0);
+ *   console.init(115200);
+ *   CLI::start(console);
  * @endcode
  */
 class CLI {
@@ -51,11 +56,44 @@ public:
      *
      * This function should be called once during system initialization,
      * after the UART console has been initialized.
+     *
+     * @param console Reference to the UARTConsole instance to use for I/O.
      */
-    static void start();
+    static void start(UARTConsole& console);
+
+    /**
+     * @brief Get the current console instance.
+     *
+     * Returns a pointer to the UARTConsole instance being used by the CLI.
+     * This allows command handlers to access the console for output.
+     *
+     * @return Pointer to the active UARTConsole instance, or nullptr if not initialized.
+     */
+    static UARTConsole* getConsole();
+
+private:
+    static UARTConsole* s_console;  ///< Console instance used by CLI
 };
+
 /**
  * @brief Global command table.
  */
 extern const Command commands[];
 
+/**
+ * @brief Dispatch a subcommand from a command table.
+ *
+ * Helper function for commands that have subcommands. Searches the provided
+ * command table for a matching subcommand and executes it.
+ *
+ * @param table   Command table to search.
+ * @param argc    Argument count.
+ * @param argv    Argument vector.
+ * @param usage   Usage string to display if subcommand is missing.
+ */
+void dispatch_subcommand(
+    const Command* table,
+    int argc,
+    char** argv,
+    const char* usage
+);

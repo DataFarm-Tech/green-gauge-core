@@ -33,14 +33,20 @@ extern "C" {
 Node nodeId;
 DeviceConfig g_device_config = { false, nodeId };
 
+#if CLI_EN == 1
+// Create UART console instance for serial monitor
+static UARTConsole serialConsole(UART_NUM_0);
+#endif
+
 extern "C" void app_main(void)
 {   
     // Initialize logger (auto-mounts filesystem)
     g_logger.init();
     g_logger.info("System booting...");
 
-    esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
+    #if OTA_EN == 1
     esp_reset_reason_t reset_reason = esp_reset_reason();
+    #endif
 
     Communication comm(ConnectionType::WIFI);
     ActivatePacket activate(std::string(g_device_config.nodeId.getNodeID()), ACT_URI, ACT_TAG);
@@ -48,10 +54,10 @@ extern "C" void app_main(void)
 
     // Start CLI task
     #if CLI_EN == 1
-        UARTConsole::init(115200);
+        serialConsole.init(115200);  // Initialize UART console instance
         ESP_ERROR_CHECK(esp_netif_init());
         ESP_ERROR_CHECK(esp_event_loop_create_default());
-        CLI::start();
+        CLI::start(serialConsole);  // Pass console instance to CLI
     #endif
     
     if (!eeprom.begin()) 

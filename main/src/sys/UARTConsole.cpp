@@ -2,24 +2,28 @@
 #include <string.h>
 #include <stdarg.h>
 
-#define CLI_UART UART_NUM_0
+UARTConsole::UARTConsole(uart_port_t uart_num) 
+    : m_uart_num(uart_num) {
+}
 
-void UARTConsole::init(int baud) {
+void UARTConsole::init(int baud, int tx_pin, int rx_pin, 
+                       int rts_pin, int cts_pin,
+                       int rx_buffer_size, int tx_buffer_size) {
     uart_config_t cfg = {};
     cfg.baud_rate = baud;
     cfg.data_bits = UART_DATA_8_BITS;
     cfg.parity = UART_PARITY_DISABLE;
     cfg.stop_bits = UART_STOP_BITS_1;
     cfg.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
+    cfg.rx_flow_ctrl_thresh = 122;
 
-    uart_param_config(CLI_UART, &cfg);
-    uart_set_pin(CLI_UART, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE,
-                 UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    uart_driver_install(CLI_UART, 1024, 0, 0, NULL, 0);
+    uart_param_config(m_uart_num, &cfg);
+    uart_set_pin(m_uart_num, tx_pin, rx_pin, rts_pin, cts_pin);
+    uart_driver_install(m_uart_num, rx_buffer_size, tx_buffer_size, 0, NULL, 0);
 }
 
 void UARTConsole::write(const char* text) {
-    uart_write_bytes(CLI_UART, text, strlen(text));
+    uart_write_bytes(m_uart_num, text, strlen(text));
 }
 
 void UARTConsole::writef(const char* fmt, ...) {
@@ -32,5 +36,5 @@ void UARTConsole::writef(const char* fmt, ...) {
 }
 
 int UARTConsole::readByte(uint8_t &out) {
-    return uart_read_bytes(CLI_UART, &out, 1, 10 / portTICK_PERIOD_MS);
+    return uart_read_bytes(m_uart_num, &out, 1, 10 / portTICK_PERIOD_MS);
 }
