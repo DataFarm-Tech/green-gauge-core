@@ -59,10 +59,10 @@ extern "C" void app_main(void)
 
     // Start CLI task
     #if CLI_EN == 1
-        serialConsole.init(115200);  // Initialize UART console instance
-        ESP_ERROR_CHECK(esp_netif_init());
-        ESP_ERROR_CHECK(esp_event_loop_create_default());
-        CLI::start(serialConsole);  // Pass console instance to CLI
+    serialConsole.init(115200);  // Initialize UART console instance
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    CLI::start(serialConsole);  // Pass console instance to CLI
     #endif
     
     if (!eeprom.begin()) 
@@ -111,32 +111,32 @@ extern "C" void app_main(void)
             // }
 
             #if OTA_EN == 1
-                if (reset_reason == ESP_RST_POWERON) 
-                {
-                    OTAUpdater ota;
-                    const char * url = "http://45.79.118.187:8080/release/latest/cn1.bin";
-                    
-                    g_logger.info("Power-on detected, checking for OTA update");
+            if (reset_reason == ESP_RST_POWERON) 
+            {
+                OTAUpdater ota;
+                const char * url = "http://45.79.118.187:8080/release/latest/cn1.bin";
+                
+                g_logger.info("Power-on detected, checking for OTA update");
 
-                    if (ota.update(url)) 
-                    {
-                        g_logger.info("OTA successful, rebooting...");
-                        vTaskDelay(pdMS_TO_TICKS(2000));
-                        esp_restart();
-                    } 
-                    else 
-                    {
-                        g_logger.warning("OTA failed or no update needed");
-                    }
+                if (ota.update(url)) 
+                {
+                    g_logger.info("OTA successful, rebooting...");
+                    vTaskDelay(pdMS_TO_TICKS(2000));
+                    esp_restart();
+                } 
+                else 
+                {
+                    g_logger.warning("OTA failed or no update needed");
                 }
+            }
             #endif
 
             #if CLI_EN == 1
-                // Keep CLI running
-                for (;;) 
-                {
-                    vTaskDelay(pdMS_TO_TICKS(1000));
-                }
+            // Keep CLI running
+            for (;;) 
+            {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+            }
             #endif
 
             if (comm.isConnected())
@@ -150,15 +150,15 @@ extern "C" void app_main(void)
         eeprom.close();
 
         #if DEEP_SLEEP_EN == 1
-            break;
+        break;
         #else
-            vTaskDelay(pdMS_TO_TICKS(sleep_time_sec * 1000));
+        vTaskDelay(pdMS_TO_TICKS(sleep_time_sec * 1000));
         #endif
     }
 
     #if DEEP_SLEEP_EN == 1
-        g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
-        esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
-        esp_deep_sleep_start();
+    g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
+    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
+    esp_deep_sleep_start();
     #endif
 }

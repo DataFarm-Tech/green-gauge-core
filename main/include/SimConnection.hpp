@@ -44,16 +44,12 @@ public:
      */
     void disconnect() override;
 
-    /**
-     * @brief Thread to handle incoming data from the SIM modem
-     */
-    void tick(void * arg);
-
-private:    
+private:
+    static constexpr uint32_t MAX_RETRIES = 5;
     UARTDriver m_modem_uart { UART_NUM_1 };   // UART connected to Quectel
     SimStatus   m_status { SimStatus::DISCONNECTED };
     uint32_t    m_retry_count { 0 };
-
+    TaskHandle_t m_task { nullptr };
 
 
 private:
@@ -61,4 +57,9 @@ private:
      * @brief Send an AT command and wait for expected response.
      */
     bool sendAT(const char* cmd, const char* expect, int timeout_ms);
+
+    /**
+     * @brief Finite State Machine task for managing SIM connection.
+     */
+    static void tick(void * arg);
 };

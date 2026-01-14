@@ -72,7 +72,12 @@ void ReadingPacket::readSensor()
 
         readingList.at(i) = reading;
 
-        ESP_LOGI(TAG.c_str(), "Reading %02d -> Temp: %.2f °C, pH: %.2f", (int)i, reading.temp, reading.ph);
+        ESP_LOGI(TAG.c_str(),
+         "Reading %02d -> Temp: %.2f °C, pH: %.2f",
+         (int)i,
+         static_cast<double>(reading.temp),
+         static_cast<double>(reading.ph));
+
 
         vTaskDelay(pdMS_TO_TICKS(10)); // 10 ms delay between readings
     }

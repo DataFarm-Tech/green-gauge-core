@@ -11,8 +11,9 @@ static const char* TAG = "Logger";
 
 Logger g_logger; // Global instance
 
-Logger::Logger(const char* basePath)
-    : basePath(basePath), initialized(false) {}
+Logger::Logger(const char* basePath_)
+    : basePath(basePath_), initialized(false) {}
+
 
 esp_err_t Logger::init() {
     if (initialized) return ESP_OK;

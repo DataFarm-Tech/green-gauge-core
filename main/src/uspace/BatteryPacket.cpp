@@ -101,8 +101,11 @@ bool BatteryPacket::readFromBMS()
     health = 100; // No direct health metric from MAX17048
 
     ESP_LOGI(TAG.c_str(),
-             "MAX17048: voltage=%.3f V, SoC=%.2f%% (stored %u%%)",
-             voltage, socPercent, static_cast<unsigned>(level));
+         "MAX17048: voltage=%.3f V, SoC=%.2f%% (stored %u%%)",
+         static_cast<double>(voltage),
+         static_cast<double>(socPercent),
+         static_cast<unsigned>(level));
+
 
     return true;
 }

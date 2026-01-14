@@ -32,10 +32,26 @@ idf_component_register(
         esp_driver_gpio
 )
 
-# Enable all warnings for GCC/Clang
+target_include_directories(${COMPONENT_LIB}
+    SYSTEM PRIVATE
+)
+
 target_compile_options(${COMPONENT_LIB} PRIVATE
-    -Wall          # Enable all standard warnings
-    -Wextra        # Extra warnings
+    -Wall
+    -Wextra
+    -Wshadow
+    -Wconversion
+    -Wdouble-promotion
+    -Wformat=2
+    -Wformat-truncation
+    -Wformat-overflow
+    -Wlogical-op
+    -Wnull-dereference
+    -Wduplicated-cond
+    -Wduplicated-branches
+    -Wimplicit-fallthrough
+    -Wstack-usage=4096
+    -Wvla
 )
 
 # Default values (can be overridden from command line)
