@@ -9,6 +9,10 @@
 
 static const char* TAG = "Logger";
 
+/**
+ * @brief Global Logger instance.
+ * This instance can be used throughout the application.
+ */
 Logger g_logger; // Global instance
 
 Logger::Logger(const char* basePath_)

@@ -66,6 +66,7 @@ const uint8_t * ActivatePacket::toBuffer()
 
     // node_id
     cbor_encode_text_stringz(&mapEncoder, "node_id");
+    printf("nodeid: %s\n", nodeId.c_str());
     cbor_encode_text_stringz(&mapEncoder, nodeId.c_str());
 
     // gps

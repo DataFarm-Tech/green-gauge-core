@@ -30,135 +30,236 @@ extern "C" {
 #include "OTAUpdater.hpp"
 #include "Logger.hpp"
 
-Node nodeId;
+/**
+ * @brief Global device configuration stored in EEPROM.
+ *
+ * This structure holds persistent device information such as:
+ * - Activation status
+ * - Node ID
+ * - Hardware version
+ * - Firmware version
+ */
 DeviceConfig g_device_config = {
     .has_activated = false,
-    .nodeId = nodeId,
+    .nodeId = "",
     .hw_ver = "",
     .fw_ver = ""
 };
 
+/**
+ * @enum MeasurementType
+ * @brief Supported sensor measurement types.
+ *
+ * This enum defines all sensor measurements supported by the device.
+ * It is used to ensure type safety and avoid string-based errors
+ * when selecting measurement types.
+ */
+enum class MeasurementType {
+    Nitrogen,     /**< Soil nitrogen level */
+    Moisture,     /**< Soil moisture level */
+    PH,           /**< Soil pH level */
+    Phosphorus,   /**< Soil phosphorus level */
+    Temperature   /**< Ambient or soil temperature */
+};
+
+
+
+/**
+ * @brief Convert MeasurementType enum to string.
+ *
+ * This function converts a MeasurementType enum value into its
+ * corresponding string representation used by the backend API.
+ *
+ * @param type MeasurementType enum value
+ * @return const char* String representation of the measurement type
+ */
+static const char* measurementTypeToString(MeasurementType type)
+{
+    switch (type) {
+        case MeasurementType::Nitrogen:     return "nitrogen";
+        case MeasurementType::Moisture:     return "moisture";
+        case MeasurementType::PH:           return "ph";
+        case MeasurementType::Phosphorus:   return "phosphorus";
+        case MeasurementType::Temperature:  return "temperature";
+        default:                            return "unknown";
+    }
+}
+
+
+/**
+ * @brief Collect and send all sensor readings.
+ *
+ * This function iterates through all supported MeasurementType values,
+ * reads the corresponding sensor data, and sends each reading to the server.
+ *
+ * @param readings Reference to an initialized ReadingPacket instance
+ */
+static void collectAndSendReadings(ReadingPacket& readings)
+{
+    static const MeasurementType measurement_list[] = {
+        MeasurementType::Nitrogen,
+        MeasurementType::Moisture,
+        MeasurementType::PH,
+        MeasurementType::Phosphorus,
+        MeasurementType::Temperature
+    };
+
+    g_logger.info("Collecting sensor readings...");
+
+    for (MeasurementType type : measurement_list)
+    {
+        const char* type_str = measurementTypeToString(type);
+
+        g_logger.info("Reading measurement type: %s", type_str);
+
+        readings.setMeasurementType(type_str);
+        readings.readSensor();
+        readings.sendPacket();
+
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+
+    g_logger.info("All readings sent successfully");
+}
+
+
+
 #if CLI_EN == 1
-// Create UART console instance for serial monitor
+/** UART console instance used for CLI interaction */
 static UARTDriver serialConsole(UART_NUM_0);
 #endif
 
 extern "C" void app_main(void)
-{   
-    // Initialize logger (auto-mounts filesystem)
+{
     g_logger.init();
     g_logger.info("System booting...");
 
-    #if OTA_EN == 1
+#if OTA_EN == 1
     esp_reset_reason_t reset_reason = esp_reset_reason();
-    #endif
+    esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
 
-    Communication comm(ConnectionType::WIFI);
-    ActivatePacket activate(std::string(g_device_config.nodeId.getNodeID()), ACT_URI, ACT_TAG);
-    ReadingPacket readings(std::string(g_device_config.nodeId.getNodeID()), DATA_URI, DATA_TAG);
+    if (wakeup_reason == ESP_SLEEP_WAKEUP_TIMER) {
+        g_logger.info("Woke from deep sleep timer");
+    } else {
+        g_logger.info("Power-on or hard reset");
+    }
+#endif
 
-    // Start CLI task
-    #if CLI_EN == 1
-    serialConsole.init(115200);  // Initialize UART console instance
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    CLI::start(serialConsole);  // Pass console instance to CLI
-    #endif
-    
-    if (!eeprom.begin()) 
-    {
+    // Initialize EEPROM/NVS
+    if (!eeprom.begin()) {
         g_logger.error("Failed to open EEPROM config");
         return;
     }
 
-    if (!eeprom.loadConfig(g_device_config)) 
-    {
+    // Load or initialize configuration
+    if (!eeprom.loadConfig(g_device_config)) {
         g_logger.info("No previous config found, initializing defaults");
+
+        Node nodeId;
+        strncpy(g_device_config.nodeId, nodeId.getNodeID(), sizeof(g_device_config.nodeId) - 1);
+        g_device_config.nodeId[sizeof(g_device_config.nodeId) - 1] = '\0';
+
         g_device_config.has_activated = false;
-        eeprom.saveConfig(g_device_config);
+
+        if (!eeprom.saveConfig(g_device_config)) {
+            g_logger.error("Failed to save initial config");
+        } else {
+            g_logger.info("Initial config saved with Node ID: %s", g_device_config.nodeId);
+        }
+    } else {
+        g_logger.info("Loaded config from EEPROM. Node ID: %s, Activated: %s", g_device_config.nodeId, g_device_config.has_activated ? "Yes" : "No");
     }
 
-    while (1) 
+    // Communication & packets
+    Communication comm(ConnectionType::WIFI);
+    ActivatePacket activate(std::string(g_device_config.nodeId), ACT_URI, ACT_TAG);
+    ReadingPacket readings(std::string(g_device_config.nodeId), DATA_URI, "temperature", DATA_TAG);
+
+#if CLI_EN == 1 && DEEP_SLEEP_EN == 0
+    serialConsole.init(115200);
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    CLI::start(serialConsole);
+#endif
+
+    if (comm.connect())
     {
-        if (comm.connect()) 
+        g_logger.info("Device connected to WLAN0");
+
+        if (!g_device_config.has_activated)
         {
-            g_logger.info("Device connected to WLAN0");
-            
-            if (!g_device_config.has_activated) 
-            {
-                g_logger.info("Sending activation packet...");
-                activate.sendPacket();
+            g_logger.info("Sending activation packet for node: %s", g_device_config.nodeId);
+            activate.sendPacket();
 
-                g_device_config.has_activated = true;
-                g_logger.info("Activation complete, saving config");
-                eeprom.saveConfig(g_device_config);
-            } 
-            else 
-            {
-                g_logger.info("Already activated");
+            vTaskDelay(pdMS_TO_TICKS(3000));
+
+            g_device_config.has_activated = true;
+            if (eeprom.saveConfig(g_device_config)) {
+                g_logger.info("Activation complete, config saved to EEPROM");
+            } else {
+                g_logger.error("Failed to save activation status to EEPROM");
             }
+        }
+        else
+        {
+            g_logger.info("Device already activated (node: %s)",g_device_config.nodeId);
+        }
 
-            g_logger.info("Collecting sensor readings...");
-            readings.readSensor();
-            readings.sendPacket();
-            
-            // BatteryPacket battery(g_device_config.nodeId.getNodeID(), BATT_URI, 0, 0, BATT_TAG);
-            // if (!battery.readFromBMS()) {
-            //     g_logger.error("Failed to read battery");
-            // } else {
-            //     g_logger.info("Sending battery packet...");
-            //     battery.sendPacket();
-            // }
+        collectAndSendReadings(readings);
 
-            #if OTA_EN == 1
-            if (reset_reason == ESP_RST_POWERON) 
-            {
-                OTAUpdater ota;
-                const char * url = "http://45.79.118.187:8080/release/latest/cn1.bin";
-                
-                g_logger.info("Power-on detected, checking for OTA update");
+#if OTA_EN == 1
+        if (reset_reason == ESP_RST_POWERON &&
+            wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
+        {
+            OTAUpdater ota;
+            const char* url =
+                "http://45.79.118.187:8080/release/latest/cn1.bin";
 
-                if (ota.update(url)) 
-                {
-                    g_logger.info("OTA successful, rebooting...");
-                    vTaskDelay(pdMS_TO_TICKS(2000));
-                    esp_restart();
-                } 
-                else 
-                {
-                    g_logger.warning("OTA failed or no update needed");
-                }
+            g_logger.info("Power-on detected, checking for OTA update");
+
+            if (ota.update(url)) {
+                g_logger.info("OTA successful, rebooting...");
+                vTaskDelay(pdMS_TO_TICKS(2000));
+                esp_restart();
+            } else {
+                g_logger.warning("OTA failed or no update needed");
             }
-            #endif
+        }
+#endif
 
-            #if CLI_EN == 1
-            // Keep CLI running
-            for (;;) 
-            {
-                vTaskDelay(pdMS_TO_TICKS(1000));
-            }
-            #endif
+        if (comm.isConnected())
+            comm.disconnect();
+    }
+    else
+    {
+        g_logger.error("Unable to connect to network");
+    }
 
+    eeprom.close();
+
+#if DEEP_SLEEP_EN == 1
+    g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
+    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    esp_deep_sleep_start();
+#else
+#if CLI_EN == 1
+    g_logger.info("CLI mode active, device will not sleep");
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+#else
+    while (1)
+    {
+        vTaskDelay(pdMS_TO_TICKS(sleep_time_sec * 1000));
+
+        if (comm.connect())
+        {
+            collectAndSendReadings(readings);
             if (comm.isConnected())
                 comm.disconnect();
         }
-        else 
-        {
-            g_logger.error("Unable to connect to network");
-        }
-
-        eeprom.close();
-
-        #if DEEP_SLEEP_EN == 1
-        break;
-        #else
-        vTaskDelay(pdMS_TO_TICKS(sleep_time_sec * 1000));
-        #endif
     }
-
-    #if DEEP_SLEEP_EN == 1
-    g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
-    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
-    esp_deep_sleep_start();
-    #endif
+#endif
+#endif
 }

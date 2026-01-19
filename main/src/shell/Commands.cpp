@@ -184,7 +184,7 @@ static void cmd_eeprom_get(int, char**) {
         console->writef("Activated: %s\r\n",
             config.has_activated ? "Yes" : "No"
         );
-        console->writef("Node ID: %s\r\n", config.nodeId.getNodeID());
+        console->writef("Node ID: %s\r\n", config.nodeId);
         console->writef("Hardware Version: %s\r\n", config.hw_ver);
         console->writef("Firmware Version: %s\r\n", config.fw_ver);
 

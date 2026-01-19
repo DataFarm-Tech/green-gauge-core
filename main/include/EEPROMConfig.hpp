@@ -16,7 +16,7 @@
  */
 typedef struct {
     bool has_activated;   ///< True if the device has already completed activation
-    Node nodeId;          ///< Unique Node identifier for the device
+    char nodeId[7];          ///< Unique Node identifier for the device
     char hw_ver[GEN_STRING_SIZE];     ///< Hardware version string (e.g., "0.0.1"
     char fw_ver[GEN_STRING_SIZE];     ///< Firmware version string (e.g., "0.0.1"
 } DeviceConfig;
