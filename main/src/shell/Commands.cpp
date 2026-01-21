@@ -184,9 +184,28 @@ static void cmd_eeprom_get(int, char**) {
         console->writef("Activated: %s\r\n",
             config.has_activated ? "Yes" : "No"
         );
-        console->writef("Node ID: %s\r\n", config.nodeId);
-        console->writef("Hardware Version: %s\r\n", config.hw_ver);
-        console->writef("Firmware Version: %s\r\n", config.fw_ver);
+        console->writef("Node ID: %s\r\n", config.manf_info.nodeId);
+        console->writef("Hardware Version: %s\r\n", config.manf_info.hw_ver);
+        console->writef("Firmware Version: %s\r\n", config.manf_info.fw_ver);
+
+        console->writef("Calibration\n");
+
+        for (size_t i = 0; i < 5; i++) {
+            
+            const char* type_name = "UNKNOWN";
+            
+            for (const auto& entry : MEASUREMENT_TABLE) {
+                if (entry.type == config.calib.calib_list[i].m_type) {
+                    type_name = entry.name;
+                    break;
+                }
+            }
+            
+            console->writef("Sensor %d (%s):\r\n", (int)i, type_name);
+            console->writef("  Offset: %.4f\r\n", static_cast<double>(config.calib.calib_list[i].offset));
+            console->writef("  Gain:   %.4f\r\n", static_cast<double>(config.calib.calib_list[i].gain));
+        }
+        
 
     } else {
         console->write("No EEPROM configuration found\r\n");
@@ -243,7 +262,7 @@ static void cmd_provision_hwver(int argc, char** argv) {
 
     console->writef("Setting hardware version to: %s\r\n", hw_ver);
 
-    strncpy(g_device_config.hw_ver, hw_ver, sizeof(g_device_config.hw_ver)-1);
+    strncpy(g_device_config.manf_info.hw_ver, hw_ver, sizeof(g_device_config.manf_info.hw_ver)-1);
 
     eeprom.saveConfig(g_device_config);
 }
@@ -256,6 +275,6 @@ static void cmd_provision_fwver(int argc, char** argv) {
 
     console->writef("Setting firmware version to: %s\r\n", a->version);
 
-    strncpy(g_device_config.fw_ver, a->version, sizeof(g_device_config.fw_ver)-1);
+    strncpy(g_device_config.manf_info.fw_ver, a->version, sizeof(g_device_config.manf_info.fw_ver)-1);
     eeprom.saveConfig(g_device_config);
 }

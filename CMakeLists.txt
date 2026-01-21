@@ -9,6 +9,10 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 set(PARTITION_TABLE_CSV partitions.csv)
 
 
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 
 set(COMPONENTS main esp_eth)
 project(firmware-idf)

@@ -10,48 +10,77 @@ extern "C" {
 
 static const char* TAG = "SIM";
 
+bool SimConnection::sendAT(const ATCommand_t& atCmd) {
+    char line[256];   // larger buffer for long responses
+    size_t len = 0;
+    bool got_expect = false;
 
-bool SimConnection::sendAT(const char* cmd, const char* expect, int timeout_ms)
-{
-    char rx_buf[GEN_BUFFER_SIZE] = {};
-    int idx = 0;
-    TickType_t start = xTaskGetTickCount();
+    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(atCmd.timeout_ms);
 
-    m_modem_uart.writef("%s\r\n", cmd);
+    m_modem_uart.writef("%s\r\n", atCmd.cmd);
 
-    while ((xTaskGetTickCount() - start) < pdMS_TO_TICKS(timeout_ms)) {
+    while (xTaskGetTickCount() < deadline) {
         uint8_t c;
-        if (m_modem_uart.readByte(c) == 1) {
-            if (idx < (int)sizeof(rx_buf) - 1) {
-                rx_buf[idx++] = c;
-                rx_buf[idx] = '\0';
-            }
 
-            if (strstr(rx_buf, expect)) {
-                ESP_LOGI(TAG, "AT OK: %s", cmd);
-                return true;
-            }
+        // Fully non-blocking read
+        if (!m_modem_uart.readByte(c)) {
+            // No data available; yield a bit
+            vTaskDelay(pdMS_TO_TICKS(1));
+            continue;
+        }
 
-            if (strstr(rx_buf, "ERROR")) {
-                ESP_LOGE(TAG, "AT ERROR: %s", rx_buf);
+        // Accumulate line
+        if (c == '\n') {
+            line[len] = '\0';
+            if (len > 0 && line[len - 1] == '\r') line[len - 1] = '\0';
+            ESP_LOGD(TAG, "RX: %s", line);
+
+            if (strcmp(line, "ERROR") == 0) {
+                ESP_LOGE(TAG, "AT ERROR (%s)", atCmd.cmd);
                 return false;
+            }
+
+            if (strstr(line, atCmd.expect)) got_expect = true;
+
+            if (strcmp(line, "OK") == 0) {
+                if (got_expect || atCmd.msg_type == MsgType::SHUTDOWN) {
+                    ESP_LOGI(TAG, "AT OK: %s", atCmd.cmd);
+                    return true;
+                } else {
+                    ESP_LOGW(TAG, "AT OK without expected response (%s)", atCmd.cmd);
+                    return false;
+                }
+            }
+
+            len = 0;
+            continue;
+        }
+
+        // Normal character
+        if (c != '\r') {
+            if (len < sizeof(line) - 1) {
+                line[len++] = c;
+            } else {
+                // discard until next newline
+                ESP_LOGW(TAG, "RX line overflow, discarding");
+                len = 0;
             }
         }
     }
 
-    ESP_LOGE(TAG, "AT TIMEOUT: %s", cmd);
+    ESP_LOGE(TAG, "AT TIMEOUT (%s)", atCmd.cmd);
     return false;
 }
 
-void SimConnection::tick(void* arg)
-{
+
+
+void SimConnection::tick(void* arg) {
     auto* self = static_cast<SimConnection*>(arg);
 
     while (true) {
         switch (self->m_status) {
 
         case SimStatus::DISCONNECTED:
-            /* Idle */
             break;
 
         case SimStatus::INIT:
@@ -67,55 +96,57 @@ void SimConnection::tick(void* arg)
 
             vTaskDelay(pdMS_TO_TICKS(300));
 
-            if (!self->sendAT("AT", "OK", 1000)) {
-                self->m_status = SimStatus::ERROR;
-                break;
+            // Run all INIT commands from class table
+            for (auto& cmd : at_command_table) {
+                if (cmd.msg_type != MsgType::INIT) continue;
+                if (!self->sendAT(cmd)) {
+                    self->m_status = SimStatus::ERROR;
+                    break;
+                }
             }
 
-            self->sendAT("ATE0", "OK", 1000);
-            self->m_status = SimStatus::NOTREADY;
+            if (self->m_status != SimStatus::ERROR) {
+                self->m_status = SimStatus::NOTREADY;
+            }
             break;
 
         case SimStatus::NOTREADY:
             ESP_LOGI(TAG, "FSM: CHECK SIM");
 
-            if (self->sendAT("AT+CPIN?", "READY", 2000)) {
-                self->m_status = SimStatus::REGISTERING;
+            for (auto& cmd : at_command_table) {
+                if (cmd.msg_type != MsgType::STATUS) continue;
+                if (self->sendAT(cmd)) {
+                    self->m_status = SimStatus::REGISTERING;
+                    break;
+                }
             }
             break;
 
         case SimStatus::REGISTERING:
             ESP_LOGI(TAG, "FSM: REGISTERING");
 
-            if (self->sendAT("AT+CEREG?", ",1", 3000) ||
-                self->sendAT("AT+CEREG?", ",5", 3000)) {
-
-                ESP_LOGI(TAG, "Network registered");
-                self->m_retry_count = 0;   // ✅ success resets retries
-                self->m_status = SimStatus::CONNECTED;
+            for (auto& cmd : at_command_table) {
+                if (cmd.msg_type != MsgType::NETREG) continue;
+                if (self->sendAT(cmd)) {
+                    ESP_LOGI(TAG, "Network registered");
+                    self->m_retry_count = 0;
+                    self->m_status = SimStatus::CONNECTED;
+                    break;
+                }
             }
             break;
 
         case SimStatus::CONNECTED:
-            /* Link monitoring / URCs later */
             break;
 
         case SimStatus::ERROR:
             self->m_retry_count++;
-
-            ESP_LOGE(
-                TAG,
-                "FSM: ERROR (%lu/%lu)",
-                self->m_retry_count,
-                MAX_RETRIES
-            );
+            ESP_LOGE(TAG, "FSM: ERROR (%lu/%lu)", self->m_retry_count, MAX_RETRIES);
 
             if (self->m_retry_count >= MAX_RETRIES) {
                 ESP_LOGE(TAG, "FSM: MAX RETRIES EXCEEDED");
                 self->m_status = SimStatus::DISCONNECTED;
-                self->m_task = nullptr;
-                vTaskDelete(nullptr);   // Kill task permanently
-                return;
+                break;
             }
 
             vTaskDelay(pdMS_TO_TICKS(5000));
@@ -123,12 +154,16 @@ void SimConnection::tick(void* arg)
             break;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(
+            self->m_status == SimStatus::CONNECTED ? 1000 : 500));
     }
+
+    self->m_task = nullptr;
+    vTaskDelete(nullptr);
 }
 
-bool SimConnection::connect()
-{
+
+bool SimConnection::connect() {
     if (m_retry_count >= MAX_RETRIES) {
         ESP_LOGE(TAG, "SIM permanently failed");
         return false;
@@ -142,7 +177,7 @@ bool SimConnection::connect()
     ESP_LOGI(TAG, "Starting SIM FSM task");
     m_status = SimStatus::INIT;
 
-    xTaskCreate(
+    BaseType_t res = xTaskCreate(
         &SimConnection::tick,
         "sim_fsm",
         4096,
@@ -150,21 +185,31 @@ bool SimConnection::connect()
         5,
         &m_task
     );
-    
+
+    if (res != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create SIM FSM task");
+        m_task = nullptr;
+        return false;
+    }
 
     return true;
 }
 
-bool SimConnection::isConnected()
-{
+bool SimConnection::isConnected() {
     return m_status == SimStatus::CONNECTED;
 }
 
-void SimConnection::disconnect()
-{
+void SimConnection::disconnect() {
     ESP_LOGI(TAG, "Disconnecting SIM");
 
-    sendAT("AT+CFUN=0", "OK", 3000);
+    // Run shutdown command from class table
+    for (auto& cmd : at_command_table) {
+        if (cmd.msg_type == MsgType::SHUTDOWN) {
+            sendAT(cmd);
+            break;
+        }
+    }
+
     m_status = SimStatus::DISCONNECTED;
 
     if (m_task) {

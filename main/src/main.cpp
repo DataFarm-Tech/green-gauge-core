@@ -29,6 +29,7 @@ extern "C" {
 #include "CLI.hpp"
 #include "OTAUpdater.hpp"
 #include "Logger.hpp"
+#include "NPK.hpp"
 
 /**
  * @brief Global device configuration stored in EEPROM.
@@ -41,87 +42,22 @@ extern "C" {
  */
 DeviceConfig g_device_config = {
     .has_activated = false,
-    .nodeId = "",
-    .hw_ver = "",
-    .fw_ver = ""
-};
-
-/**
- * @enum MeasurementType
- * @brief Supported sensor measurement types.
- *
- * This enum defines all sensor measurements supported by the device.
- * It is used to ensure type safety and avoid string-based errors
- * when selecting measurement types.
- */
-enum class MeasurementType {
-    Nitrogen,     /**< Soil nitrogen level */
-    Moisture,     /**< Soil moisture level */
-    PH,           /**< Soil pH level */
-    Phosphorus,   /**< Soil phosphorus level */
-    Temperature   /**< Ambient or soil temperature */
-};
-
-
-
-/**
- * @brief Convert MeasurementType enum to string.
- *
- * This function converts a MeasurementType enum value into its
- * corresponding string representation used by the backend API.
- *
- * @param type MeasurementType enum value
- * @return const char* String representation of the measurement type
- */
-static const char* measurementTypeToString(MeasurementType type)
-{
-    switch (type) {
-        case MeasurementType::Nitrogen:     return "nitrogen";
-        case MeasurementType::Moisture:     return "moisture";
-        case MeasurementType::PH:           return "ph";
-        case MeasurementType::Phosphorus:   return "phosphorus";
-        case MeasurementType::Temperature:  return "temperature";
-        default:                            return "unknown";
+    .manf_info = {
+        .hw_ver = "",
+        .fw_ver = "",
+        .nodeId = ""
+    },
+    .calib = {
+        .calib_list = {
+            { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Nitrogen },
+            { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Phosphorus },
+            { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Potassium },
+            { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Moisture },
+            { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::PH }
+        },
+        .last_cal_ts = 0
     }
-}
-
-
-/**
- * @brief Collect and send all sensor readings.
- *
- * This function iterates through all supported MeasurementType values,
- * reads the corresponding sensor data, and sends each reading to the server.
- *
- * @param readings Reference to an initialized ReadingPacket instance
- */
-static void collectAndSendReadings(ReadingPacket& readings)
-{
-    static const MeasurementType measurement_list[] = {
-        MeasurementType::Nitrogen,
-        MeasurementType::Moisture,
-        MeasurementType::PH,
-        MeasurementType::Phosphorus,
-        MeasurementType::Temperature
-    };
-
-    g_logger.info("Collecting sensor readings...");
-
-    for (MeasurementType type : measurement_list)
-    {
-        const char* type_str = measurementTypeToString(type);
-
-        g_logger.info("Reading measurement type: %s", type_str);
-
-        readings.setMeasurementType(type_str);
-        readings.readSensor();
-        readings.sendPacket();
-
-        vTaskDelay(pdMS_TO_TICKS(500));
-    }
-
-    g_logger.info("All readings sent successfully");
-}
-
+};
 
 
 #if CLI_EN == 1
@@ -131,6 +67,7 @@ static UARTDriver serialConsole(UART_NUM_0);
 
 extern "C" void app_main(void)
 {
+    NPK npk_obj;
     g_logger.init();
     g_logger.info("System booting...");
 
@@ -156,29 +93,33 @@ extern "C" void app_main(void)
         g_logger.info("No previous config found, initializing defaults");
 
         Node nodeId;
-        strncpy(g_device_config.nodeId, nodeId.getNodeID(), sizeof(g_device_config.nodeId) - 1);
-        g_device_config.nodeId[sizeof(g_device_config.nodeId) - 1] = '\0';
+        strncpy(g_device_config.manf_info.nodeId, nodeId.getNodeID(), sizeof(g_device_config.manf_info.nodeId) - 1);
+        g_device_config.manf_info.nodeId[sizeof(g_device_config.manf_info.nodeId) - 1] = '\0';
 
         g_device_config.has_activated = false;
 
         if (!eeprom.saveConfig(g_device_config)) {
             g_logger.error("Failed to save initial config");
         } else {
-            g_logger.info("Initial config saved with Node ID: %s", g_device_config.nodeId);
+            g_logger.info("Initial config saved with Node ID: %s", g_device_config.manf_info.nodeId);
         }
     } else {
-        g_logger.info("Loaded config from EEPROM. Node ID: %s, Activated: %s", g_device_config.nodeId, g_device_config.has_activated ? "Yes" : "No");
+        g_logger.info("Loaded config from EEPROM. Node ID: %s, Activated: %s", 
+                     g_device_config.manf_info.nodeId, 
+                     g_device_config.has_activated ? "Yes" : "No");
     }
+
+    // Initialize network stack BEFORE any network operations
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     // Communication & packets
     Communication comm(ConnectionType::WIFI);
-    ActivatePacket activate(std::string(g_device_config.nodeId), ACT_URI, ACT_TAG);
-    ReadingPacket readings(std::string(g_device_config.nodeId), DATA_URI, "temperature", DATA_TAG);
+    ActivatePacket activate(std::string(g_device_config.manf_info.nodeId), ACT_URI, ACT_TAG);
+    ReadingPacket readings(std::string(g_device_config.manf_info.nodeId), DATA_URI, POTASSIUM, DATA_TAG);
 
-#if CLI_EN == 1 && DEEP_SLEEP_EN == 0
+#if CLI_EN == 1
     serialConsole.init(115200);
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
     CLI::start(serialConsole);
 #endif
 
@@ -188,7 +129,7 @@ extern "C" void app_main(void)
 
         if (!g_device_config.has_activated)
         {
-            g_logger.info("Sending activation packet for node: %s", g_device_config.nodeId);
+            g_logger.info("Sending activation packet for node: %s", g_device_config.manf_info.nodeId);
             activate.sendPacket();
 
             vTaskDelay(pdMS_TO_TICKS(3000));
@@ -202,18 +143,15 @@ extern "C" void app_main(void)
         }
         else
         {
-            g_logger.info("Device already activated (node: %s)",g_device_config.nodeId);
+            g_logger.info("Device already activated (node: %s)", g_device_config.manf_info.nodeId);
         }
 
-        collectAndSendReadings(readings);
+        npk_obj.npk_collect(readings);
 
 #if OTA_EN == 1
-        if (reset_reason == ESP_RST_POWERON &&
-            wakeup_reason != ESP_SLEEP_WAKEUP_TIMER)
-        {
+        if (reset_reason == ESP_RST_POWERON && wakeup_reason != ESP_SLEEP_WAKEUP_TIMER) {
             OTAUpdater ota;
-            const char* url =
-                "http://45.79.118.187:8080/release/latest/cn1.bin";
+            const char* url = "http://45.79.118.187:8080/release/latest/cn1.bin";
 
             g_logger.info("Power-on detected, checking for OTA update");
 
@@ -227,15 +165,21 @@ extern "C" void app_main(void)
         }
 #endif
 
-        if (comm.isConnected())
+#if CLI_EN == 1
+        // In CLI mode, keep WiFi connected for debugging
+        g_logger.info("CLI mode: keeping WiFi connection active");
+#else
+        // In production mode, disconnect to save power
+        if (comm.isConnected()) {
+            g_logger.info("Disconnecting from WiFi");
             comm.disconnect();
+        }
+#endif
     }
     else
     {
         g_logger.error("Unable to connect to network");
     }
-
-    eeprom.close();
 
 #if DEEP_SLEEP_EN == 1
     g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
@@ -255,7 +199,8 @@ extern "C" void app_main(void)
 
         if (comm.connect())
         {
-            collectAndSendReadings(readings);
+            npk_obj.npk_collect(readings);
+            
             if (comm.isConnected())
                 comm.disconnect();
         }

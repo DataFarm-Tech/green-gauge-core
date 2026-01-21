@@ -11,6 +11,7 @@
 #include <freertos/task.h>
 #include <cstdlib>
 #include <ctime>
+#include "NPK.hpp"
 
 const uint8_t * ReadingPacket::toBuffer()
 {
@@ -33,7 +34,7 @@ const uint8_t * ReadingPacket::toBuffer()
     }
 
     // Encode measurement_type
-    if (cbor_encode_text_stringz(&mapEncoder, "measurement_type") != CborNoError ||
+    if (cbor_encode_text_stringz(&mapEncoder, "m_type") != CborNoError ||
         cbor_encode_text_stringz(&mapEncoder, measurementType.c_str()) != CborNoError)
     {
         ESP_LOGE(TAG.c_str(), "Failed to encode measurement_type");
@@ -87,9 +88,49 @@ const uint8_t * ReadingPacket::toBuffer()
     return buffer;
 }
 
+void ReadingPacket::applyCalibration(NPK_Calib_t calib, MeasurementType m_type) {
+    float gain = 1.0f;
+    float offset = 0.0f;
+    bool found = false;
+
+    // Search through the calibration list for matching measurement type
+    for (size_t i = 0; i < 5; i++) {
+        if (calib.calib_list[i].m_type == m_type) {
+            gain = calib.calib_list[i].gain;
+            offset = calib.calib_list[i].offset;
+            found = true;
+            
+            // Find the name for logging
+            const char* type_name = "UNKNOWN";
+            for (const auto& entry : MEASUREMENT_TABLE) {
+                if (entry.type == m_type) {
+                    type_name = entry.name;
+                    break;
+                }
+            }
+            
+            ESP_LOGI(TAG.c_str(), "Applying calibration for %s: gain=%.4f, offset=%.4f", 
+                     type_name, static_cast<double>(gain), static_cast<double>(offset));
+            break;
+        }
+    }
+
+    if (!found) {
+        ESP_LOGW(TAG.c_str(), "No calibration found for measurement type, using defaults");
+    }
+
+    // Apply calibration to all readings
+    for (size_t i = 0; i < READING_SIZE; i++) {
+        readingList[i] = readingList[i] * gain + offset;
+    }
+}
+
 void ReadingPacket::readSensor() 
 {
     ESP_LOGI(TAG.c_str(), "Starting sensor reading sequence for %s...", measurementType.c_str());
+
+    //Create UARTDriver instance and initialize it
+    //Then write bytes to UARTDriver, Then do a read.
 
     // TODO: remove this for production
     srand(static_cast<unsigned>(time(nullptr)));

@@ -36,5 +36,7 @@ void UARTDriver::writef(const char* fmt, ...) {
 }
 
 int UARTDriver::readByte(uint8_t &out) {
-    return uart_read_bytes(m_uart_num, &out, 1, 10 / portTICK_PERIOD_MS);
+    // Fully non-blocking: returns 1 if byte read, 0 if no data
+    int len = uart_read_bytes(m_uart_num, &out, 1, 0); // 0 ticks => immediate return
+    return (len > 0) ? 1 : 0;
 }

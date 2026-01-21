@@ -17,6 +17,7 @@ idf_component_register(
         "src/sys/I2CDriver.cpp"
         "src/sys/OTAUpdater.cpp"
         "src/sys/Logger.cpp"
+        "src/io/NPK.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash

@@ -3,7 +3,9 @@
 #include "IPacket.hpp"
 #include <vector>
 #include <array>
+#include "EEPROMConfig.hpp"
 #include <string>
+#include "NPK.hpp"
 
 class ReadingPacket : public IPacket {
     private:
@@ -30,6 +32,13 @@ class ReadingPacket : public IPacket {
          * Collects 35 readings total.
          */
         void readSensor();
+
+        /**
+         * Apply calibration to the readings.
+         * @param gain Gain factor
+         * @param offset Offset value
+         */
+        void applyCalibration(NPK_Calib_t calib, MeasurementType m_type);
 
         /**
          * @brief Set the measurement type to encode

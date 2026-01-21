@@ -5,6 +5,37 @@
 #include "esp_log.h"
 #include "Node.hpp"
 #include "Types.hpp"
+#include "NPK.hpp"
+
+/**
+ * @struct NPK_Calib_t
+ * @brief  Calibration data structure for NPK sensor readings.
+ */
+
+typedef struct {
+    float offset;
+    float gain;
+    MeasurementType m_type;  // Use enum directly instead of string
+} DataCalib_t;
+
+typedef struct {
+    DataCalib_t calib_list[5]; 
+    uint32_t last_cal_ts;
+} NPK_Calib_t;
+
+/**
+ * @struct MANF_info_t
+ * @brief  Manufacturing information structure.
+ *
+ * Contains hardware and firmware version strings along with the unique
+ * Node ID assigned to the device.
+ */
+typedef struct {
+    char hw_ver[GEN_STRING_SIZE];     ///< Hardware version string (e.g., "0.0.1"
+    char fw_ver[GEN_STRING_SIZE];     ///< Firmware version string (e.g., "
+    char nodeId[7];          ///< Unique Node identifier for the device
+} MANF_info_t;
+
 
 // Define the device configuration structure
 /**
@@ -16,9 +47,8 @@
  */
 typedef struct {
     bool has_activated;   ///< True if the device has already completed activation
-    char nodeId[7];          ///< Unique Node identifier for the device
-    char hw_ver[GEN_STRING_SIZE];     ///< Hardware version string (e.g., "0.0.1"
-    char fw_ver[GEN_STRING_SIZE];     ///< Firmware version string (e.g., "0.0.1"
+    MANF_info_t manf_info;  ///< Manufacturing information
+    NPK_Calib_t calib;
 } DeviceConfig;
 
 /**

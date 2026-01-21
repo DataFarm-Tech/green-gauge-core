@@ -2,9 +2,9 @@
 
 #include <string>
 #include <cstdint>
+#include <sys/socket.h>
 #include "coap3/coap.h"
 #include <cbor.h>
-#include <sys/socket.h>
 #include "esp_log.h"
 #include <cstddef>
 #include "Types.hpp"

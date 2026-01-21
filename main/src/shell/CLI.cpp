@@ -104,7 +104,12 @@ extern "C" void cli_task(void* param) {
 
     while (true) {
         uint8_t c;
-        if (console->readByte(c) <= 0) continue;
+        int bytes_read = console->readByte(c);
+        
+        if (bytes_read <= 0) {
+            vTaskDelay(pdMS_TO_TICKS(10));  // ← Add this delay
+            continue;
+        }
 
         if (c == 0x1B) { esc = true; esc_state = 1; continue; }
         if (esc) {
