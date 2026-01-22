@@ -18,6 +18,7 @@ idf_component_register(
         "src/sys/OTAUpdater.cpp"
         "src/sys/Logger.cpp"
         "src/io/NPK.cpp"
+        "src/tools/Ping.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash
@@ -31,6 +32,8 @@ idf_component_register(
         driver
         esp_driver_uart
         esp_driver_gpio
+        esp_netif 
+        lwip
 )
 
 target_include_directories(${COMPONENT_LIB}

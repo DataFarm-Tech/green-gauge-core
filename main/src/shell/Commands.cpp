@@ -10,6 +10,7 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 #include <string.h>
+#include "Ping.hpp"
 
 
 /**
@@ -85,6 +86,13 @@ static void cmd_provision(int, char**);
  */
 static void cmd_version(int, char**);
 
+
+/**
+ * @brief Command handler for 'ping' command.
+ * Pings a remote host.
+ */
+static void cmd_ping(int, char**);
+
 /**
  * @brief Global command table.
  * Defines all available CLI commands.
@@ -100,6 +108,7 @@ const Command commands[] = {
     {"history", "Show command history",    cmd_history, 0},
     {"version", "Show firmware version",   cmd_version, 0},
     {"provision", "provision <subcommand>", cmd_provision, 1},
+    {"ping",      "ping <host>",            cmd_ping, 1},
     {nullptr, nullptr, nullptr, 0}
 };
 
@@ -194,7 +203,7 @@ static void cmd_eeprom_get(int, char**) {
             
             const char* type_name = "UNKNOWN";
             
-            for (const auto& entry : MEASUREMENT_TABLE) {
+            for (const auto& entry : NPK::MEASUREMENT_TABLE) {
                 if (entry.type == config.calib.calib_list[i].m_type) {
                     type_name = entry.name;
                     break;
@@ -277,4 +286,14 @@ static void cmd_provision_fwver(int argc, char** argv) {
 
     strncpy(g_device_config.manf_info.fw_ver, a->version, sizeof(g_device_config.manf_info.fw_ver)-1);
     eeprom.saveConfig(g_device_config);
+}
+
+
+static void cmd_ping(int argc, char** argv) {
+    const char * remote_host = argv[1];
+
+    Ping p_obj;
+
+    p_obj.ping(remote_host);
+
 }
