@@ -7,7 +7,7 @@ PROJECT_VER=$(git describe --tags --abbrev=0)
 echo "Current Git tag: $PROJECT_VER"
 
 echo "=== Building firmware ==="
-idf.py build -DCLI_EN=1 -DOTA_EN=1 -DDEEP_SLEEP_EN=1 -DPROJECT_VER="$PROJECT_VER"
+idf.py build -D CMAKE_VERBOSE_MAKEFILE=ON -DCLI_EN=1 -DOTA_EN=0 -DDEEP_SLEEP_EN=0 -DPROJECT_VER="$PROJECT_VER"
 
 # Path to the built firmware
 BIN_FILE="build/firmware-idf.bin"
@@ -17,6 +17,14 @@ if [[ ! -f "$BIN_FILE" ]]; then
     echo "ERROR: $BIN_FILE not found!"
     exit 1
 fi
+
+# Display firmware binary details
+echo ""
+echo "=== Firmware Binary Details ==="
+FW_SIZE=$(stat -c%s "$BIN_FILE" 2>/dev/null || stat -f%z "$BIN_FILE")
+FW_SIZE_MB=$(awk "BEGIN {printf \"%.2f\", $FW_SIZE / 1048576}")
+
+echo "Size:      $FW_SIZE_MB MB"
 
 # Output directory
 DEST_DIR="/firmware/dev/$USER/"
