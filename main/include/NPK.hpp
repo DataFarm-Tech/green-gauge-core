@@ -1,5 +1,7 @@
 #pragma once
 #include <string.h>
+#include "UARTDriver.hpp"
+#include "driver/gpio.h"
 
  /**
   * @brief Calibration structure for NPK sensor
@@ -60,4 +62,9 @@ public:
      * @brief Calibrate the NPK sensor
      */
     void npk_calib();
+private:
+    /**
+     * @brief 
+     */
+    UARTDriver rs485_uart { UART_NUM_2 };   // UART connected to Quectel
 };

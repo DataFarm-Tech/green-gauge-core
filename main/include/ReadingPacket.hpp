@@ -31,7 +31,7 @@ class ReadingPacket : public IPacket {
          * Delay for 10ms between each reading.
          * Collects 35 readings total.
          */
-        void readSensor();
+        void readSensor(UARTDriver& rs485_uart);
 
         /**
          * Apply calibration to the readings.

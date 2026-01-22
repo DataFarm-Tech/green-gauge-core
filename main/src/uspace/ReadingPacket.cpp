@@ -12,6 +12,9 @@
 #include <cstdlib>
 #include <ctime>
 #include "NPK.hpp"
+#include "Logger.hpp"
+#include "UARTDriver.hpp"
+#include "driver/gpio.h"
 
 const uint8_t * ReadingPacket::toBuffer()
 {
@@ -125,12 +128,12 @@ void ReadingPacket::applyCalibration(NPK_Calib_t calib, MeasurementType m_type) 
     }
 }
 
-void ReadingPacket::readSensor() 
+void ReadingPacket::readSensor(UARTDriver& rs485_uart)
 {
-    ESP_LOGI(TAG.c_str(), "Starting sensor reading sequence for %s...", measurementType.c_str());
+    g_logger.info("Starting sensor reading sequence for %s...", measurementType.c_str());
 
     //Create UARTDriver instance and initialize it
-    //Then write bytes to UARTDriver, Then do a read.
+    //Then write bytes to UARTDriver, Then do a read
 
     // TODO: remove this for production
     srand(static_cast<unsigned>(time(nullptr)));
@@ -139,25 +142,11 @@ void ReadingPacket::readSensor()
     {
         float value;
         
-        // Generate appropriate value based on measurement type
-        if (measurementType == "temperature") {
-            // Temperature range [20.0, 30.0]
-            value = 20.0f + (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) * 10.0f;
-        } else if (measurementType == "ph") {
-            // pH range [5.0, 8.0]
-            value = 5.0f + (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) * 3.0f;
-        } else {
-            ESP_LOGW(TAG.c_str(), "Unknown measurement type '%s', using default range", measurementType.c_str());
-            value = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-        }
-
+        value = 5.0f + (static_cast<float>(rand()) / static_cast<float>(RAND_MAX)) * 75.0f;
+        
         readingList.at(i) = value;
 
-        ESP_LOGI(TAG.c_str(),
-         "Reading %02d -> %s: %.2f",
-         (int)i,
-         measurementType.c_str(),
-         static_cast<double>(value));
+        ESP_LOGI(TAG.c_str(), "Reading %02d -> %s: %.2f", (int)i, measurementType.c_str(), static_cast<double>(value));
 
         vTaskDelay(pdMS_TO_TICKS(10)); // 10 ms delay between readings
     }
