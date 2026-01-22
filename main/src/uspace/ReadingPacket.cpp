@@ -105,7 +105,7 @@ void ReadingPacket::applyCalibration(NPK_Calib_t calib, MeasurementType m_type) 
             
             // Find the name for logging
             const char* type_name = "UNKNOWN";
-            for (const auto& entry : MEASUREMENT_TABLE) {
+            for (const auto& entry : NPK::MEASUREMENT_TABLE) {
                 if (entry.type == m_type) {
                     type_name = entry.name;
                     break;
@@ -128,12 +128,22 @@ void ReadingPacket::applyCalibration(NPK_Calib_t calib, MeasurementType m_type) 
     }
 }
 
-void ReadingPacket::readSensor(UARTDriver& rs485_uart)
+void ReadingPacket::readSensor(UARTDriver& rs485_uart, const uint8_t * msg, const size_t msg_len)
 {
     g_logger.info("Starting sensor reading sequence for %s...", measurementType.c_str());
 
     //Create UARTDriver instance and initialize it
     //Then write bytes to UARTDriver, Then do a read
+
+    // Print the packet bytes in hex format
+    printf("tx pkt: ");
+    
+    for (size_t j = 0; j < msg_len; j++) {
+        printf("%02X ", msg[j]);
+    }
+    printf("\n");
+
+    rs485_uart.write((const char *)msg);
 
     // TODO: remove this for production
     srand(static_cast<unsigned>(time(nullptr)));

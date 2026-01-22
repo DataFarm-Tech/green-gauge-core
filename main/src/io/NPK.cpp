@@ -21,7 +21,7 @@ void NPK::npk_collect(ReadingPacket& readings)
     g_logger.info("Collecting sensor readings...");
 
     this->rs485_uart.init(
-        9600,           // Baud rate (adjust based on your RS485 device requirements)
+        4800,           // Baud rate (adjust based on your RS485 device requirements)
         /* tx_pin */ GPIO_NUM_37, // TXD0 (IO37) - connects to UART2_TXD
         /* rx_pin */ GPIO_NUM_36, // RXD0 (IO36) - connects to UART2_RXD
         /* rts_pin */ UART_PIN_NO_CHANGE,
@@ -35,8 +35,8 @@ void NPK::npk_collect(ReadingPacket& readings)
         g_logger.info("Reading measurement type: %s", entry.name);
 
         readings.setMeasurementType(entry.name);
-        readings.readSensor(this->rs485_uart);
-        readings.applyCalibration(g_device_config.calib, entry.type);
+        readings.readSensor(this->rs485_uart, entry.packet, entry.packet_size);
+        // readings.applyCalibration(g_device_config.calib, entry.type);
         readings.sendPacket();
 
         vTaskDelay(pdMS_TO_TICKS(500));
