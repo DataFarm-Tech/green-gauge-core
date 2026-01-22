@@ -97,7 +97,7 @@ void ReadingPacket::applyCalibration(NPK_Calib_t calib, MeasurementType m_type) 
     bool found = false;
 
     // Search through the calibration list for matching measurement type
-    for (size_t i = 0; i < 5; i++) {
+    for (size_t i = 0; i < 6; i++) {
         if (calib.calib_list[i].m_type == m_type) {
             gain = calib.calib_list[i].gain;
             offset = calib.calib_list[i].offset;

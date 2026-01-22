@@ -19,7 +19,7 @@ typedef struct {
 } DataCalib_t;
 
 typedef struct {
-    DataCalib_t calib_list[5]; 
+    DataCalib_t calib_list[6]; 
     uint32_t last_cal_ts;
 } NPK_Calib_t;
 

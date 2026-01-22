@@ -53,7 +53,8 @@ DeviceConfig g_device_config = {
             { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Phosphorus },
             { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Potassium },
             { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Moisture },
-            { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::PH }
+            { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::PH },
+            { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Temperature}
         },
         .last_cal_ts = 0
     }

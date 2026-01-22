@@ -11,7 +11,8 @@ enum class MeasurementType {
     Phosphorus,
     Potassium,
     Moisture,
-    PH
+    PH,
+    Temperature
 };
 
 /**
@@ -30,6 +31,7 @@ constexpr const char* PHOSPHORUS = "phosphorus";
 constexpr const char* POTASSIUM = "potassium";
 constexpr const char* MOISTURE = "moisture";
 constexpr const char* PH = "ph";
+constexpr const char* TEMPERATURE = "temperature";
 
 // Static constexpr table for compile-time mapping
 static constexpr MeasurementEntry MEASUREMENT_TABLE[] = {
@@ -37,7 +39,8 @@ static constexpr MeasurementEntry MEASUREMENT_TABLE[] = {
     { MeasurementType::Moisture,    MOISTURE},
     { MeasurementType::PH,           PH},
     { MeasurementType::Phosphorus,  PHOSPHORUS},
-    { MeasurementType::Potassium,  POTASSIUM}
+    { MeasurementType::Potassium,  POTASSIUM},
+    { MeasurementType::Temperature, TEMPERATURE}
 };
 
 
