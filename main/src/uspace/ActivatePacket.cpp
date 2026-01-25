@@ -1,6 +1,7 @@
 #include "ActivatePacket.hpp"
 #include "psa/crypto.h"
 #include "Config.hpp"
+#include "EEPROMConfig.hpp"
 
 void ActivatePacket::computeKey(uint8_t * out_hmac) const {
     psa_status_t status;
@@ -52,7 +53,7 @@ const uint8_t * ActivatePacket::toBuffer()
     cbor_encoder_init(&encoder, buffer, GEN_BUFFER_SIZE, 0);
 
     // Root map with 3 elements: node_id, gps, key
-    if (cbor_encoder_create_map(&encoder, &mapEncoder, 3) != CborNoError) 
+    if (cbor_encoder_create_map(&encoder, &mapEncoder, 4) != CborNoError) 
     {
         ESP_LOGE(TAG.c_str(), "Failed to create root map");
         return nullptr;
@@ -76,6 +77,9 @@ const uint8_t * ActivatePacket::toBuffer()
     // key as raw bytes
     cbor_encode_text_stringz(&mapEncoder, "key");
     cbor_encode_byte_string(&mapEncoder, hmac, sizeof(hmac));
+
+    cbor_encode_text_stringz(&mapEncoder, "secretkey");
+    cbor_encode_text_stringz(&mapEncoder, g_device_config.manf_info.secretkey.value);
 
     // Close map
     cbor_encoder_close_container(&encoder, &mapEncoder);

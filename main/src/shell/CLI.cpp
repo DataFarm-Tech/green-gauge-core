@@ -12,6 +12,7 @@
 
 // Static console pointer
 UARTDriver* CLI::s_console = nullptr;
+TaskHandle_t CLI::s_cli_task_handle = nullptr;
 
 static char history[HISTORY_SIZE][BUF_SIZE];
 static int history_count = 0;
@@ -170,6 +171,25 @@ extern "C" void cli_task(void* param) {
 }
 
 void CLI::start(UARTDriver& console) {
+    if (s_cli_task_handle != nullptr) {
+        return; // already running
+    }
+
     s_console = &console;
-    xTaskCreate(cli_task, "cli_task", 4096, s_console, 1, nullptr);
+
+    xTaskCreate(
+        cli_task,
+        "cli_task",
+        4096,
+        s_console,
+        5,
+        &s_cli_task_handle   // ✅ correct
+    );
+}
+
+void CLI::stop() {
+    if (s_cli_task_handle != nullptr) {
+        vTaskDelete(s_cli_task_handle);
+        s_cli_task_handle = nullptr;
+    }
 }

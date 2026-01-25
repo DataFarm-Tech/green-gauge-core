@@ -10,7 +10,6 @@ idf_component_register(
         "src/uspace/ReadingPacket.cpp"
         "src/uspace/ActivatePacket.cpp"
         "src/mem/EEPROMConfig.cpp"
-        "src/uspace/Node.cpp"
         "src/shell/CLI.cpp"
         "src/shell/Commands.cpp"
         "src/sys/UARTDriver.cpp"
@@ -59,14 +58,12 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
 )
 
 # Default values (can be overridden from command line)
-set(CLI_EN 1 CACHE STRING "Enable CLI")
 set(OTA_EN 1 CACHE STRING "Enable OTA")
 set(DEEP_SLEEP_EN 1 CACHE STRING "Enable Deep Sleep")
 set(PROJECT_VER "unknown" CACHE STRING "Firmware version")
 
 # Apply compile definitions
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
-    CLI_EN=${CLI_EN}
     OTA_EN=${OTA_EN}
     DEEP_SLEEP_EN=${DEEP_SLEEP_EN}
     PROJECT_VER="${PROJECT_VER}"

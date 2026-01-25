@@ -26,19 +26,6 @@ static void cmd_eeprom_clean(int, char**);
 static void cmd_eeprom_get(int, char**);
 
 /**
- * @brief Command handler for 'provision hwver' subcommand.
- * Sets the hardware version/ID.
- */
-static void cmd_provision_hwver(int, char**);
-
-/**
- * @brief Command handler for 'provision fwver' subcommand.
- * Sets the firmware version.
- */
-static void cmd_provision_fwver(int, char**);
-
-
-/**
  * @brief Command handler for 'help' command.
  * Displays a list of available commands.
  */
@@ -75,12 +62,6 @@ static void cmd_log(int, char**);
 static void cmd_history(int, char**);
 
 /**
- * @brief Command handler for 'provision' command.
- * Manages device provisioning (hardware version, firmware version).
- */
-static void cmd_provision(int, char**);
-
-/**
  * @brief Command handler for 'version' command.
  * Displays firmware version information.
  */
@@ -92,6 +73,39 @@ static void cmd_version(int, char**);
  * Pings a remote host.
  */
 static void cmd_ping(int, char**);
+
+
+/**
+ * @brief Command handler for 'provision hwver' subcommand.
+ * Sets the hardware version/ID.
+ */
+static void cmd_provision_hwver(int, char**);
+
+/**
+ * @brief Command handler for 'provision fwver' subcommand.
+ * Sets the firmware version.
+ */
+static void cmd_provision_nodeid(int, char**);
+
+
+/**
+ * @brief Command handler for 'provision secretkey' subcommand.
+ * Sets the secretkey.
+ */
+static void cmd_provision_secretkey(int, char**);
+
+/**
+ * @brief Command handler for 'manf-set p_code' subcommand.
+ * Sets the p_code.
+ */
+static void cmd_provision_p_code(int, char**);
+
+/**
+ * @brief TODO
+ */
+static void cmd_provision(int, char**);
+
+static void cmd_provision_hwvar(int argc, char ** argv);
 
 /**
  * @brief Global command table.
@@ -107,8 +121,21 @@ const Command commands[] = {
     {"log",     "Show system log",         cmd_log,     0},
     {"history", "Show command history",    cmd_history, 0},
     {"version", "Show firmware version",   cmd_version, 0},
-    {"provision", "provision <subcommand>", cmd_provision, 1},
-    {"ping",      "ping <host>",            cmd_ping, 1},
+    {"ping",    "ping <host>",            cmd_ping, 1},
+    {"manf-set", "manf-set <hwver|nodeId|secretkey|p_code|hw_var> <value>", cmd_provision, 1},
+    {nullptr, nullptr, nullptr, 0}
+};
+
+/**
+ * @brief Provisioning subcommands.
+ * Defines the 'hwver' and 'fwver' subcommands for the 'provision' command.
+ */
+static const Command provision_subcommands[] = {
+    {"hwver",   "hwver <hardware_version>", cmd_provision_hwver, 1},
+    {"nodeId",  "nodeId <node_id>",         cmd_provision_nodeid, 1},
+    {"secretkey", "secretkey <secretkey>", cmd_provision_secretkey, 1},
+    {"p_code", "p_code <p_code>", cmd_provision_p_code, 1},
+    {"hw_var", "hw_var <hw_var>", cmd_provision_hwvar, 1},
     {nullptr, nullptr, nullptr, 0}
 };
 
@@ -119,16 +146,6 @@ const Command commands[] = {
 static const Command eeprom_subcommands[] = {
     {"clean", "Erase EEPROM configuration", cmd_eeprom_clean, 0},
     {"get",   "Get EEPROM configuration",   cmd_eeprom_get,   0},
-    {nullptr, nullptr, nullptr, 0}
-};
-
-/**
- * @brief Provisioning subcommands.
- * Defines the 'hwver' and 'fwver' subcommands for the 'provision' command.
- */
-static const Command provision_subcommands[] = {
-    {"hwver", "hwver <hardware_version> - Set hardware version", cmd_provision_hwver, 1},
-    {"fwver", "fwver - Set firmware version", cmd_provision_fwver, 0},
     {nullptr, nullptr, nullptr, 0}
 };
 
@@ -193,33 +210,31 @@ static void cmd_eeprom_get(int, char**) {
         console->writef("Activated: %s\r\n",
             config.has_activated ? "Yes" : "No"
         );
-        console->writef("Node ID: %s\r\n", config.manf_info.nodeId);
-        console->writef("Hardware Version: %s\r\n", config.manf_info.hw_ver);
-        console->writef("Firmware Version: %s\r\n", config.manf_info.fw_ver);
+        console->writef("Node ID: %s\r\n", config.manf_info.nodeId.value);
+        console->writef("Hardware Version: %s\r\n", config.manf_info.hw_ver.value);
+        console->writef("Firmware Version: %s\r\n", config.manf_info.fw_ver.value);
+        console->writef("Secret Key: %s\n", config.manf_info.secretkey.value);
+        console->writef("Hardware Variant: %s\r\n", config.manf_info.hw_var.value);
+        console->writef("Product Code: %s\r\n", config.manf_info.p_code.value);
 
         console->writef("Calibration\n");
-
-        for (size_t i = 0; i < 5; i++) {
-            
+        for (size_t i = 0; i < 6; i++) {
             const char* type_name = "UNKNOWN";
-            
             for (const auto& entry : NPK::MEASUREMENT_TABLE) {
                 if (entry.type == config.calib.calib_list[i].m_type) {
                     type_name = entry.name;
                     break;
                 }
             }
-            
             console->writef("Sensor %d (%s):\r\n", (int)i, type_name);
             console->writef("  Offset: %.4f\r\n", static_cast<double>(config.calib.calib_list[i].offset));
             console->writef("  Gain:   %.4f\r\n", static_cast<double>(config.calib.calib_list[i].gain));
         }
-        
-
     } else {
         console->write("No EEPROM configuration found\r\n");
     }
 }
+
 
 static void cmd_log(int, char**) {
     UARTDriver* console = CLI::getConsole();
@@ -260,7 +275,7 @@ static void cmd_version(int, char**) {
 }
 
 static void cmd_provision(int argc, char** argv) {
-    dispatch_subcommand(provision_subcommands, argc, argv, "provision <hwver|fwver> <value>");
+    dispatch_subcommand(provision_subcommands, argc, argv, "manf-set <hwver|nodeId|secretkey> <value>");
 }
 
 static void cmd_provision_hwver(int argc, char** argv) {
@@ -268,32 +283,71 @@ static void cmd_provision_hwver(int argc, char** argv) {
     if (!console) return;
 
     const char * hw_ver = argv[1];
-
     console->writef("Setting hardware version to: %s\r\n", hw_ver);
 
-    strncpy(g_device_config.manf_info.hw_ver, hw_ver, sizeof(g_device_config.manf_info.hw_ver)-1);
+    strncpy(g_device_config.manf_info.hw_ver.value, hw_ver,
+            sizeof(g_device_config.manf_info.hw_ver.value) - 1);
+    g_device_config.manf_info.hw_ver.has_provision = true;
 
     eeprom.saveConfig(g_device_config);
 }
 
-static void cmd_provision_fwver(int argc, char** argv) {
+static void cmd_provision_nodeid(int argc, char** argv) {
     UARTDriver* console = CLI::getConsole();
     if (!console) return;
+
+    const char * nodeId = argv[1];
+    console->writef("Setting nodeId to: %s\r\n", nodeId);
+
+    strncpy(g_device_config.manf_info.nodeId.value, nodeId,
+            sizeof(g_device_config.manf_info.nodeId.value) - 1);
+    g_device_config.manf_info.nodeId.has_provision = true;
+
+    eeprom.saveConfig(g_device_config);
+}
+
+static void cmd_provision_secretkey(int argc, char** argv) {
+    UARTDriver* console = CLI::getConsole();
+    if (!console) return;
+
+    const char * secretkey = argv[1];
+    console->writef("Setting secretkey to: %s\r\n", secretkey);
+    strncpy(g_device_config.manf_info.secretkey.value, secretkey,
+        sizeof(g_device_config.manf_info.secretkey.value) - 1);
+    g_device_config.manf_info.secretkey.has_provision = true;
+
+    eeprom.saveConfig(g_device_config);
+}
+
+static void cmd_provision_p_code(int argc, char** argv) {
+    UARTDriver* console = CLI::getConsole();
+    if (!console) return;
+
+    const char * p_code = argv[1];
+    console->writef("Setting pcode to: %s\r\n", p_code);
     
-    const esp_app_desc_t* a = esp_app_get_description();
+    strncpy(g_device_config.manf_info.p_code.value, p_code,
+        sizeof(g_device_config.manf_info.p_code.value) - 1);
+    g_device_config.manf_info.p_code.has_provision = true;
 
-    console->writef("Setting firmware version to: %s\r\n", a->version);
+    eeprom.saveConfig(g_device_config);
+}
 
-    strncpy(g_device_config.manf_info.fw_ver, a->version, sizeof(g_device_config.manf_info.fw_ver)-1);
+static void cmd_provision_hwvar(int argc, char ** argv) {
+    UARTDriver* console = CLI::getConsole();
+    if (!console) return;
+
+    const char * hwvar = argv[1];
+    console->writef("Setting hwvar to: %s\r\n", hwvar);
+    
+    strncpy(g_device_config.manf_info.hw_var.value, hwvar,
+        sizeof(g_device_config.manf_info.hw_var.value) - 1);
+    g_device_config.manf_info.hw_var.has_provision = true;
+
     eeprom.saveConfig(g_device_config);
 }
 
 
 static void cmd_ping(int argc, char** argv) {
-    const char * remote_host = argv[1];
-
-    Ping p_obj;
-
-    p_obj.ping(remote_host);
-
+    printf("NOT SUPPORTED\n");
 }

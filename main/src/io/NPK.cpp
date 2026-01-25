@@ -5,6 +5,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include "EEPROMConfig.hpp"
+#include "Types.hpp"
 
 
 NPK::NPK() 
@@ -21,13 +22,13 @@ void NPK::npk_collect(ReadingPacket& readings)
     g_logger.info("Collecting sensor readings...");
 
     this->rs485_uart.init(
-        4800,           // Baud rate (adjust based on your RS485 device requirements)
-        /* tx_pin */ GPIO_NUM_37, // TXD0 (IO37) - connects to UART2_TXD
-        /* rx_pin */ GPIO_NUM_36, // RXD0 (IO36) - connects to UART2_RXD
-        /* rts_pin */ UART_PIN_NO_CHANGE,
-        /* cts_pin */ UART_PIN_NO_CHANGE,
-        /* rx_buffer_size */ 1024,
-        /* tx_buffer_size */ 1024  // RS485 benefits from TX buffer
+        BAUD_4800,           // Baud rate (adjust based on your RS485 device requirements)
+        GPIO_NUM_37, // TXD0 (IO37) - connects to UART2_TXD
+        GPIO_NUM_36, // RXD0 (IO36) - connects to UART2_RXD
+        UART_PIN_NO_CHANGE, /* rts_pin */ 
+        UART_PIN_NO_CHANGE, /* cts_pin */
+        GEN_BUFFER_SIZE, /* rx_buffer_size */ 
+        GEN_BUFFER_SIZE  // /* tx_buffer_size */ RS485 benefits from TX buffer
     );
 
     for (const auto& entry : MEASUREMENT_TABLE)

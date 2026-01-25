@@ -87,7 +87,7 @@ void SimConnection::tick(void* arg) {
             ESP_LOGI(TAG, "FSM: INIT");
 
             self->m_modem_uart.init(
-                115200,
+                BAUD_115200,
                 GPIO_NUM_17,   // TX → Quectel RX
                 GPIO_NUM_18,   // RX → Quectel TX
                 GPIO_NUM_19,   // RTS

@@ -3,6 +3,11 @@
 #include <string>
 #include "Types.hpp"
 
+
+#define BAUD_4800 4800
+#define BAUD_115200 115200
+#define BAUD_9600 9600
+
 /**
  * @class   UARTDriver
  * @brief   Lightweight UART wrapper for console I/O.
