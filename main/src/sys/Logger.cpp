@@ -22,6 +22,15 @@ Logger::Logger(const char* basePath_)
 esp_err_t Logger::init() {
     if (initialized) return ESP_OK;
 
+    // Create mutex BEFORE filesystem init
+    if (!mutex) {
+        mutex = xSemaphoreCreateMutex();
+        if (!mutex) {
+            ESP_LOGE(TAG, "Failed to create logger mutex");
+            return ESP_FAIL;
+        }
+    }
+
     esp_vfs_littlefs_conf_t conf = {};  // zero-initialize
 
     conf.base_path = basePath;
@@ -138,10 +147,17 @@ esp_err_t Logger::rotateIfNeeded(const char* filename, size_t newSize) {
 esp_err_t Logger::writeLog(const char* filename, const std::string& text) {
     if (!initialized) return ESP_ERR_INVALID_STATE;
 
+    
+    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        ESP_LOGE(TAG, "Failed to acquire logger mutex");
+        return ESP_ERR_TIMEOUT;
+    }
+
     std::string line = text + "\n";
 
     if (!hasSpace(line.size())) {
         ESP_LOGE(TAG, "Insufficient space for log");
+        xSemaphoreGive(mutex);  // RELEASE before return
         return ESP_ERR_NO_MEM;
     }
 
@@ -153,11 +169,14 @@ esp_err_t Logger::writeLog(const char* filename, const std::string& text) {
     FILE* f = fopen(path, "a");
     if (!f) {
         ESP_LOGE(TAG, "Failed to open %s", path);
+        xSemaphoreGive(mutex);  // RELEASE before return
         return ESP_FAIL;
     }
 
     fwrite(line.c_str(), 1, line.size(), f);
     fclose(f);
+    xSemaphoreGive(mutex);  // RELEASE MUTEX
+
     return ESP_OK;
 }
 
@@ -183,5 +202,9 @@ void Logger::deinit() {
     if (initialized) {
         esp_vfs_littlefs_unregister("littlefs");
         initialized = false;
+    }
+    if (mutex) {
+        vSemaphoreDelete(mutex);
+        mutex = nullptr;
     }
 }

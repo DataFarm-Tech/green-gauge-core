@@ -58,7 +58,8 @@ DeviceConfig g_device_config = {
 };
 
 /** UART console instance used for CLI interaction */
-static UARTDriver serialConsole(UART_NUM_0);
+static UARTDriver serialConsole(UART_NUM_0, UARTDriver::DriverType::USB_SERIAL_JTAG);
+
 
 /**
  * @brief Initialize core system components.
@@ -303,7 +304,6 @@ extern "C" void app_main(void) {
 
     // Keep main alive for CLI responsiveness
     while (1) {
-        printf("HELLOWORLD\n");
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }

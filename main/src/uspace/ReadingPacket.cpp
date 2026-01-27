@@ -143,7 +143,7 @@ void ReadingPacket::readSensor(UARTDriver& rs485_uart, const uint8_t * msg, cons
     }
     printf("\n");
 
-    rs485_uart.write((const char *)msg);
+    // rs485_uart.write((const char *)msg);
 
     // TODO: remove this for production
     srand(static_cast<unsigned>(time(nullptr)));

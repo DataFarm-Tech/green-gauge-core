@@ -23,7 +23,8 @@ idf_component_register(
         nvs_flash
         esp_event
         esp_wifi
-        # cbor
+        cbor
+        esp_driver_usb_serial_jtag
         littlefs
         esp_https_ota
         app_update
