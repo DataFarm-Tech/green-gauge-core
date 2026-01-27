@@ -20,6 +20,6 @@ jobs:
       - name: Build ESP-IDF project
         shell: bash
         run: |
-          export IDF_TARGET=esp32
+          export IDF_TARGET=esp32s3
           . /opt/esp/idf/export.sh
           idf.py fullclean build
