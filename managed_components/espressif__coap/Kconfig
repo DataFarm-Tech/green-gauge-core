@@ -1,0 +1,178 @@
+menu "CoAP Configuration"
+    config COAP_MBEDTLS_PSK
+        bool "Pre-Shared Keys"
+        default y
+        help
+            If the CoAP information is to be encrypted, the encryption environment
+            can be set up using Pre-Shared keys (PSK) mode.
+
+            - Encrypt using defined Pre-Shared Keys (PSK if uri includes coaps://)
+            - Note: If PKI is set as well, a server will decide which method to use
+                    based on the incoming encryption request. It is up to the client
+                    logic to decide which one to use.
+
+    config COAP_MBEDTLS_PKI
+        bool "PKI Certificates"
+        default n
+        help
+            If the CoAP information is to be encrypted, the encryption environment
+            can be set up using Public Key Infrastructure (PKI) mode.
+
+            - Encrypt using defined Public Key Infrastructure (PKI if uri includes coaps://)
+            - Note: If PSK is set as well, a server will decide which method to use
+                    based on the incoming encryption request. It is up to the client
+                    logic to decide which one to use.
+
+    config COAP_DEBUGGING
+        bool "Enable CoAP debugging"
+        default n
+        help
+            Enable CoAP debugging functions at compile time for the example code.
+
+            If this option is enabled, call coap_set_log_level()
+            at runtime in order to enable CoAP debug output via the ESP
+            log mechanism.
+
+            Note: The Mbed TLS library logging is controlled by the mbedTLS
+            configuration, but logging level mbedTLS must be set for CoAP
+            to log it.
+
+    choice COAP_DEBUGGING_LEVEL
+        bool "Set CoAP debugging level"
+        depends on COAP_DEBUGGING
+        default COAP_LOG_WARNING
+        help
+            Set CoAP debugging level
+
+        config COAP_LOG_EMERG
+            bool "Emergency"
+        config COAP_LOG_ALERT
+            bool "Alert"
+        config COAP_LOG_CRIT
+            bool "Critical"
+        config COAP_LOG_ERROR
+            bool "Error"
+        config COAP_LOG_WARNING
+            bool "Warning"
+        config COAP_LOG_NOTICE
+            bool "Notice"
+        config COAP_LOG_INFO
+            bool "Info"
+        config COAP_LOG_DEBUG
+            bool "Debug"
+        config COAP_LOG_OSCORE
+            bool "OSCORE"
+    endchoice
+
+    config COAP_LOG_DEFAULT_LEVEL
+        int
+        default 0 if !COAP_DEBUGGING
+        default 0 if COAP_LOG_EMERG
+        default 1 if COAP_LOG_ALERT
+        default 2 if COAP_LOG_CRIT
+        default 3 if COAP_LOG_ERROR
+        default 4 if COAP_LOG_WARNING
+        default 5 if COAP_LOG_NOTICE
+        default 6 if COAP_LOG_INFO
+        default 7 if COAP_LOG_DEBUG
+        default 8 if COAP_LOG_OSCORE
+
+    config COAP_TCP_SUPPORT
+        bool "Enable TCP within CoAP"
+        default y
+        help
+            Enable TCP functionality for CoAP. This is required if TLS sessions
+            are to be used.
+
+            If this option is disabled, redundant CoAP TCP code is removed.
+
+    config COAP_OSCORE_SUPPORT
+        bool "Enable OSCORE support within CoAP"
+        default n
+        help
+            Enable OSCORE (Object Security for Constrained RESTful Environments) functionality for CoAP.
+
+            If this option is disabled, redundant CoAP OSCORE code is removed.
+
+    config COAP_OBSERVE_PERSIST
+        bool "Enable Server Observe Persist support within CoAP"
+        default n
+        help
+            Enable Server Observe Persist support for CoAP.
+
+            If this option is disabled, redundant CoAP Observe Persist code is removed.
+
+    config COAP_Q_BLOCK
+        bool "Enable Q-Block (RFC9177) support in CoAP"
+        default n
+        help
+            Enable Q-Block (RFC9177) fast block transfers using NON (instead of CON) support for CoAP
+
+    config COAP_ASYNC_SUPPORT
+        bool "Enable asynchronous separate response support in CoAP"
+        default y
+        help
+            Enable support for asynchronous separate responses in CoAP
+
+    config COAP_THREAD_SAFE
+        bool "Enable thread-safe support within CoAP"
+        default n
+        help
+            Enable thread-safe support for CoAP.
+
+            If this option is disabled, CoAP is not multi-threaded safe
+
+    config COAP_THREAD_RECURSIVE_CHECK
+        bool "Enable thread-safe recursion checking support within CoAP"
+        depends on COAP_THREAD_SAFE
+        default n
+        help
+            Enable thread-safe recursion checking support for CoAP.
+
+            If this option is disabled, recursive locking occur in CoAP
+
+    config COAP_WEBSOCKETS
+        bool "Enable WebSockets support within CoAP"
+        default n
+        help
+            Enable WebSockets support for CoAP.
+
+            If this option is disabled, redundant CoAP WebSocket code is removed.
+
+    config COAP_CLIENT_SUPPORT
+        bool "Enable Client functionality within CoAP"
+        default n
+        help
+            Enable client functionality (ability to make requests and receive
+            responses) for CoAP. If the server is going to act as a proxy, then
+            this needs to be enabled to support the ongoing session going to
+            the next hop.
+
+            If this option is disabled, redundant CoAP client only code is removed.
+            If both this option and COAP_SERVER_SUPPORT are disabled, then both
+            are automatically enabled for backwards compatibility.
+
+    config COAP_SERVER_SUPPORT
+        bool "Enable Server functionality within CoAP"
+        default n
+        help
+            Enable server functionality (ability to receive requests and send
+            responses) for CoAP.
+
+            If this option is disabled, redundant CoAP server only code is removed.
+            If both this option and COAP_CLIENT_SUPPORT are disabled, then both
+            are automatically enabled for backwards compatibility.
+
+    config COAP_PROXY_SUPPORT
+        bool "Enable Proxy functionality within CoAP"
+        depends on COAP_CLIENT_SUPPORT && COAP_SERVER_SUPPORT
+        default n
+        help
+            Enable Proxy functionality (ability to receive requests, pass
+            them to an upstream server and send back responses to client)
+            for CoAP.
+
+            If this option is disabled, redundant CoAP proxy only code is
+            removed.
+
+endmenu

@@ -271,6 +271,10 @@ void start_app(void * arg) {
     vTaskDelete(nullptr);
 }
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <stdio.h>
+
 /**
  * @brief Main application entry point.
  */
@@ -299,6 +303,7 @@ extern "C" void app_main(void) {
 
     // Keep main alive for CLI responsiveness
     while (1) {
+        printf("HELLOWORLD\n");
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
