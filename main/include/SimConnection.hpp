@@ -66,9 +66,10 @@ public:
      */
     void disconnect() override;
 
+    void send(uint8_t pkt) override;
+
 private:
     static constexpr uint32_t MAX_RETRIES = 5;
-    UARTDriver m_modem_uart { UART_NUM_1 };   // UART connected to Quectel
     SimStatus   m_status { SimStatus::DISCONNECTED };
     uint32_t    m_retry_count { 0 };
     TaskHandle_t m_task { nullptr };

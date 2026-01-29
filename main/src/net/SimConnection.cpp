@@ -86,14 +86,6 @@ void SimConnection::tick(void* arg) {
         case SimStatus::INIT:
             ESP_LOGI(TAG, "FSM: INIT");
 
-            self->m_modem_uart.init(
-                BAUD_115200,
-                GPIO_NUM_17,   // TX → Quectel RX
-                GPIO_NUM_18,   // RX → Quectel TX
-                GPIO_NUM_19,   // RTS
-                GPIO_NUM_20    // CTS
-            );
-
             vTaskDelay(pdMS_TO_TICKS(300));
 
             // Run all INIT commands from class table
@@ -216,4 +208,14 @@ void SimConnection::disconnect() {
         vTaskDelete(m_task);
         m_task = nullptr;
     }
+}
+
+
+void SimConnection::send(uint8_t pkt) {
+    /**
+     * Build CBOR Packet with pkt from NPK readings.
+     */
+    /**
+     * Send over UART AT COMMANDS ????
+     */
 }

@@ -10,7 +10,6 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 #include <string.h>
-#include "Ping.hpp"
 
 
 /**
@@ -69,13 +68,6 @@ static void cmd_version(int, char**);
 
 
 /**
- * @brief Command handler for 'ping' command.
- * Pings a remote host.
- */
-static void cmd_ping(int, char**);
-
-
-/**
  * @brief Command handler for 'provision hwver' subcommand.
  * Sets the hardware version/ID.
  */
@@ -121,7 +113,6 @@ const Command commands[] = {
     {"log",     "Show system log",         cmd_log,     0},
     {"history", "Show command history",    cmd_history, 0},
     {"version", "Show firmware version",   cmd_version, 0},
-    {"ping",    "ping <host>",            cmd_ping, 1},
     {"manf-set", "manf-set <hwver|nodeId|secretkey|p_code|hw_var> <value>", cmd_provision, 1},
     {nullptr, nullptr, nullptr, 0}
 };

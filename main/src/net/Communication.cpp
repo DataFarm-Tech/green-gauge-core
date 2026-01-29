@@ -33,3 +33,8 @@ void Communication::disconnect()
 {
     connection->disconnect();
 }
+
+void Communication::send(uint8_t pkt)
+{
+    
+}

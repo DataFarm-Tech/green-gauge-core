@@ -16,20 +16,9 @@
  * The BatteryPacket class extends the IPacket interface and provides functionality for reading
  * battery data (level, health) and encoding it into CBOR format before transmission over CoAP.
  */
-class ActivatePacket : public IPacket {
+class ActivatePkt : public IPacket {
 private:
     std::string TAG;
-    static constexpr size_t HMAC_KEY_SIZE = 32;
-    
-    const uint8_t secretKey[HMAC_KEY_SIZE] = {
-        0x12, 0xA4, 0x56, 0xB7, 0x8C, 0x91, 0xDE, 0xF3,
-        0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23,
-        0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x12,
-        0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x12
-    };
-
-
-    void computeKey(uint8_t * out_hmac) const;
 
 public:
     /**
@@ -42,7 +31,7 @@ public:
      *
      * The constructor sets up identifying and connection parameters for the packet.
      */
-    ActivatePacket(const std::string& id, const std::string& uri_endpoint, 
+    ActivatePkt(const std::string& id, const std::string& uri_endpoint, 
         const std::string& tag = "ActivatePacket")
     : TAG(tag)
     {

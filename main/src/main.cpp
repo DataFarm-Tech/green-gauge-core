@@ -2,11 +2,16 @@
 #include "Communication.hpp"
 #include "esp_log.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <stdio.h>
+
 extern "C" {
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
 #include "esp_sleep.h"
+#include "esp_log.h"
 #include "driver/uart.h"
 }
 
@@ -17,9 +22,6 @@ extern "C" {
 #include "lwip/inet.h"
 #include <string.h>
 
-#include "BatteryPacket.hpp"
-#include "ReadingPacket.hpp"
-#include "ActivatePacket.hpp"
 #include "Config.hpp"
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
@@ -30,6 +32,8 @@ extern "C" {
 #include "OTAUpdater.hpp"
 #include "Logger.hpp"
 #include "NPK.hpp"
+#include "HwTypes.hpp"
+#include "ActivatePkt.hpp"
 
 /**
  * @brief Global device configuration stored in EEPROM.
@@ -57,8 +61,13 @@ DeviceConfig g_device_config = {
     }
 };
 
-/** UART console instance used for CLI interaction */
-static UARTDriver serialConsole(UART_NUM_0, UARTDriver::DriverType::USB_SERIAL_JTAG);
+
+uint32_t wakeup_causes = 0;
+esp_reset_reason_t reset_reason;
+
+
+Communication * g_comm = nullptr;
+ConnectionType g_hw_var = ConnectionType::SIM;
 
 
 /**
@@ -75,6 +84,26 @@ void init_hw() {
 
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    rs485_uart.init(
+        BAUD_4800,           // Baud rate (adjust based on your RS485 device requirements)
+        GPIO_NUM_37, // TXD0 (IO37) - connects to UART2_TXD
+        GPIO_NUM_36, // RXD0 (IO36) - connects to UART2_RXD
+        UART_PIN_NO_CHANGE, /* rts_pin */ 
+        UART_PIN_NO_CHANGE, /* cts_pin */
+        GEN_BUFFER_SIZE, /* rx_buffer_size */ 
+        GEN_BUFFER_SIZE  // /* tx_buffer_size */ RS485 benefits from TX buffer
+    );
+
+    m_modem_uart.init(
+            BAUD_115200,           // baud rate
+            GPIO_NUM_17,           // TX → Quectel RX
+            GPIO_NUM_18,           // RX → Quectel TX
+            UART_PIN_NO_CHANGE,    // RTS (not used)
+            UART_PIN_NO_CHANGE,    // CTS (not used)
+            2048,                  // RX buffer size (larger for AT responses)
+            0                      // TX buffer size (0 = no buffering)
+        );
 }
 
 /**
@@ -108,9 +137,42 @@ bool load_create_config() {
 }
 
 /**
+ * @brief The following function selects the network interface.
+ */
+void net_select(void) {
+    if (strcmp(g_device_config.manf_info.hw_ver.value, HW_VER_0_0_1.c_str())) {
+        g_hw_var = ConnectionType::SIM;
+    }
+    else {
+        g_hw_var = ConnectionType::WIFI;
+    }
+
+    g_comm = new Communication(g_hw_var);
+
+    return;
+}
+
+/**
  * @brief Handle device activation process.
  */
-void handle_activation(Communication& comm) {
+void handle_activation() {
+    
+    /**
+     * Declare PKT obj here. 
+     * 1. Assemble PAYLOAD
+     * 2. Construct HEADERS ETC -> TinyCBOR can be used to create buffer
+     */
+
+    ActivatePkt pkt(g_device_config.manf_info.nodeId.value, ACT_URI);
+
+    const uint8_t * pkt_1 = pkt.toBuffer();
+    size_t len = pkt.getBufferLength();
+
+    for (size_t i = 0; i < len; i++) {
+        printf("%02x", pkt_1[i]);
+    }
+    printf("\n"); // Add newline at the end
+
     if (g_device_config.has_activated) {
         g_logger.info("Device already activated (node: %s)", g_device_config.manf_info.nodeId.value);
         return;
@@ -118,11 +180,11 @@ void handle_activation(Communication& comm) {
 
     g_logger.info("Sending activation packet for node: %s", g_device_config.manf_info.nodeId.value);
 
-    ActivatePacket activate(std::string(g_device_config.manf_info.nodeId.value), ACT_URI, ACT_TAG);
-    activate.sendPacket();
-
-    vTaskDelay(pdMS_TO_TICKS(3000));
-
+    if (g_comm->isConnected())
+    {
+        g_comm->disconnect();
+    }
+    
     g_device_config.has_activated = true;
     if (eeprom.saveConfig(g_device_config)) {
         g_logger.info("Activation complete, config saved to EEPROM");
@@ -136,174 +198,98 @@ void handle_activation(Communication& comm) {
  * @brief Check reset reason and perform OTA update if appropriate.
  */
 void checkAndPerformOTA() {
-    esp_reset_reason_t reset_reason = esp_reset_reason();
-    esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
 
-    if (wakeup_reason == ESP_SLEEP_WAKEUP_TIMER) {
-        g_logger.info("Woke from deep sleep timer");
-        return;
-    }
+    OTAUpdater ota;
+    const char* url = "http://45.79.118.187:8080/release/latest/cn1.bin";
 
-    g_logger.info("Power-on or hard reset");
+    g_logger.info("Power-on detected, checking for OTA update");
 
-    if (reset_reason == ESP_RST_POWERON) {
-        OTAUpdater ota;
-        const char* url = "http://45.79.118.187:8080/release/latest/cn1.bin";
-
-        g_logger.info("Power-on detected, checking for OTA update");
-
-        if (ota.update(url)) {
-            g_logger.info("OTA successful, rebooting...");
-            vTaskDelay(pdMS_TO_TICKS(2000));
-            esp_restart();
-        } else {
-            g_logger.warning("OTA failed or no update needed");
-        }
+    if (ota.update(url)) {
+        g_logger.info("OTA successful, rebooting...");
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        esp_restart();
+    } else {
+        g_logger.warning("OTA failed or no update needed");
     }
 }
 #endif
 
-/**
- * @brief Enter deep sleep or continuous loop based on configuration.
- */
-void enterSleepOrLoop(Communication& comm) {
-#if CLI_EN == 1
-    g_logger.info("CLI mode: keeping WiFi connection active");
-#else
-    if (comm.isConnected()) {
-        g_logger.info("Disconnecting from WiFi");
-        comm.disconnect();
-    }
-#endif
-
-#if DEEP_SLEEP_EN == 1
-    g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
-    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    esp_deep_sleep_start();
-#else
-    #if CLI_EN == 1
-    g_logger.info("CLI mode active, device will not sleep");
-    for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-    #else
-    NPK npk_obj;
-    ReadingPacket readings(std::string(g_device_config.manf_info.nodeId.value),
-                           DATA_URI, POTASSIUM, DATA_TAG);
-
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(sleep_time_sec * 1000));
-
-        if (comm.connect()) {
-            npk_obj.npk_collect(readings);
-            if (comm.isConnected()) comm.disconnect();
-        }
-    }
-    #endif
-#endif
-}
 
 /**
  * @brief Background task for waiting provisioning, connecting, activating, OTA, and data collection.
  */
 void start_app(void * arg) {
 
-    NPK npk_obj;
-    ReadingPacket readings(std::string(g_device_config.manf_info.nodeId.value), DATA_URI, POTASSIUM, DATA_TAG);
-    TickType_t lastLogTick = 0;
-    constexpr TickType_t LOG_INTERVAL = pdMS_TO_TICKS(4000);
-    TickType_t now;
-    uint8_t hw_var_int;
-    ConnectionType hw_var;
-
-
-    auto is_provisioned = []() {
-        const auto& m = g_device_config.manf_info;
-        return  m.fw_ver.has_provision && 
-                m.hw_ver.has_provision && 
-                m.nodeId.has_provision && 
-                m.secretkey.has_provision &&
-                m.p_code.has_provision &&
-                m.hw_var.has_provision;
-    };
-
-    while (!is_provisioned()) {
-        now = xTaskGetTickCount();
-        if (now - lastLogTick > LOG_INTERVAL) {
-            g_logger.warning("Waiting for provisioning...");
-            printf("Waiting for provision...\n");
-            lastLogTick = now;
-        }
-        vTaskDelay(pdMS_TO_TICKS(500)); // small delay, keeps CLI responsive
+    if (!g_comm) {
+        g_logger.error("Communication not initialized");
+        vTaskDelete(nullptr);
+        return;
     }
 
-    g_logger.info("Provisioning complete!");
-        
-    hw_var = ConnectionType::WIFI;
-    Communication* comm = new Communication(hw_var);
-
-    if (!comm->connect()) {
+    if (!g_comm->connect()) {
         g_logger.error("Unable to connect to network");
         vTaskDelete(nullptr);
         return;
     }
-    g_logger.info("Device connected to WLAN0");
+    
+    g_logger.info("Device connected to network");
+    
+    if (g_comm->isConnected()) {
+        handle_activation();
+    }
 
-    // Handle activation
-    handle_activation(*comm);
+    #if OTA_EN == 1
+    if (g_comm->isConnected()) {
 
-#if OTA_EN == 1
-    checkAndPerformOTA();
-#endif
+        bool should_run_ota = !(wakeup_causes & ESP_SLEEP_WAKEUP_TIMER) && reset_reason == ESP_RST_POWERON;
 
-    /**
-     * HW Dependent Code:
-     * TODO: Check HW Ver and Hw Type,
-     * depending on the revision hardware changes maybe.
-     */
+        if (should_run_ota) {
+            g_logger.info("Power-on or hard reset");
+            checkAndPerformOTA();
+        }
+        else {
+            g_logger.info("Good morning!!");
+        }
+    }
+    #endif
 
-    // Collect and send data
-    npk_obj.npk_collect(readings);
+    /** TODO
+     * 1. Read ALL DATA FROM NPK sensor. 50 N, 50 P.... 50 PH, returns a uint8_t buffer
+     * 2. Call Communications send method -> See send method.
+    */
 
-    // Enter sleep or loop
-    enterSleepOrLoop(*comm);
+    g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
+    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    esp_deep_sleep_start();
 
     vTaskDelete(nullptr);
 }
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include <stdio.h>
 
 /**
  * @brief Main application entry point.
  */
 extern "C" void app_main(void) {
-    
-    
-    // Step 1: Initialize core system
-    init_hw();
-    
-    // Step 2: Load or create configuration
-    if (!load_create_config()) return;
-
-    // Step 3: Initialize CLI
-    serialConsole.init(BAUD_115200);
-    CLI::start(serialConsole);
-
-    // Step 4: Launch provisioning + operational tasks in background
-    xTaskCreate(
-        start_app,
-        "start_app",
-        8192,      // stack size
-        nullptr,      // argument
-        5,         // priority
-        nullptr
-    );
-
-    // Keep main alive for CLI responsiveness
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(5000));  // 5 second window
+        ESP_LOGI("HELLO", "Activating PDP context...");
     }
+    // reset_reason = esp_reset_reason();
+    // wakeup_causes = esp_sleep_get_wakeup_causes();
+
+
+    // printf("HELLOWORLD\n");
+
+    // init_hw();
+    
+    // // Step 2: Load or create configuration
+    // if (!load_create_config()) return;
+
+    // net_select();
+
+    // // Step 3: Launch provisioning + operational tasks in background
+    // xTaskCreate(start_app, "start_app", 8192, nullptr, 5, nullptr);
+
+    return;
 }

@@ -62,6 +62,9 @@ public:
      */
     void disconnect();
 
+
+    void send(uint8_t pkt);
+
 private:
     std::unique_ptr<IConnection> connection;  ///< Smart pointer to the active connection implementation.
 };
