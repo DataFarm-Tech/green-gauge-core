@@ -3,6 +3,11 @@
 #include <string>
 #include "Types.hpp"
 
+
+#define BAUD_4800 4800
+#define BAUD_115200 115200
+#define BAUD_9600 9600
+
 /**
  * @class   UARTDriver
  * @brief   Lightweight UART wrapper for console I/O.
@@ -71,6 +76,9 @@ public:
      */
     void writef(const char* fmt, ...);
 
+
+    int writeByte(uint8_t byte);
+
     /**
      * @brief Read a single byte from the UART (non-blocking).
      *
@@ -98,3 +106,6 @@ public:
 private:
     uart_port_t m_uart_num;  ///< UART port number for this instance
 };
+
+extern UARTDriver m_modem_uart;
+   extern UARTDriver rs485_uart;

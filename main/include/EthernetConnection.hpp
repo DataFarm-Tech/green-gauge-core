@@ -39,4 +39,6 @@ public:
      * Overrides the disconnect() method from IConnection.
      */
     void disconnect() override;
+
+    bool sendPacket(const uint8_t * pkt, const size_t pkt_len) override;
 };

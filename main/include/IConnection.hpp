@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unistd.h>
+
 /**
  * @class IConnection
  * @brief Interface for network connection implementations.
@@ -42,4 +44,6 @@ public:
      * Must be implemented by derived classes.
      */
     virtual void disconnect() = 0;
+
+    virtual bool sendPacket(const uint8_t * pkt, const size_t pkt_len) = 0;
 };

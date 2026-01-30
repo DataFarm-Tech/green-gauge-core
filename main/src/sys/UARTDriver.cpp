@@ -2,8 +2,9 @@
 #include <string.h>
 #include <stdarg.h>
 
+
 UARTDriver::UARTDriver(uart_port_t uart_num) 
-    : m_uart_num(uart_num) {
+: m_uart_num(uart_num) {
 }
 
 void UARTDriver::init(int baud, int tx_pin, int rx_pin, 
@@ -16,7 +17,8 @@ void UARTDriver::init(int baud, int tx_pin, int rx_pin,
     cfg.stop_bits = UART_STOP_BITS_1;
     cfg.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
     cfg.rx_flow_ctrl_thresh = 122;
-
+    cfg.source_clk = UART_SCLK_APB;
+    
     uart_param_config(m_uart_num, &cfg);
     uart_set_pin(m_uart_num, tx_pin, rx_pin, rts_pin, cts_pin);
     uart_driver_install(m_uart_num, rx_buffer_size, tx_buffer_size, 0, NULL, 0);
@@ -24,6 +26,10 @@ void UARTDriver::init(int baud, int tx_pin, int rx_pin,
 
 void UARTDriver::write(const char* text) {
     uart_write_bytes(m_uart_num, text, strlen(text));
+}
+
+int UARTDriver::writeByte(uint8_t byte) {
+    return uart_write_bytes(m_uart_num, &byte, 1);
 }
 
 void UARTDriver::writef(const char* fmt, ...) {
@@ -40,3 +46,7 @@ int UARTDriver::readByte(uint8_t &out) {
     int len = uart_read_bytes(m_uart_num, &out, 1, 0); // 0 ticks => immediate return
     return (len > 0) ? 1 : 0;
 }
+
+
+UARTDriver m_modem_uart(UART_NUM_1);
+   UARTDriver rs485_uart(UART_NUM_2);

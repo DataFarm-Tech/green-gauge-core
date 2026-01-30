@@ -32,3 +32,10 @@ void EthernetConnection::disconnect()
     // TODO: Send AT command to disconnect or power down modem
     vTaskDelay(pdMS_TO_TICKS(1000)); // Simulate
 }
+
+
+bool EthernetConnection::sendPacket(const uint8_t * pkt, const size_t pkt_len) {
+    //do thing
+    printf("DOING\n");
+    return false;
+}

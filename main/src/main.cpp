@@ -1,12 +1,12 @@
-#include <iostream>
 #include "Communication.hpp"
-#include "esp_log.h"
+#include <stdio.h>
 
 extern "C" {
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
 #include "esp_sleep.h"
+#include "esp_log.h"
 #include "driver/uart.h"
 }
 
@@ -16,36 +16,33 @@ extern "C" {
 #include "lwip/sockets.h"
 #include "lwip/inet.h"
 #include <string.h>
-#include "BatteryPacket.hpp"
-#include "ReadingPacket.hpp"
-#include "ActivatePacket.hpp"
+
 #include "Config.hpp"
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
 #include "esp_https_ota.h"
 #include "EEPROMConfig.hpp"
-#include "Node.hpp"
 #include "UARTDriver.hpp"
 #include "CLI.hpp"
 #include "OTAUpdater.hpp"
 #include "Logger.hpp"
 #include "NPK.hpp"
+#include "HwTypes.hpp"
+#include "ActivatePkt.hpp"
+#include <memory>
 
 /**
  * @brief Global device configuration stored in EEPROM.
- *
- * This structure holds persistent device information such as:
- * - Activation status
- * - Node ID
- * - Hardware version
- * - Firmware version
  */
 DeviceConfig g_device_config = {
     .has_activated = false,
     .manf_info = {
-        .hw_ver = "",
-        .fw_ver = "",
-        .nodeId = ""
+        .hw_ver = {.value="", .has_provision=false},
+        .hw_var = {.value="", .has_provision=false},
+        .fw_ver = {.value="", .has_provision=false},
+        .nodeId = {.value="", .has_provision=false},
+        .secretkey = {.value="", .has_provision=false},
+        .p_code = {.value="", .has_provision=false}
     },
     .calib = {
         .calib_list = {
@@ -54,158 +51,255 @@ DeviceConfig g_device_config = {
             { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Potassium },
             { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Moisture },
             { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::PH },
-            { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Temperature}
+            { .offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Temperature }
         },
         .last_cal_ts = 0
     }
 };
 
 
-#if CLI_EN == 1
-/** UART console instance used for CLI interaction */
-static UARTDriver serialConsole(UART_NUM_0);
-#endif
+uint32_t wakeup_causes = 0;
+esp_reset_reason_t reset_reason;
 
-extern "C" void app_main(void)
-{
-    NPK npk_obj;
+
+std::unique_ptr<Communication> g_comm;
+ConnectionType g_hw_var = ConnectionType::SIM;
+
+
+/**
+ * @brief Initialize core system components.
+ */
+void init_hw() {
     g_logger.init();
     g_logger.info("System booting...");
 
-#if OTA_EN == 1
-    esp_reset_reason_t reset_reason = esp_reset_reason();
-    esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
-
-    if (wakeup_reason == ESP_SLEEP_WAKEUP_TIMER) {
-        g_logger.info("Woke from deep sleep timer");
-    } else {
-        g_logger.info("Power-on or hard reset");
-    }
-#endif
-
-    // Initialize EEPROM/NVS
     if (!eeprom.begin()) {
         g_logger.error("Failed to open EEPROM config");
-        return;
+        esp_restart();
     }
 
-    // Load or initialize configuration
-    if (!eeprom.loadConfig(g_device_config)) {
-        g_logger.info("No previous config found, initializing defaults");
-
-        Node nodeId;
-        strncpy(g_device_config.manf_info.nodeId, nodeId.getNodeID(), sizeof(g_device_config.manf_info.nodeId) - 1);
-        g_device_config.manf_info.nodeId[sizeof(g_device_config.manf_info.nodeId) - 1] = '\0';
-
-        g_device_config.has_activated = false;
-
-        if (!eeprom.saveConfig(g_device_config)) {
-            g_logger.error("Failed to save initial config");
-        } else {
-            g_logger.info("Initial config saved with Node ID: %s", g_device_config.manf_info.nodeId);
-        }
-    } else {
-        g_logger.info("Loaded config from EEPROM. Node ID: %s, Activated: %s", 
-                     g_device_config.manf_info.nodeId, 
-                     g_device_config.has_activated ? "Yes" : "No");
-    }
-
-    // Initialize network stack BEFORE any network operations
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    // Communication & packets
-    Communication comm(ConnectionType::WIFI);
-    ActivatePacket activate(std::string(g_device_config.manf_info.nodeId), ACT_URI, ACT_TAG);
-    ReadingPacket readings(std::string(g_device_config.manf_info.nodeId), DATA_URI, POTASSIUM, DATA_TAG);
+    rs485_uart.init(
+        BAUD_4800,           // Baud rate (adjust based on your RS485 device requirements)
+        GPIO_NUM_37, // TXD0 (IO37) - connects to UART2_TXD
+        GPIO_NUM_36, // RXD0 (IO36) - connects to UART2_RXD
+        UART_PIN_NO_CHANGE, /* rts_pin */ 
+        UART_PIN_NO_CHANGE, /* cts_pin */
+        GEN_BUFFER_SIZE, /* rx_buffer_size */ 
+        GEN_BUFFER_SIZE  // /* tx_buffer_size */ RS485 benefits from TX buffer
+    );
 
-#if CLI_EN == 1
-    serialConsole.init(115200);
-    CLI::start(serialConsole);
-#endif
+    m_modem_uart.init(
+            BAUD_115200,           // baud rate
+            GPIO_NUM_17,           // TX → Quectel RX
+            GPIO_NUM_18,           // RX → Quectel TX
+            UART_PIN_NO_CHANGE,    // RTS (not used)
+            UART_PIN_NO_CHANGE,    // CTS (not used)
+            2048,                  // RX buffer size (larger for AT responses)
+            0                      // TX buffer size (0 = no buffering)
+        );
+}
 
-    if (comm.connect())
+/**
+ * @brief Load existing config or create default configuration.
+ */
+bool load_create_config() {
+    const esp_app_desc_t* app_desc = esp_app_get_description();
+
+    if (eeprom.loadConfig(g_device_config)) {
+        g_logger.info("Loaded config from EEPROM. Node ID: %s, Activated: %s",
+                      g_device_config.manf_info.nodeId.value,
+                      g_device_config.has_activated ? "Yes" : "No");
+        return true;
+    }
+
+    g_logger.info("No previous config found, initializing defaults");
+
+    g_device_config.has_activated = false;
+
+    strncpy(g_device_config.manf_info.fw_ver.value, app_desc->version,
+            sizeof(g_device_config.manf_info.fw_ver.value) - 1);
+    g_device_config.manf_info.fw_ver.has_provision = true;
+
+    if (!eeprom.saveConfig(g_device_config)) {
+        g_logger.error("Failed to save initial config");
+        return false;
+    }
+
+    g_logger.info("Initial config saved.");
+    return true;
+}
+
+/**
+ * @brief The following function selects the network interface.
+ */
+void net_select(HwVer_e hw_ver)
+{
+    switch (hw_ver)
     {
-        g_logger.info("Device connected to WLAN0");
+        case HW_VER_0_0_1_E:
+            g_hw_var = ConnectionType::SIM;
+            break;
 
-        if (!g_device_config.has_activated)
-        {
-            g_logger.info("Sending activation packet for node: %s", g_device_config.manf_info.nodeId);
-            activate.sendPacket();
+        default:
+            g_hw_var = ConnectionType::WIFI;
+            break;
+    }
 
-            vTaskDelay(pdMS_TO_TICKS(3000));
+    g_comm = std::make_unique<Communication>(g_hw_var);
+}
 
-            g_device_config.has_activated = true;
-            if (eeprom.saveConfig(g_device_config)) {
-                g_logger.info("Activation complete, config saved to EEPROM");
-            } else {
-                g_logger.error("Failed to save activation status to EEPROM");
-            }
+
+/**
+ * @brief The following function finds the current HW_VER.
+ * Then initialises network_interface select. Depending on HW.
+ */
+void hw_features(void)
+{
+    HwVer_e hw_ver = HW_VER_UNKNOWN_E;
+
+    for (const auto& entry : ver) {
+        if (entry.name == nullptr) {
+            break;
         }
-        else
-        {
-            g_logger.info("Device already activated (node: %s)", g_device_config.manf_info.nodeId);
-        }
 
-        npk_obj.npk_collect(readings);
+        if (strcmp(entry.name, g_device_config.manf_info.hw_ver.value) == 0) {
+            hw_ver = entry.hw_ver;
+            break;
+        }
+    }
+    
+    net_select(hw_ver);
+    
+}
+
+
+/**
+ * @brief Handle device activation process.
+ */
+void handle_activation() {
+    
+    if (g_device_config.has_activated) {
+        g_logger.info("Device already activated (node: %s)", g_device_config.manf_info.nodeId.value);
+        return;
+    }
+    
+    g_logger.info("Sending activation packet for node: %s", g_device_config.manf_info.nodeId.value);
+    
+    ActivatePkt pkt(g_device_config.manf_info.nodeId.value, ACT_URI);
+    const uint8_t * pkt_1 = pkt.toBuffer();
+    const size_t len = pkt.getBufferLength();
+
+    if (!g_comm->sendPacket(pkt_1, len))
+    {
+        g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
+        return;
+    }
+
+    g_device_config.has_activated = true;
+
+    if (eeprom.saveConfig(g_device_config)) {
+        g_logger.info("Activation complete, config saved to EEPROM");
+    } else {
+        g_logger.error("Failed to save activation status to EEPROM");
+    }
+
+    return;
+}
 
 #if OTA_EN == 1
-        if (reset_reason == ESP_RST_POWERON && wakeup_reason != ESP_SLEEP_WAKEUP_TIMER) {
-            OTAUpdater ota;
-            const char* url = "http://45.79.118.187:8080/release/latest/cn1.bin";
+/**
+ * @brief Check reset reason and perform OTA update if appropriate.
+ */
+void checkAndPerformOTA() {
 
-            g_logger.info("Power-on detected, checking for OTA update");
+    OTAUpdater ota;
+    const char* url = "http://45.79.118.187:8080/release/latest/cn1.bin";
 
-            if (ota.update(url)) {
-                g_logger.info("OTA successful, rebooting...");
-                vTaskDelay(pdMS_TO_TICKS(2000));
-                esp_restart();
-            } else {
-                g_logger.warning("OTA failed or no update needed");
-            }
-        }
-#endif
+    g_logger.info("Power-on detected, checking for OTA update");
 
-#if CLI_EN == 1
-        // In CLI mode, keep WiFi connected for debugging
-        g_logger.info("CLI mode: keeping WiFi connection active");
-#else
-        // In production mode, disconnect to save power
-        if (comm.isConnected()) {
-            g_logger.info("Disconnecting from WiFi");
-            comm.disconnect();
-        }
-#endif
+    if (ota.update(url)) {
+        g_logger.info("OTA successful, rebooting...");
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        esp_restart();
+    } else {
+        g_logger.warning("OTA failed or no update needed");
     }
-    else
-    {
+}
+#endif
+
+
+/**
+ * @brief Background task for waiting provisioning, connecting, activating, OTA, and data collection.
+ */
+void start_app(void * arg) {
+
+    if (!g_comm) {
+        g_logger.error("Communication not initialized");
+        vTaskDelete(nullptr);
+        return;
+    }
+
+    if (!g_comm->connect()) {
         g_logger.error("Unable to connect to network");
+        vTaskDelete(nullptr);
+        return;
+    }
+    
+    g_logger.info("Device connected to network");
+    
+    if (g_comm->isConnected() && !g_device_config.has_activated) {
+        handle_activation();
     }
 
-#if DEEP_SLEEP_EN == 1
+    #if OTA_EN == 1
+    if (g_comm->isConnected()) {
+
+        bool should_run_ota = !(wakeup_causes & ESP_SLEEP_WAKEUP_TIMER) && reset_reason == ESP_RST_POWERON;
+
+        if (should_run_ota) {
+            g_logger.info("Power-on or hard reset");
+            checkAndPerformOTA();
+        }
+        else {
+            g_logger.info("Good morning!!");
+        }
+    }
+    #endif
+
+    /** TODO
+     * 1. Read ALL DATA FROM NPK sensor. 50 N, 50 P.... 50 PH, returns a uint8_t buffer
+     * 2. Call Communications send method -> See send method.
+    */
+
     g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
     esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
     vTaskDelay(pdMS_TO_TICKS(100));
     esp_deep_sleep_start();
-#else
-#if CLI_EN == 1
-    g_logger.info("CLI mode active, device will not sleep");
-    for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-#else
-    while (1)
-    {
-        vTaskDelay(pdMS_TO_TICKS(sleep_time_sec * 1000));
 
-        if (comm.connect())
-        {
-            npk_obj.npk_collect(readings);
-            
-            if (comm.isConnected())
-                comm.disconnect();
-        }
-    }
-#endif
-#endif
+    vTaskDelete(nullptr);
+}
+
+
+/**
+ * @brief Main application entry point.
+ */
+extern "C" void app_main(void) {
+    
+    reset_reason = esp_reset_reason();
+    wakeup_causes = esp_sleep_get_wakeup_causes();
+
+    init_hw();
+    
+    // Step 2: Load or create configuration
+    if (!load_create_config()) return;
+
+    hw_features();
+
+    // Step 3: Launch provisioning + operational tasks in background
+    xTaskCreate(start_app, "start_app", 8192, nullptr, 5, nullptr);
+
+    return;
 }

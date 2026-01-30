@@ -1,5 +1,10 @@
 #pragma once
 
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <stdint.h>
+
 // Forward declaration
 class UARTDriver;
 
@@ -61,6 +66,14 @@ public:
      */
     static void start(UARTDriver& console);
 
+
+
+    /**
+     * @brief Stops the CLI task
+     * Uses the TaskHandler to kill the thread.
+     */
+    static void stop();
+
     /**
      * @brief Get the current console instance.
      *
@@ -73,6 +86,8 @@ public:
 
 private:
     static UARTDriver* s_console;  ///< Console instance used by CLI
+    static TaskHandle_t s_cli_task_handle;
+
 };
 
 /**

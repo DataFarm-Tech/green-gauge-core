@@ -1,4 +1,5 @@
 build/
 dependencies.lock
-managed_components/
 .vscode/
+components/espressif_coap
+components/espressif_littlefs

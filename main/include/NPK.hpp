@@ -3,7 +3,8 @@
 #include <cstring>
 #include "UARTDriver.hpp"
 #include "driver/gpio.h"
-
+#include <vector>
+#include <array>
 /**
  * @brief Measurement types supported by the NPK sensor
  */
@@ -47,6 +48,8 @@ public:
     static constexpr size_t PACKET_SIZE = 8;
     static constexpr size_t SINGLE_RESPONSE_SIZE = 7;
     static constexpr size_t ALL_RESPONSE_SIZE = 19;
+    static constexpr size_t READING_SIZE = 30;
+    std::array<float, READING_SIZE> readingList;
 
     /**
      * @brief Table entry linking measurement type, name, and Modbus packet
@@ -67,7 +70,7 @@ public:
      * @brief Collect NPK readings and store them in the provided ReadingPacket
      * @param readings Reference to ReadingPacket to store the readings
      */
-    void npk_collect(ReadingPacket& readings);
+    void npk_collect();
     
     /**
      * @brief Calibrate the NPK sensor
@@ -75,11 +78,8 @@ public:
     void npk_calib();
 
 private:
-    /**
-     * @brief UART driver for RS485 communication with the sensor
-     */
-    UARTDriver rs485_uart { UART_NUM_2 };   // UART connected to Quectel
 
+    
     // Modbus RTU packet definitions (must be defined before MEASUREMENT_TABLE)
     
     // Read single humidity value (Register 0x0000)

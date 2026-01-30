@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include <string.h>
+#include "Types.hpp"
 
 static const char *TAG = "OTA";
 
@@ -30,7 +31,7 @@ bool OTAUpdater::update(const char* url) {
     http.event_handler = http_events;
     http.timeout_ms = 30000;
     http.keep_alive_enable = true;
-    http.buffer_size = 1024;
+    http.buffer_size = GEN_BUFFER_SIZE;
 
     // If HTTP instead of HTTPS — bypass cert
     if (strncmp(url, "https://", 8) != 0) {
@@ -42,9 +43,4 @@ bool OTAUpdater::update(const char* url) {
 
     esp_err_t ret = esp_https_ota(&cfg);
     return ret == ESP_OK;
-}
-
-void OTAUpdater::printInfo() {
-    const esp_partition_t *p = esp_ota_get_running_partition();
-    ESP_LOGI(TAG, "Running partition: %s @ 0x%lx", p->label, p->address);
 }

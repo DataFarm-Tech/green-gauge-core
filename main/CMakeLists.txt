@@ -5,26 +5,22 @@ idf_component_register(
         "src/net/Communication.cpp"
         "src/net/SimConnection.cpp"
         "src/net/EthernetConnection.cpp"
-        "src/uspace/BatteryPacket.cpp"
-        "src/net/IPacket.cpp"
-        "src/uspace/ReadingPacket.cpp"
-        "src/uspace/ActivatePacket.cpp"
         "src/mem/EEPROMConfig.cpp"
-        "src/uspace/Node.cpp"
         "src/shell/CLI.cpp"
         "src/shell/Commands.cpp"
         "src/sys/UARTDriver.cpp"
-        "src/sys/I2CDriver.cpp"
         "src/sys/OTAUpdater.cpp"
         "src/sys/Logger.cpp"
         "src/io/NPK.cpp"
-        "src/tools/Ping.cpp"
+        "src/net/ActivatePkt.cpp"
+        "src/sys/ATCommandHndlr.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash
         esp_event
         esp_wifi
         cbor
+        esp_driver_usb_serial_jtag
         littlefs
         esp_https_ota
         app_update
@@ -59,14 +55,12 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
 )
 
 # Default values (can be overridden from command line)
-set(CLI_EN 1 CACHE STRING "Enable CLI")
 set(OTA_EN 1 CACHE STRING "Enable OTA")
 set(DEEP_SLEEP_EN 1 CACHE STRING "Enable Deep Sleep")
 set(PROJECT_VER "unknown" CACHE STRING "Firmware version")
 
 # Apply compile definitions
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
-    CLI_EN=${CLI_EN}
     OTA_EN=${OTA_EN}
     DEEP_SLEEP_EN=${DEEP_SLEEP_EN}
     PROJECT_VER="${PROJECT_VER}"

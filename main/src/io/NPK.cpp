@@ -1,10 +1,11 @@
-#include "ReadingPacket.hpp"
 #include "NPK.hpp"
 #include <stdio.h>
 #include "Logger.hpp"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include "EEPROMConfig.hpp"
+#include "Types.hpp"
+#include "UARTDriver.hpp"
 
 
 NPK::NPK() 
@@ -16,28 +17,27 @@ NPK::NPK()
  * @brief Collect sensor readings for all measurement types.
  * Iterates over the mapping table and sends readings.
  */
-void NPK::npk_collect(ReadingPacket& readings)
+void NPK::npk_collect()
 {   
     g_logger.info("Collecting sensor readings...");
-
-    this->rs485_uart.init(
-        4800,           // Baud rate (adjust based on your RS485 device requirements)
-        /* tx_pin */ GPIO_NUM_37, // TXD0 (IO37) - connects to UART2_TXD
-        /* rx_pin */ GPIO_NUM_36, // RXD0 (IO36) - connects to UART2_RXD
-        /* rts_pin */ UART_PIN_NO_CHANGE,
-        /* cts_pin */ UART_PIN_NO_CHANGE,
-        /* rx_buffer_size */ 1024,
-        /* tx_buffer_size */ 1024  // RS485 benefits from TX buffer
-    );
+    uint8_t * npk_pkt;
 
     for (const auto& entry : MEASUREMENT_TABLE)
     {
         g_logger.info("Reading measurement type: %s", entry.name);
 
-        readings.setMeasurementType(entry.name);
-        readings.readSensor(this->rs485_uart, entry.packet, entry.packet_size);
-        // readings.applyCalibration(g_device_config.calib, entry.type);
-        readings.sendPacket();
+        for (size_t i = 0; i < READING_SIZE; i++)
+        {
+            float val;
+
+            rs485_uart.write((const char *)entry.packet);
+            
+            val = 33;
+            readingList.at(i) = val;
+
+            
+            //read bytes incoming after the write
+        }
 
         vTaskDelay(pdMS_TO_TICKS(500));
     }

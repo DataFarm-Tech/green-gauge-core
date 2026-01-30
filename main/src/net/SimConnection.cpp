@@ -2,218 +2,212 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "Types.hpp"
+#include "ATCommandHndlr.hpp"
+#include "Logger.hpp"
 
 extern "C" {
     #include "freertos/FreeRTOS.h"
     #include "freertos/task.h"
 }
 
-static const char* TAG = "SIM";
+bool SimConnection::connect() {
+    uint8_t retry_counter = 0;
 
-bool SimConnection::sendAT(const ATCommand_t& atCmd) {
-    char line[256];   // larger buffer for long responses
-    size_t len = 0;
-    bool got_expect = false;
+    while (sim_stat != SimStatus::CONNECTED) {
+        switch (sim_stat)
+        {
+            case SimStatus::DISCONNECTED:
+                g_logger.info("Starting Quectel EC25 Wakeup\n");    
+                sim_stat = SimStatus::INIT;
+                break;
+            case SimStatus::INIT:
+                g_logger.info("Initialising Quectel EC25 Module\n");    
+                for (auto& cmd : hndlr.at_command_table) {
+                    if (cmd.msg_type != MsgType::INIT) continue;
+                    if (!hndlr.send(cmd)) {
+                        sim_stat = SimStatus::ERROR;
+                        break;
+                    }
+                }
 
-    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(atCmd.timeout_ms);
-
-    m_modem_uart.writef("%s\r\n", atCmd.cmd);
-
-    while (xTaskGetTickCount() < deadline) {
-        uint8_t c;
-
-        // Fully non-blocking read
-        if (!m_modem_uart.readByte(c)) {
-            // No data available; yield a bit
-            vTaskDelay(pdMS_TO_TICKS(1));
-            continue;
-        }
-
-        // Accumulate line
-        if (c == '\n') {
-            line[len] = '\0';
-            if (len > 0 && line[len - 1] == '\r') line[len - 1] = '\0';
-            ESP_LOGD(TAG, "RX: %s", line);
-
-            if (strcmp(line, "ERROR") == 0) {
-                ESP_LOGE(TAG, "AT ERROR (%s)", atCmd.cmd);
-                return false;
-            }
-
-            if (strstr(line, atCmd.expect)) got_expect = true;
-
-            if (strcmp(line, "OK") == 0) {
-                if (got_expect || atCmd.msg_type == MsgType::SHUTDOWN) {
-                    ESP_LOGI(TAG, "AT OK: %s", atCmd.cmd);
-                    return true;
-                } else {
-                    ESP_LOGW(TAG, "AT OK without expected response (%s)", atCmd.cmd);
+                if (sim_stat != SimStatus::ERROR) {
+                    sim_stat = SimStatus::NOTREADY;
+                }
+                break;
+            
+            case SimStatus::NOTREADY:
+                for (auto& cmd : hndlr.at_command_table) {
+                    if (cmd.msg_type != MsgType::STATUS) continue;
+                    if (hndlr.send(cmd)) {
+                        sim_stat = SimStatus::REGISTERING;
+                        break;
+                    }
+                }
+                break;
+            case SimStatus::REGISTERING:
+                for (auto& cmd : hndlr.at_command_table) {
+                    if (cmd.msg_type != MsgType::NETREG) continue;
+                    if (hndlr.send(cmd)) {
+                        retry_counter = 0;
+                        sim_stat = SimStatus::CONNECTED;
+                        break;
+                    }
+                }
+                break;
+            case SimStatus::ERROR:
+                if (retry_counter >= RETRIES) {
                     return false;
                 }
-            }
+                
+                retry_counter++;
 
-            len = 0;
-            continue;
-        }
+                sim_stat = SimStatus::INIT;
 
-        // Normal character
-        if (c != '\r') {
-            if (len < sizeof(line) - 1) {
-                line[len++] = c;
-            } else {
-                // discard until next newline
-                ESP_LOGW(TAG, "RX line overflow, discarding");
-                len = 0;
-            }
-        }
-    }
-
-    ESP_LOGE(TAG, "AT TIMEOUT (%s)", atCmd.cmd);
-    return false;
-}
-
-
-
-void SimConnection::tick(void* arg) {
-    auto* self = static_cast<SimConnection*>(arg);
-
-    while (true) {
-        switch (self->m_status) {
-
-        case SimStatus::DISCONNECTED:
-            break;
-
-        case SimStatus::INIT:
-            ESP_LOGI(TAG, "FSM: INIT");
-
-            self->m_modem_uart.init(
-                115200,
-                GPIO_NUM_17,   // TX → Quectel RX
-                GPIO_NUM_18,   // RX → Quectel TX
-                GPIO_NUM_19,   // RTS
-                GPIO_NUM_20    // CTS
-            );
-
-            vTaskDelay(pdMS_TO_TICKS(300));
-
-            // Run all INIT commands from class table
-            for (auto& cmd : at_command_table) {
-                if (cmd.msg_type != MsgType::INIT) continue;
-                if (!self->sendAT(cmd)) {
-                    self->m_status = SimStatus::ERROR;
-                    break;
-                }
-            }
-
-            if (self->m_status != SimStatus::ERROR) {
-                self->m_status = SimStatus::NOTREADY;
-            }
-            break;
-
-        case SimStatus::NOTREADY:
-            ESP_LOGI(TAG, "FSM: CHECK SIM");
-
-            for (auto& cmd : at_command_table) {
-                if (cmd.msg_type != MsgType::STATUS) continue;
-                if (self->sendAT(cmd)) {
-                    self->m_status = SimStatus::REGISTERING;
-                    break;
-                }
-            }
-            break;
-
-        case SimStatus::REGISTERING:
-            ESP_LOGI(TAG, "FSM: REGISTERING");
-
-            for (auto& cmd : at_command_table) {
-                if (cmd.msg_type != MsgType::NETREG) continue;
-                if (self->sendAT(cmd)) {
-                    ESP_LOGI(TAG, "Network registered");
-                    self->m_retry_count = 0;
-                    self->m_status = SimStatus::CONNECTED;
-                    break;
-                }
-            }
-            break;
-
-        case SimStatus::CONNECTED:
-            break;
-
-        case SimStatus::ERROR:
-            self->m_retry_count++;
-            ESP_LOGE(TAG, "FSM: ERROR (%lu/%lu)", self->m_retry_count, MAX_RETRIES);
-
-            if (self->m_retry_count >= MAX_RETRIES) {
-                ESP_LOGE(TAG, "FSM: MAX RETRIES EXCEEDED");
-                self->m_status = SimStatus::DISCONNECTED;
+                vTaskDelay(pdMS_TO_TICKS(5000));
                 break;
-            }
-
-            vTaskDelay(pdMS_TO_TICKS(5000));
-            self->m_status = SimStatus::INIT;
-            break;
+            case SimStatus::CONNECTED:
+                break;
         }
-
-        vTaskDelay(pdMS_TO_TICKS(
-            self->m_status == SimStatus::CONNECTED ? 1000 : 500));
     }
-
-    self->m_task = nullptr;
-    vTaskDelete(nullptr);
-}
-
-
-bool SimConnection::connect() {
-    if (m_retry_count >= MAX_RETRIES) {
-        ESP_LOGE(TAG, "SIM permanently failed");
-        return false;
-    }
-
-    if (m_task) {
-        ESP_LOGW(TAG, "SIM FSM already running");
-        return true;
-    }
-
-    ESP_LOGI(TAG, "Starting SIM FSM task");
-    m_status = SimStatus::INIT;
-
-    BaseType_t res = xTaskCreate(
-        &SimConnection::tick,
-        "sim_fsm",
-        4096,
-        this,
-        5,
-        &m_task
-    );
-
-    if (res != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create SIM FSM task");
-        m_task = nullptr;
-        return false;
-    }
+    
 
     return true;
 }
 
 bool SimConnection::isConnected() {
-    return m_status == SimStatus::CONNECTED;
+    
+    if (sim_stat != SimStatus::CONNECTED) {
+        return false;
+    }
+
+    for (auto& cmd : hndlr.at_command_table) {
+        if (cmd.msg_type != MsgType::STATUS) continue;
+        
+        if (hndlr.send(cmd)) {
+            return true;
+        }
+        
+        sim_stat = SimStatus::ERROR;
+        return false;
+    }
+    
+    return false;
 }
 
 void SimConnection::disconnect() {
-    ESP_LOGI(TAG, "Disconnecting SIM");
-
-    // Run shutdown command from class table
-    for (auto& cmd : at_command_table) {
-        if (cmd.msg_type == MsgType::SHUTDOWN) {
-            sendAT(cmd);
-            break;
+    
+    g_logger.info("Disconnecting from network...\n");
+    
+    // Send shutdown commands
+    for (auto& cmd : hndlr.at_command_table) {
+        if (cmd.msg_type != MsgType::SHUTDOWN) continue;
+        
+        if (hndlr.send(cmd)) {
+            g_logger.info("Shutdown command successful\n");
+        } else {
+            g_logger.warning("Shutdown command failed\n");
         }
     }
+    
+    // Update state
+    sim_stat = SimStatus::DISCONNECTED;
+    
+    g_logger.info("SIM disconnected\n");
+}
 
-    m_status = SimStatus::DISCONNECTED;
+bool SimConnection::sendPacket(const uint8_t * pkt, const size_t pkt_len) {
+    if (!pkt || pkt_len == 0) {
+        g_logger.error("Invalid packet parameters\n");
+        return false;
+    }
 
-    if (m_task) {
-        vTaskDelete(m_task);
-        m_task = nullptr;
+    if (sim_stat != SimStatus::CONNECTED) {
+        g_logger.error("Cannot send packet: not connected\n");
+        return false;
+    }
+
+    g_logger.info("Sending CoAP packet (%zu bytes)\n", pkt_len);
+
+    // Step 1: Configure CoAP context
+    ATCommand_t config_cmd = {
+        "AT+QCOAPCFG=\"contextid\",0",
+        "OK",
+        2000,
+        MsgType::DATA,
+        nullptr,
+        0
+    };
+
+    if (!hndlr.send(config_cmd)) {
+        g_logger.error("Failed to configure CoAP context\n");
+        return false;
+    }
+
+    // Step 2: Open CoAP session
+    ATCommand_t coap_open = {
+        "AT+QCOAPOPEN=0,\"45.79.239.100\",5683",
+        "OK",
+        5000,
+        MsgType::DATA,
+        nullptr,
+        0
+    };
+
+    if (!hndlr.send(coap_open)) {
+        g_logger.error("Failed to open CoAP connection\n");
+        return false;
+    }
+
+    // Step 3: Add Content-Format header for CBOR
+    ATCommand_t coap_addheader = {
+        "AT+QCOAPADDHEADER=0,12,\"60\"",
+        "OK",
+        2000,
+        MsgType::DATA,
+        nullptr,
+        0
+    };
+
+    if (!hndlr.send(coap_addheader)) {
+        g_logger.warning("Failed to add CoAP header\n");
+    }
+
+    // Step 4: Send QCOAPSEND command with payload
+    char send_cmd[128];
+    snprintf(send_cmd, sizeof(send_cmd), 
+             "AT+QCOAPSEND=0,1,0,2,\"/api/sensor\",%zu", pkt_len);
+
+    ATCommand_t coap_send = {
+        send_cmd,
+        ">",
+        10000,
+        MsgType::DATA,
+        pkt,         // Payload pointer
+        pkt_len      // Payload length
+    };
+
+    if (!hndlr.send(coap_send)) {
+        g_logger.error("Failed to send CoAP packet\n");
+        closeCoAPSession();
+        return false;
+    }
+
+    g_logger.info("CoAP packet sent successfully\n");
+    closeCoAPSession();
+    return true;
+}
+
+void SimConnection::closeCoAPSession() {
+    ATCommand_t close_cmd = {
+        "AT+QCOAPCLOSE=0",
+        "OK",
+        5000,
+        MsgType::SHUTDOWN,
+        nullptr,
+        0
+    };
+    
+    if (!hndlr.send(close_cmd)) {
+        g_logger.warning("Failed to close CoAP session\n");
     }
 }

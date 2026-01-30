@@ -47,4 +47,6 @@ public:
      * @brief Disconnects from the Wi-Fi network.
      */
     void disconnect() override;
+
+    bool sendPacket(const uint8_t * pkt, const size_t pkt_len) override;
 };

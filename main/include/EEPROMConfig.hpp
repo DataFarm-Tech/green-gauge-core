@@ -3,15 +3,16 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "esp_log.h"
-#include "Node.hpp"
 #include "Types.hpp"
 #include "NPK.hpp"
+
+#define MANF_MAX_LEN 32
+
 
 /**
  * @struct NPK_Calib_t
  * @brief  Calibration data structure for NPK sensor readings.
  */
-
 typedef struct {
     float offset;
     float gain;
@@ -23,6 +24,12 @@ typedef struct {
     uint32_t last_cal_ts;
 } NPK_Calib_t;
 
+typedef struct {
+    char value[MANF_MAX_LEN];
+    bool has_provision;
+} MANF_entry_t;
+
+
 /**
  * @struct MANF_info_t
  * @brief  Manufacturing information structure.
@@ -31,11 +38,13 @@ typedef struct {
  * Node ID assigned to the device.
  */
 typedef struct {
-    char hw_ver[GEN_STRING_SIZE];     ///< Hardware version string (e.g., "0.0.1"
-    char fw_ver[GEN_STRING_SIZE];     ///< Firmware version string (e.g., "
-    char nodeId[7];          ///< Unique Node identifier for the device
+    MANF_entry_t hw_ver; //iterating hw version
+    MANF_entry_t hw_var; //the current hw variant of the current hw version
+    MANF_entry_t fw_ver; //compiled firmware version
+    MANF_entry_t nodeId; //serialnumber/nodeId
+    MANF_entry_t secretkey; //password
+    MANF_entry_t p_code; //product code
 } MANF_info_t;
-
 
 // Define the device configuration structure
 /**
