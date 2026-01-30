@@ -11,4 +11,4 @@ constexpr char BATT_TAG[] = "BatteryPacket";
 constexpr char DATA_TAG[] = "DataPacket";
 constexpr char ACT_TAG[] = "ActivatePacket";
 
-constexpr int sleep_time_sec = 240;
+constexpr int sleep_time_sec = 60;

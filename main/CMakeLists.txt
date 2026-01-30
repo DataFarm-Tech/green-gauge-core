@@ -13,6 +13,7 @@ idf_component_register(
         "src/sys/Logger.cpp"
         "src/io/NPK.cpp"
         "src/net/ActivatePkt.cpp"
+        "src/sys/ATCommandHndlr.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash

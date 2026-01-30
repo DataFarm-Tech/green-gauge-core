@@ -34,6 +34,8 @@ void EthernetConnection::disconnect()
 }
 
 
-void EthernetConnection::send(uint8_t pkt) {
+bool EthernetConnection::sendPacket(const uint8_t * pkt, const size_t pkt_len) {
     //do thing
+    printf("DOING\n");
+    return false;
 }

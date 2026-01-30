@@ -34,7 +34,7 @@ void Communication::disconnect()
     connection->disconnect();
 }
 
-void Communication::send(uint8_t pkt)
+bool Communication::sendPacket(const uint8_t * pkt, const size_t pkt_len)
 {
-    
+    return connection->sendPacket(pkt, pkt_len);
 }

@@ -1,9 +1,4 @@
-#include <iostream>
 #include "Communication.hpp"
-#include "esp_log.h"
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include <stdio.h>
 
 extern "C" {
@@ -34,6 +29,7 @@ extern "C" {
 #include "NPK.hpp"
 #include "HwTypes.hpp"
 #include "ActivatePkt.hpp"
+#include <memory>
 
 /**
  * @brief Global device configuration stored in EEPROM.
@@ -66,7 +62,7 @@ uint32_t wakeup_causes = 0;
 esp_reset_reason_t reset_reason;
 
 
-Communication * g_comm = nullptr;
+std::unique_ptr<Communication> g_comm;
 ConnectionType g_hw_var = ConnectionType::SIM;
 
 
@@ -139,58 +135,78 @@ bool load_create_config() {
 /**
  * @brief The following function selects the network interface.
  */
-void net_select(void) {
-    if (strcmp(g_device_config.manf_info.hw_ver.value, HW_VER_0_0_1.c_str())) {
-        g_hw_var = ConnectionType::SIM;
-    }
-    else {
-        g_hw_var = ConnectionType::WIFI;
+void net_select(HwVer_e hw_ver)
+{
+    switch (hw_ver)
+    {
+        case HW_VER_0_0_1_E:
+            g_hw_var = ConnectionType::SIM;
+            break;
+
+        default:
+            g_hw_var = ConnectionType::WIFI;
+            break;
     }
 
-    g_comm = new Communication(g_hw_var);
-
-    return;
+    g_comm = std::make_unique<Communication>(g_hw_var);
 }
+
+
+/**
+ * @brief The following function finds the current HW_VER.
+ * Then initialises network_interface select. Depending on HW.
+ */
+void hw_features(void)
+{
+    HwVer_e hw_ver = HW_VER_UNKNOWN_E;
+
+    for (const auto& entry : ver) {
+        if (entry.name == nullptr) {
+            break;
+        }
+
+        if (strcmp(entry.name, g_device_config.manf_info.hw_ver.value) == 0) {
+            hw_ver = entry.hw_ver;
+            break;
+        }
+    }
+    
+    net_select(hw_ver);
+    
+}
+
 
 /**
  * @brief Handle device activation process.
  */
 void handle_activation() {
     
-    /**
-     * Declare PKT obj here. 
-     * 1. Assemble PAYLOAD
-     * 2. Construct HEADERS ETC -> TinyCBOR can be used to create buffer
-     */
-
-    ActivatePkt pkt(g_device_config.manf_info.nodeId.value, ACT_URI);
-
-    const uint8_t * pkt_1 = pkt.toBuffer();
-    size_t len = pkt.getBufferLength();
-
-    for (size_t i = 0; i < len; i++) {
-        printf("%02x", pkt_1[i]);
-    }
-    printf("\n"); // Add newline at the end
-
     if (g_device_config.has_activated) {
         g_logger.info("Device already activated (node: %s)", g_device_config.manf_info.nodeId.value);
         return;
     }
-
-    g_logger.info("Sending activation packet for node: %s", g_device_config.manf_info.nodeId.value);
-
-    if (g_comm->isConnected())
-    {
-        g_comm->disconnect();
-    }
     
+    g_logger.info("Sending activation packet for node: %s", g_device_config.manf_info.nodeId.value);
+    
+    ActivatePkt pkt(g_device_config.manf_info.nodeId.value, ACT_URI);
+    const uint8_t * pkt_1 = pkt.toBuffer();
+    const size_t len = pkt.getBufferLength();
+
+    if (!g_comm->sendPacket(pkt_1, len))
+    {
+        g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
+        return;
+    }
+
     g_device_config.has_activated = true;
+
     if (eeprom.saveConfig(g_device_config)) {
         g_logger.info("Activation complete, config saved to EEPROM");
     } else {
         g_logger.error("Failed to save activation status to EEPROM");
     }
+
+    return;
 }
 
 #if OTA_EN == 1
@@ -234,7 +250,7 @@ void start_app(void * arg) {
     
     g_logger.info("Device connected to network");
     
-    if (g_comm->isConnected()) {
+    if (g_comm->isConnected() && !g_device_config.has_activated) {
         handle_activation();
     }
 
@@ -271,25 +287,19 @@ void start_app(void * arg) {
  * @brief Main application entry point.
  */
 extern "C" void app_main(void) {
-    while (1) {
-        vTaskDelay(pdMS_TO_TICKS(5000));  // 5 second window
-        ESP_LOGI("HELLO", "Activating PDP context...");
-    }
-    // reset_reason = esp_reset_reason();
-    // wakeup_causes = esp_sleep_get_wakeup_causes();
-
-
-    // printf("HELLOWORLD\n");
-
-    // init_hw();
     
-    // // Step 2: Load or create configuration
-    // if (!load_create_config()) return;
+    reset_reason = esp_reset_reason();
+    wakeup_causes = esp_sleep_get_wakeup_causes();
 
-    // net_select();
+    init_hw();
+    
+    // Step 2: Load or create configuration
+    if (!load_create_config()) return;
 
-    // // Step 3: Launch provisioning + operational tasks in background
-    // xTaskCreate(start_app, "start_app", 8192, nullptr, 5, nullptr);
+    hw_features();
+
+    // Step 3: Launch provisioning + operational tasks in background
+    xTaskCreate(start_app, "start_app", 8192, nullptr, 5, nullptr);
 
     return;
 }

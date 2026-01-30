@@ -76,6 +76,9 @@ public:
      */
     void writef(const char* fmt, ...);
 
+
+    int writeByte(uint8_t byte);
+
     /**
      * @brief Read a single byte from the UART (non-blocking).
      *

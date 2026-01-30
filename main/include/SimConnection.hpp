@@ -1,7 +1,7 @@
 #pragma once
 
 #include "IConnection.hpp"
-#include "UARTDriver.hpp"
+#include "ATCommandHndlr.hpp"
 
 /**
  * @enum SimStatus
@@ -16,27 +16,6 @@ enum class SimStatus : uint8_t {
     ERROR            // Fatal / unrecoverable
 };
 
-/**
- * @enum MsgType
- * @brief Represents a type of AT command
- */
-enum class MsgType : uint8_t {
-    INIT,
-    STATUS,
-    NETREG,
-    SHUTDOWN
-};
-
-/**
- * @struct ATCommand_t
- * @brief Represents a AT command.
- */
-typedef struct {
-    const char* cmd;        // AT command string
-    const char* expect;     // Expected response substring
-    int timeout_ms;         // Timeout in milliseconds
-    MsgType msg_type;       // Purpose of this command
-} ATCommand_t;
 
 /**
  * @class SimConnection
@@ -66,35 +45,17 @@ public:
      */
     void disconnect() override;
 
-    void send(uint8_t pkt) override;
+    /**
+     * @brief Sends packet
+     */
+    bool sendPacket(const uint8_t * pkt, const size_t pkt_len) override;
 
 private:
-    static constexpr uint32_t MAX_RETRIES = 5;
-    SimStatus   m_status { SimStatus::DISCONNECTED };
-    uint32_t    m_retry_count { 0 };
-    TaskHandle_t m_task { nullptr };
-    SemaphoreHandle_t m_mutex { nullptr }; // protects m_status, m_retry_count
-
-
+    SimStatus sim_stat = SimStatus::DISCONNECTED;  // Default value
+    static constexpr size_t RETRIES = 5;
     /**
-     * @brief Table of all AT commands for the FSM.
+     * @brief Closes COAP Session
      */
-    static inline const ATCommand_t at_command_table[] = {
-        { "AT", "OK", 1000, MsgType::INIT },
-        { "ATE0", "OK", 1000, MsgType::INIT },
-        { "AT+CPIN?", "READY", 2000, MsgType::STATUS },
-        { "AT+CEREG?", ",1", 3000, MsgType::NETREG },
-        { "AT+CEREG?", ",5", 3000, MsgType::NETREG },
-        { "AT+CFUN=0", "OK", 3000, MsgType::SHUTDOWN }
-    };
-
-    /**
-     * @brief Send an AT command and wait for expected response.
-     */
-    bool sendAT(const ATCommand_t& atCmd);
-
-    /**
-     * @brief Finite State Machine task for managing SIM connection.
-     */
-    static void tick(void * arg);
+    void closeCoAPSession();
+    ATCommandHndlr hndlr;
 };

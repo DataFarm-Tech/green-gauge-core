@@ -45,5 +45,5 @@ public:
      */
     virtual void disconnect() = 0;
 
-    virtual void send(uint8_t pkt) = 0;
+    virtual bool sendPacket(const uint8_t * pkt, const size_t pkt_len) = 0;
 };

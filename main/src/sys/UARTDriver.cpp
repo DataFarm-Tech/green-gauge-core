@@ -28,6 +28,10 @@ void UARTDriver::write(const char* text) {
     uart_write_bytes(m_uart_num, text, strlen(text));
 }
 
+int UARTDriver::writeByte(uint8_t byte) {
+    return uart_write_bytes(m_uart_num, &byte, 1);
+}
+
 void UARTDriver::writef(const char* fmt, ...) {
     char buf[256];
     va_list ap;

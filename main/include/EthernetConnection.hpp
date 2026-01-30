@@ -40,5 +40,5 @@ public:
      */
     void disconnect() override;
 
-    void send(uint8_t pkt) override;
+    bool sendPacket(const uint8_t * pkt, const size_t pkt_len) override;
 };
