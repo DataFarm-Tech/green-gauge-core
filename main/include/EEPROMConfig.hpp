@@ -8,15 +8,10 @@
 
 #define MANF_MAX_LEN 32
 
-
-/**
- * @struct NPK_Calib_t
- * @brief  Calibration data structure for NPK sensor readings.
- */
 typedef struct {
     float offset;
     float gain;
-    MeasurementType m_type;  // Use enum directly instead of string
+    MeasurementType m_type;
 } DataCalib_t;
 
 typedef struct {
@@ -29,127 +24,52 @@ typedef struct {
     bool has_provision;
 } MANF_entry_t;
 
-
-/**
- * @struct MANF_info_t
- * @brief  Manufacturing information structure.
- *
- * Contains hardware and firmware version strings along with the unique
- * Node ID assigned to the device.
- */
 typedef struct {
-    MANF_entry_t hw_ver; //iterating hw version
-    MANF_entry_t hw_var; //the current hw variant of the current hw version
-    MANF_entry_t fw_ver; //compiled firmware version
-    MANF_entry_t nodeId; //serialnumber/nodeId
-    MANF_entry_t secretkey; //password
-    MANF_entry_t p_code; //product code
+    MANF_entry_t hw_ver;
+    MANF_entry_t hw_var;
+    MANF_entry_t fw_ver;
+    MANF_entry_t nodeId;
+    MANF_entry_t secretkey;
+    MANF_entry_t p_code;
 } MANF_info_t;
 
-// Define the device configuration structure
-/**
- * @struct DeviceConfig
- * @brief  Represents stored configuration for this device.
- *
- * This structure contains persistent fields stored in NVS, including
- * activation state and the device's assigned Node ID.
- */
 typedef struct {
-    bool has_activated;   ///< True if the device has already completed activation
-    MANF_info_t manf_info;  ///< Manufacturing information
+    bool has_activated;
+    MANF_info_t manf_info;
     NPK_Calib_t calib;
 } DeviceConfig;
 
-/**
- * @brief Provides high-level APIs for saving, loading, and erasing
- *        configuration data in ESP32 NVS (EEPROM-like flash storage).
- *
- * This class wraps the ESP-IDF NVS functions, offering a convenient and
- * type-safe interface for storing the `DeviceConfig` structure.  
- *
- * Usage example:
- * @code
- *     EEPROMConfig cfg;
- *     cfg.begin();
- *     cfg.saveConfig(g_device_config);
- * @endcode
- */
 class EEPROMConfig {
 private:
-    nvs_handle_t handle;          ///< Internal NVS handle used after opening
-    const char* TAG = "EEPROMConfig"; ///< Logging tag
-    const char* NAMESPACE = "config_ns"; ///< NVS namespace name
-    const char* KEY = "device_cfg"; ///< Key under which DeviceConfig is stored
+    nvs_handle_t handle;
+    const char* TAG = "EEPROMConfig";
+    const char* NAMESPACE = "config_ns";
 
-    /**
-     * @brief Initialize the NVS flash subsystem (nvs_flash_init / erase if needed).
-     *
-     * This is called internally from `begin()` and ensures that the NVS partition
-     * is ready for use. Handles recovery from truncated or inconsistent NVS states.
-     */
     void init_nvs();
+    
+    // Helper functions for reading individual values
+    bool readString(const char* key, char* dest, size_t max_len);
+    bool readBool(const char* key, bool* dest);
+    bool readU8(const char* key, uint8_t* dest);
+    bool readU32(const char* key, uint32_t* dest);
+    bool readFloat(const char* key, float* dest);
+    
+    // Helper functions for writing individual values
+    bool writeString(const char* key, const char* value);
+    bool writeBool(const char* key, bool value);
+    bool writeU8(const char* key, uint8_t value);
+    bool writeU32(const char* key, uint32_t value);
+    bool writeFloat(const char* key, float value);
 
 public:
-    /**
-     * @brief Construct an uninitialized EEPROMConfig object.
-     *
-     * An explicit call to `begin()` is required before calling any other method.
-     */
     EEPROMConfig() : handle(0) {}
-
-    /**
-     * @brief Initialize the NVS namespace and open storage handle.
-     *
-     * Ensures the NVS system is initialized and opens the class-specific namespace.
-     *
-     * @return true  Initialization successful  
-     * @return false Failed to open or initialize NVS
-     */
+    
     bool begin();
-
-    /**
-     * @brief Close the opened NVS handle.
-     *
-     * Safe to call even if `begin()` failed or no handle is open.
-     */
     void close();
-
-    /**
-     * @brief Save a `DeviceConfig` instance to flash.
-     *
-     * The structure is serialized into a binary blob and written to NVS.
-     * A commit operation is performed before returning.
-     *
-     * @param config Reference to the struct to store.
-     * @return true  Save successful  
-     * @return false Write or commit failed
-     */
     bool saveConfig(const DeviceConfig& config);
-
-    /**
-     * @brief Load a `DeviceConfig` instance from flash.
-     *
-     * Attempts to read the stored binary blob and reconstruct the original
-     * structure. If the key does not exist, the function returns false.
-     *
-     * @param config Reference where the loaded data is stored.
-     * @return true  Successfully loaded  
-     * @return false No data found or invalid length
-     */
     bool loadConfig(DeviceConfig& config);
-
-    /**
-     * @brief Erase the saved configuration from NVS.
-     *
-     * Removes the key from the namespace and commits the change.
-     *
-     * @return true  Erased successfully  
-     * @return false Key does not exist or erase failed
-     */
     bool eraseConfig();
 };
 
-// Global config variable (declared extern here, defined in main.cpp)
 extern DeviceConfig g_device_config;
-
 extern EEPROMConfig eeprom;

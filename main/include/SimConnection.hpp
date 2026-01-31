@@ -57,5 +57,8 @@ private:
      * @brief Closes COAP Session
      */
     void closeCoAPSession();
+    void deactivatePDP();
+    void closeUDPSocket();
+
     ATCommandHndlr hndlr;
 };

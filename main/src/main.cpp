@@ -16,7 +16,7 @@ extern "C" {
 #include "lwip/sockets.h"
 #include "lwip/inet.h"
 #include <string.h>
-
+#include "esp_log.h"
 #include "Config.hpp"
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
@@ -106,30 +106,16 @@ void init_hw() {
  * @brief Load existing config or create default configuration.
  */
 bool load_create_config() {
-    const esp_app_desc_t* app_desc = esp_app_get_description();
-
     if (eeprom.loadConfig(g_device_config)) {
-        g_logger.info("Loaded config from EEPROM. Node ID: %s, Activated: %s",
+        g_logger.info("Loaded config from NVS. Node ID: %s, Activated: %s",
                       g_device_config.manf_info.nodeId.value,
                       g_device_config.has_activated ? "Yes" : "No");
+                      
         return true;
     }
 
-    g_logger.info("No previous config found, initializing defaults");
-
-    g_device_config.has_activated = false;
-
-    strncpy(g_device_config.manf_info.fw_ver.value, app_desc->version,
-            sizeof(g_device_config.manf_info.fw_ver.value) - 1);
-    g_device_config.manf_info.fw_ver.has_provision = true;
-
-    if (!eeprom.saveConfig(g_device_config)) {
-        g_logger.error("Failed to save initial config");
-        return false;
-    }
-
-    g_logger.info("Initial config saved.");
-    return true;
+    g_logger.error("Failed to load config from NVS - device may not be provisioned");
+    return false;
 }
 
 /**
@@ -170,6 +156,8 @@ void hw_features(void)
             break;
         }
     }
+
+    hw_ver = HW_VER_0_0_1_E;
     
     net_select(hw_ver);
     
@@ -251,7 +239,13 @@ void start_app(void * arg) {
     g_logger.info("Device connected to network");
     
     if (g_comm->isConnected() && !g_device_config.has_activated) {
+        g_logger.info("Activating UNIT\n");
+        ESP_LOGI("UNIT", "ACTIVATING UNIT\n");
         handle_activation();
+        
+    }
+    else {
+        ESP_LOGI("UNIT", "NOT ACTIVATING UNIT\n");
     }
 
     #if OTA_EN == 1
@@ -274,10 +268,12 @@ void start_app(void * arg) {
      * 2. Call Communications send method -> See send method.
     */
 
-    g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
-    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    esp_deep_sleep_start();
+    vTaskDelay(pdMS_TO_TICKS(20000));
+    
+    // g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
+    // esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
+    // vTaskDelay(pdMS_TO_TICKS(100));
+    // esp_deep_sleep_start();
 
     vTaskDelete(nullptr);
 }

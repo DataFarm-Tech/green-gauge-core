@@ -56,7 +56,7 @@ const uint8_t * ActivatePkt::toBuffer()
     std::string gps_coor = "37.421998, -122.084000";
 
     // Root map with 3 elements: node_id, gps, key
-    if (cbor_encoder_create_map(&encoder, &mapEncoder, 3) != CborNoError) 
+    if (cbor_encoder_create_map(&encoder, &mapEncoder, 4) != CborNoError) 
     {
         ESP_LOGE(TAG.c_str(), "Failed to create root map");
         return nullptr;
@@ -65,6 +65,9 @@ const uint8_t * ActivatePkt::toBuffer()
     // node_id
     cbor_encode_text_stringz(&mapEncoder, "node_id");
     cbor_encode_text_stringz(&mapEncoder, nodeId.c_str());
+
+    cbor_encode_text_stringz(&mapEncoder, "secretkey");
+    cbor_encode_text_stringz(&mapEncoder, "jdeyd7yd");
 
     // gps
     cbor_encode_text_stringz(&mapEncoder, "gps");

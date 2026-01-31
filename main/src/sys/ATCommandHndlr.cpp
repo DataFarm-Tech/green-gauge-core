@@ -60,11 +60,9 @@ bool ATCommandHndlr::waitForPrompt(int timeout_ms) {
     
     return false;
 }
-
 bool ATCommandHndlr::sendPayloadAndWaitResponse(const uint8_t* payload, size_t payload_len) {
     // Send binary payload
     for (size_t i = 0; i < payload_len; i++) {
-        
         m_modem_uart.writeByte(payload[i]);
     }
     
@@ -73,11 +71,9 @@ bool ATCommandHndlr::sendPayloadAndWaitResponse(const uint8_t* payload, size_t p
     // Small delay to ensure data is transmitted
     vTaskDelay(pdMS_TO_TICKS(100));
 
-    // Wait for +QCOAPSEND and OK response
+    // Wait for SEND OK or ERROR response
     ResponseState state = {};
-    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(15000);
-    bool got_qcoapsend = false;
-    bool got_ok = false;
+    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(10000);
 
     while (xTaskGetTickCount() < deadline) {
         uint8_t c;
@@ -97,10 +93,14 @@ bool ATCommandHndlr::sendPayloadAndWaitResponse(const uint8_t* payload, size_t p
             if (state.line_len > 0) {
                 g_logger.info("RX: %s\n", state.line_buffer);
 
-                // Check for +QCOAPSEND response
+                // Check for SEND OK (UDP/TCP socket send confirmation)
+                if (strcmp(state.line_buffer, "SEND OK") == 0) {
+                    g_logger.info("Payload sent successfully\n");
+                    return true;
+                }
+
+                // Check for +QCOAPSEND response (CoAP-specific)
                 if (strstr(state.line_buffer, "+QCOAPSEND:") != nullptr) {
-                    got_qcoapsend = true;
-                    
                     // Check for success response codes (65 = 2.01 Created, 69 = 2.05 Content)
                     if (strstr(state.line_buffer, ",65") != nullptr || 
                         strstr(state.line_buffer, ",69") != nullptr) {
@@ -108,18 +108,27 @@ bool ATCommandHndlr::sendPayloadAndWaitResponse(const uint8_t* payload, size_t p
                     }
                 }
 
-                // Check for OK
+                // Check for OK (generic success)
                 if (strcmp(state.line_buffer, "OK") == 0) {
-                    got_ok = true;
-                    if (got_qcoapsend) {
-                        g_logger.info("Payload sent successfully\n");
-                        return true;
-                    }
+                    g_logger.info("Payload send confirmed with OK\n");
+                    return true;
+                }
+
+                // Check for SEND FAIL
+                if (strcmp(state.line_buffer, "SEND FAIL") == 0) {
+                    g_logger.error("Payload send failed\n");
+                    return false;
                 }
 
                 // Check for ERROR
                 if (strcmp(state.line_buffer, "ERROR") == 0) {
-                    g_logger.error("Payload send failed\n");
+                    g_logger.error("Payload send error\n");
+                    return false;
+                }
+
+                // Check for +QIURC: "closed" (connection closed)
+                if (strstr(state.line_buffer, "+QIURC: \"closed\"") != nullptr) {
+                    g_logger.warning("Socket closed during send\n");
                     return false;
                 }
             }
@@ -136,8 +145,7 @@ bool ATCommandHndlr::sendPayloadAndWaitResponse(const uint8_t* payload, size_t p
         }
     }
 
-    g_logger.error("Timeout waiting for payload confirmation (got_qcoapsend=%d, got_ok=%d)\n", 
-                  got_qcoapsend, got_ok);
+    g_logger.error("Timeout waiting for payload confirmation\n");
     return false;
 }
 
