@@ -41,17 +41,4 @@ public:
      * @return false The update failed (network error, validation failure, etc.)
      */
     bool update(const char* url);
-
-    /**
-     * @brief Print OTA-related system and partition information.
-     *
-     * Displays details such as:
-     *  - Current running partition
-     *  - Next boot partition
-     *  - OTA partition table layout
-     *
-     * Useful for diagnostics, debugging OTA flows, and confirming partition
-     * selection behavior.
-     */
-    static void printInfo();
 };

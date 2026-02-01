@@ -1,4 +1,5 @@
 build/
 dependencies.lock
-managed_components/
 .vscode/
+managed_components/espressif__coap
+managed_components/joltwallet__littlefs
