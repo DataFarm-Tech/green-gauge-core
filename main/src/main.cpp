@@ -37,12 +37,12 @@ extern "C" {
 DeviceConfig g_device_config = {
     .has_activated = false,
     .manf_info = {
-        .hw_ver = {.value="", .has_provision=false},
-        .hw_var = {.value="", .has_provision=false},
-        .fw_ver = {.value="", .has_provision=false},
-        .nodeId = {.value="", .has_provision=false},
-        .secretkey = {.value="", .has_provision=false},
-        .p_code = {.value="", .has_provision=false}
+        .hw_ver = {.value=""},
+        .hw_var = {.value=""},
+        .fw_ver = {.value=""},
+        .nodeId = {.value=""},
+        .secretkey = {.value=""},
+        .p_code = {.value=""}
     },
     .calib = {
         .calib_list = {
@@ -77,10 +77,7 @@ void init_hw() {
         g_logger.error("Failed to open EEPROM config");
         esp_restart();
     }
-
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-
+    
     rs485_uart.init(
         BAUD_4800,           // Baud rate (adjust based on your RS485 device requirements)
         GPIO_NUM_37, // TXD0 (IO37) - connects to UART2_TXD
@@ -91,15 +88,27 @@ void init_hw() {
         GEN_BUFFER_SIZE  // /* tx_buffer_size */ RS485 benefits from TX buffer
     );
 
-    m_modem_uart.init(
-            BAUD_115200,           // baud rate
-            GPIO_NUM_17,           // TX → Quectel RX
-            GPIO_NUM_18,           // RX → Quectel TX
-            UART_PIN_NO_CHANGE,    // RTS (not used)
-            UART_PIN_NO_CHANGE,    // CTS (not used)
-            2048,                  // RX buffer size (larger for AT responses)
-            0                      // TX buffer size (0 = no buffering)
-        );
+    switch (g_hw_var)
+    {
+        case ConnectionType::WIFI:
+            ESP_ERROR_CHECK(esp_netif_init());
+            ESP_ERROR_CHECK(esp_event_loop_create_default());
+            break;
+        case ConnectionType::SIM:
+            m_modem_uart.init(
+                    BAUD_115200,           // baud rate
+                    GPIO_NUM_17,           // TX → Quectel RX
+                    GPIO_NUM_18,           // RX → Quectel TX
+                    UART_PIN_NO_CHANGE,    // RTS (not used)
+                    UART_PIN_NO_CHANGE,    // CTS (not used)
+                    2048,                  // RX buffer size (larger for AT responses)
+                    0                      // TX buffer size (0 = no buffering)
+                );
+            break;
+    
+    default:
+        break;
+    }
 }
 
 /**
@@ -169,6 +178,10 @@ void hw_features(void)
  */
 void handle_activation() {
     
+    ActivatePkt pkt(g_device_config.manf_info.nodeId.value, ACT_URI, g_device_config.manf_info.secretkey.value);
+    const uint8_t * pkt_1 = pkt.toBuffer();
+    const size_t len = pkt.getBufferLength();
+    
     if (g_device_config.has_activated) {
         g_logger.info("Device already activated (node: %s)", g_device_config.manf_info.nodeId.value);
         return;
@@ -176,9 +189,6 @@ void handle_activation() {
     
     g_logger.info("Sending activation packet for node: %s", g_device_config.manf_info.nodeId.value);
     
-    ActivatePkt pkt(g_device_config.manf_info.nodeId.value, ACT_URI);
-    const uint8_t * pkt_1 = pkt.toBuffer();
-    const size_t len = pkt.getBufferLength();
 
     if (!g_comm->sendPacket(pkt_1, len))
     {
@@ -242,10 +252,6 @@ void start_app(void * arg) {
         g_logger.info("Activating UNIT\n");
         ESP_LOGI("UNIT", "ACTIVATING UNIT\n");
         handle_activation();
-        
-    }
-    else {
-        ESP_LOGI("UNIT", "NOT ACTIVATING UNIT\n");
     }
 
     #if OTA_EN == 1
@@ -270,10 +276,10 @@ void start_app(void * arg) {
 
     vTaskDelay(pdMS_TO_TICKS(20000));
     
-    // g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
-    // esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
-    // vTaskDelay(pdMS_TO_TICKS(100));
-    // esp_deep_sleep_start();
+    g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
+    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    esp_deep_sleep_start();
 
     vTaskDelete(nullptr);
 }
@@ -287,12 +293,13 @@ extern "C" void app_main(void) {
     reset_reason = esp_reset_reason();
     wakeup_causes = esp_sleep_get_wakeup_causes();
 
+    hw_features();
+
     init_hw();
     
     // Step 2: Load or create configuration
     if (!load_create_config()) return;
 
-    hw_features();
 
     // Step 3: Launch provisioning + operational tasks in background
     xTaskCreate(start_app, "start_app", 8192, nullptr, 5, nullptr);

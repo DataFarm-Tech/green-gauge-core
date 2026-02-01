@@ -67,7 +67,7 @@ const uint8_t * ActivatePkt::toBuffer()
     cbor_encode_text_stringz(&mapEncoder, nodeId.c_str());
 
     cbor_encode_text_stringz(&mapEncoder, "secretkey");
-    cbor_encode_text_stringz(&mapEncoder, "jdeyd7yd");
+    cbor_encode_text_stringz(&mapEncoder, secretKeyUser.c_str());
 
     // gps
     cbor_encode_text_stringz(&mapEncoder, "gps");

@@ -19,6 +19,7 @@
 class ActivatePkt : public IPacket {
 private:
     std::string TAG;
+    std::string secretKeyUser;
 
     static constexpr size_t HMAC_KEY_SIZE = 32;
     
@@ -42,12 +43,13 @@ public:
      *
      * The constructor sets up identifying and connection parameters for the packet.
      */
-    ActivatePkt(const std::string& id, const std::string& uri_endpoint, 
+    ActivatePkt(const std::string& id, const std::string& uri_endpoint, const std::string& secret_key, 
         const std::string& tag = "ActivatePacket")
     : TAG(tag)
     {
         nodeId = id;
         uri = uri_endpoint;
+        secretKeyUser = secret_key;
     }
 
     /**

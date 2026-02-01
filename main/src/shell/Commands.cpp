@@ -278,7 +278,7 @@ static void cmd_provision_hwver(int argc, char** argv) {
 
     strncpy(g_device_config.manf_info.hw_ver.value, hw_ver,
             sizeof(g_device_config.manf_info.hw_ver.value) - 1);
-    g_device_config.manf_info.hw_ver.has_provision = true;
+    // g_device_config.manf_info.hw_ver.has_provision = true;
 
     eeprom.saveConfig(g_device_config);
 }
@@ -292,7 +292,7 @@ static void cmd_provision_nodeid(int argc, char** argv) {
 
     strncpy(g_device_config.manf_info.nodeId.value, nodeId,
             sizeof(g_device_config.manf_info.nodeId.value) - 1);
-    g_device_config.manf_info.nodeId.has_provision = true;
+    // g_device_config.manf_info.nodeId.has_provision = true;
 
     eeprom.saveConfig(g_device_config);
 }
@@ -305,7 +305,7 @@ static void cmd_provision_secretkey(int argc, char** argv) {
     console->writef("Setting secretkey to: %s\r\n", secretkey);
     strncpy(g_device_config.manf_info.secretkey.value, secretkey,
         sizeof(g_device_config.manf_info.secretkey.value) - 1);
-    g_device_config.manf_info.secretkey.has_provision = true;
+    // g_device_config.manf_info.secretkey.has_provision = true;
 
     eeprom.saveConfig(g_device_config);
 }
@@ -319,7 +319,7 @@ static void cmd_provision_p_code(int argc, char** argv) {
     
     strncpy(g_device_config.manf_info.p_code.value, p_code,
         sizeof(g_device_config.manf_info.p_code.value) - 1);
-    g_device_config.manf_info.p_code.has_provision = true;
+    // g_device_config.manf_info.p_code.has_provision = true;
 
     eeprom.saveConfig(g_device_config);
 }
@@ -333,7 +333,7 @@ static void cmd_provision_hwvar(int argc, char ** argv) {
     
     strncpy(g_device_config.manf_info.hw_var.value, hwvar,
         sizeof(g_device_config.manf_info.hw_var.value) - 1);
-    g_device_config.manf_info.hw_var.has_provision = true;
+    // g_device_config.manf_info.hw_var.has_provision = true;
 
     eeprom.saveConfig(g_device_config);
 }

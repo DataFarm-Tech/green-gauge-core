@@ -87,33 +87,21 @@ bool EEPROMConfig::writeU32(const char* key, uint32_t value) {
     return (nvs_set_u32(handle, key, value) == ESP_OK);
 }
 
-// bool EEPROMConfig::writeFloat(const char* key, float value) {
-//     char str_value[16];
-//     snprintf(str_value, sizeof(str_value), "%.2f", value);
-//     return writeString(key, str_value);
-// }
-
 bool EEPROMConfig::loadConfig(DeviceConfig& config) {
     if (handle == 0) return false;
 
     // Load manufacturing info
     readString("hw_ver", config.manf_info.hw_ver.value, MANF_MAX_LEN);
-    readBool("hw_ver_prov", &config.manf_info.hw_ver.has_provision);
     
     readString("hw_var", config.manf_info.hw_var.value, MANF_MAX_LEN);
-    readBool("hw_var_prov", &config.manf_info.hw_var.has_provision);
     
     readString("fw_ver", config.manf_info.fw_ver.value, MANF_MAX_LEN);
-    readBool("fw_ver_prov", &config.manf_info.fw_ver.has_provision);
     
     readString("node_id", config.manf_info.nodeId.value, MANF_MAX_LEN);
-    readBool("node_id_prov", &config.manf_info.nodeId.has_provision);
     
     readString("secret_key", config.manf_info.secretkey.value, MANF_MAX_LEN);
-    readBool("secret_key_prov", &config.manf_info.secretkey.has_provision);
     
     readString("p_code", config.manf_info.p_code.value, MANF_MAX_LEN);
-    readBool("p_code_prov", &config.manf_info.p_code.has_provision);
     
     // Load activation status
     readBool("has_activated", &config.has_activated);
@@ -154,22 +142,16 @@ bool EEPROMConfig::saveConfig(const DeviceConfig& config) {
 
     // Save manufacturing info
     writeString("hw_ver", config.manf_info.hw_ver.value);
-    writeBool("hw_ver_prov", config.manf_info.hw_ver.has_provision);
     
     writeString("hw_var", config.manf_info.hw_var.value);
-    writeBool("hw_var_prov", config.manf_info.hw_var.has_provision);
     
     writeString("fw_ver", config.manf_info.fw_ver.value);
-    writeBool("fw_ver_prov", config.manf_info.fw_ver.has_provision);
     
     writeString("node_id", config.manf_info.nodeId.value);
-    writeBool("node_id_prov", config.manf_info.nodeId.has_provision);
     
     writeString("secret_key", config.manf_info.secretkey.value);
-    writeBool("secret_key_prov", config.manf_info.secretkey.has_provision);
     
     writeString("p_code", config.manf_info.p_code.value);
-    writeBool("p_code_prov", config.manf_info.p_code.has_provision);
     
     // Save activation status
     writeBool("has_activated", config.has_activated);

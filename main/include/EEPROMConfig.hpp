@@ -21,7 +21,7 @@ typedef struct {
 
 typedef struct {
     char value[MANF_MAX_LEN];
-    bool has_provision;
+    // bool has_provision;
 } MANF_entry_t;
 
 typedef struct {
