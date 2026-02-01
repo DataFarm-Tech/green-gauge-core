@@ -2,7 +2,8 @@
 #include "psa/crypto.h"
 #include "Config.hpp"
 
-void ActivatePkt::computeKey(uint8_t * out_hmac) const {
+void ActivatePkt::computeKey(uint8_t *out_hmac) const
+{
     psa_status_t status;
     psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
     psa_key_id_t key_id = 0;
@@ -19,7 +20,8 @@ void ActivatePkt::computeKey(uint8_t * out_hmac) const {
 
     // Import the secret key
     status = psa_import_key(&attributes, secretKey, HMAC_KEY_SIZE, &key_id);
-    if (status != PSA_SUCCESS) {
+    if (status != PSA_SUCCESS)
+    {
         ESP_LOGE(TAG.c_str(), "Failed to import HMAC key: %d", status);
         psa_reset_key_attributes(&attributes);
         return;
@@ -30,14 +32,14 @@ void ActivatePkt::computeKey(uint8_t * out_hmac) const {
     status = psa_mac_compute(
         key_id,
         PSA_ALG_HMAC(PSA_ALG_SHA_256),
-        NULL,           // No input data (empty message)
-        0,              // Zero length
+        NULL, // No input data (empty message)
+        0,    // Zero length
         out_hmac,
-        32,             // SHA256 produces 32 bytes
-        &mac_length
-    );
+        32, // SHA256 produces 32 bytes
+        &mac_length);
 
-    if (status != PSA_SUCCESS) {
+    if (status != PSA_SUCCESS)
+    {
         ESP_LOGE(TAG.c_str(), "Failed to compute HMAC: %d", status);
     }
 
@@ -46,7 +48,7 @@ void ActivatePkt::computeKey(uint8_t * out_hmac) const {
     psa_reset_key_attributes(&attributes);
 }
 
-const uint8_t * ActivatePkt::toBuffer()
+const uint8_t *ActivatePkt::toBuffer()
 {
     CborEncoder encoder, mapEncoder;
     cbor_encoder_init(&encoder, buffer, GEN_BUFFER_SIZE, 0);
@@ -56,7 +58,7 @@ const uint8_t * ActivatePkt::toBuffer()
     std::string gps_coor = "37.421998, -122.084000";
 
     // Root map with 3 elements: node_id, gps, key
-    if (cbor_encoder_create_map(&encoder, &mapEncoder, 4) != CborNoError) 
+    if (cbor_encoder_create_map(&encoder, &mapEncoder, 4) != CborNoError)
     {
         ESP_LOGE(TAG.c_str(), "Failed to create root map");
         return nullptr;
@@ -64,7 +66,7 @@ const uint8_t * ActivatePkt::toBuffer()
 
     // node_id
     cbor_encode_text_stringz(&mapEncoder, "node_id");
-    cbor_encode_text_stringz(&mapEncoder, nodeId.c_str());
+    cbor_encode_text_stringz(&mapEncoder, node_id.c_str());
 
     cbor_encode_text_stringz(&mapEncoder, "secretkey");
     cbor_encode_text_stringz(&mapEncoder, secretKeyUser.c_str());
@@ -81,7 +83,8 @@ const uint8_t * ActivatePkt::toBuffer()
     cbor_encoder_close_container(&encoder, &mapEncoder);
 
     bufferLength = cbor_encoder_get_buffer_size(&encoder, buffer);
-    if (bufferLength > GEN_BUFFER_SIZE) {
+    if (bufferLength > GEN_BUFFER_SIZE)
+    {
         ESP_LOGE(TAG.c_str(), "CBOR buffer overflow: %d bytes (max %d)", (int)bufferLength, GEN_BUFFER_SIZE);
         return nullptr;
     }

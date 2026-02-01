@@ -12,3 +12,5 @@ constexpr char DATA_TAG[] = "DataPacket";
 constexpr char ACT_TAG[] = "ActivatePacket";
 
 constexpr int sleep_time_sec = 60;
+
+constexpr int NPK_COLLECT_SIZE = 35;

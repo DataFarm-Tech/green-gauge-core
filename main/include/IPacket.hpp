@@ -8,6 +8,7 @@
 #include "esp_log.h"
 #include <cstddef>
 #include "Types.hpp"
+#include "Coap.hpp"
 
 /**
  * @class IPacket
@@ -17,13 +18,13 @@
  * over a CoAP network. Derived classes should implement the serialization
  * method to convert packet data into a buffer.
  */
-class IPacket {
+class IPacket
+{
 protected:
-    std::string nodeId;        ///< Unique identifier for the node sending the packet
-    size_t bufferLength = 0;   ///< Length of the serialized packet buffer
-    std::string uri;           ///< URI endpoint for the CoAP packet
-
-    /// Internal buffer to store serialized packet data
+    PktType pkt_type;
+    std::string node_id;     ///< Unique identifier for the node sending the packet
+    std::string uri;         ///< URI endpoint for the CoAP packet
+    size_t bufferLength = 0; ///< Length of the serialized packet buffer
     uint8_t buffer[GEN_BUFFER_SIZE];
 
 public:
@@ -32,7 +33,9 @@ public:
      *
      * Ensures proper cleanup of derived packet classes.
      */
-    virtual ~IPacket() = default;
+    IPacket(PktType _pkt_type, std::string _node_id, std::string _uri) : pkt_type(_pkt_type), node_id(_node_id), uri(_uri)
+    {
+    }
 
     /**
      * @brief Serializes the packet into a buffer.
@@ -42,7 +45,7 @@ public:
      *
      * @return Pointer to the serialized buffer.
      */
-    virtual const uint8_t * toBuffer() = 0;
+    virtual const uint8_t *toBuffer() = 0;
 
     /**
      * @brief Gets the length of the serialized packet buffer.
