@@ -22,7 +22,7 @@ void ActivatePkt::computeKey(uint8_t *out_hmac) const
     status = psa_import_key(&attributes, secretKey, HMAC_KEY_SIZE, &key_id);
     if (status != PSA_SUCCESS)
     {
-        ESP_LOGE(TAG.c_str(), "Failed to import HMAC key: %d", status);
+        // ESP_LOGE(TAG.c_str(), "Failed to import HMAC key: %d", status);
         psa_reset_key_attributes(&attributes);
         return;
     }
@@ -40,7 +40,7 @@ void ActivatePkt::computeKey(uint8_t *out_hmac) const
 
     if (status != PSA_SUCCESS)
     {
-        ESP_LOGE(TAG.c_str(), "Failed to compute HMAC: %d", status);
+        // ESP_LOGE(TAG.c_str(), "Failed to compute HMAC: %d", status);
     }
 
     // Cleanup
@@ -48,7 +48,7 @@ void ActivatePkt::computeKey(uint8_t *out_hmac) const
     psa_reset_key_attributes(&attributes);
 }
 
-const uint8_t *ActivatePkt::toBuffer()
+const uint8_t * ActivatePkt::toBuffer()
 {
     CborEncoder encoder, mapEncoder;
     cbor_encoder_init(&encoder, buffer, GEN_BUFFER_SIZE, 0);
@@ -60,7 +60,7 @@ const uint8_t *ActivatePkt::toBuffer()
     // Root map with 3 elements: node_id, gps, key
     if (cbor_encoder_create_map(&encoder, &mapEncoder, 4) != CborNoError)
     {
-        ESP_LOGE(TAG.c_str(), "Failed to create root map");
+        // ESP_LOGE(TAG.c_str(), "Failed to create root map");
         return nullptr;
     }
 
@@ -85,7 +85,7 @@ const uint8_t *ActivatePkt::toBuffer()
     bufferLength = cbor_encoder_get_buffer_size(&encoder, buffer);
     if (bufferLength > GEN_BUFFER_SIZE)
     {
-        ESP_LOGE(TAG.c_str(), "CBOR buffer overflow: %d bytes (max %d)", (int)bufferLength, GEN_BUFFER_SIZE);
+        // ESP_LOGE(TAG.c_str(), "CBOR buffer overflow: %d bytes (max %d)", (int)bufferLength, GEN_BUFFER_SIZE);
         return nullptr;
     }
 

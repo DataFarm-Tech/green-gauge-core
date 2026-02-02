@@ -1,6 +1,12 @@
 #include "Coap.hpp"
+#include <unistd.h>
+#include <cstring>
+#include "Logger.hpp"
 
-void Coap::buildCoapBuffer(uint8_t coap_buffer[], PktType pkt_type, const uint8_t *buffer, const size_t buffer_len, )
+size_t Coap::buildCoapBuffer( uint8_t coap_buffer[], 
+							PktType pkt_type, 
+							const uint8_t *buffer, 
+							const size_t buffer_len)
 {
 	g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", buffer_len);
 
@@ -44,14 +50,16 @@ void Coap::buildCoapBuffer(uint8_t coap_buffer[], PktType pkt_type, const uint8_
 	// Payload marker
 	coap_buffer[coap_len++] = 0xFF;
 
-	// Copy CBOR payload
-	if (coap_len + buffer_len > sizeof(coap_buffer))
-	{
-		g_logger.error("CoAP packet too large\n");
-		return false;
-	}
+	// // Copy CBOR payload
+	// if (coap_len + buffer_len > sizeof(coap_buffer))
+	// {
+	// 	g_logger.error("CoAP packet too large\n");
+	// 	return false;
+	// }
 	memcpy(&coap_buffer[coap_len], buffer, buffer_len);
 	coap_len += buffer_len;
+
+	return coap_len;
 }
 
 std::string Coap::getUriPath(PktType pkt_type)

@@ -203,9 +203,18 @@ void SimConnection::disconnect()
     g_logger.info("SIM disconnected\n");
 }
 
-bool SimConnection::sendPacket(const uint8_t *buffer, const size_t buffer_len, PktType pkt_type)
+bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktType pkt_type)
 {
-    if (!buffer || buffer_len == 0)
+    /**
+     * Storing the complete COAP packet to be sent.
+     * By the AT CMD Handlr.
+     * 
+     * ReadingArray -> CBOR data
+     * CBOR placed into COAP pkt
+     */
+    uint8_t coap_buffer[512];
+
+    if (!cbor_buffer || cbor_buffer_len == 0)
     {
         g_logger.error("Invalid packet parameters\n");
         return false;
@@ -217,12 +226,11 @@ bool SimConnection::sendPacket(const uint8_t *buffer, const size_t buffer_len, P
         return false;
     }
 
-    uint8_t coap_buffer[512];
-    g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", buffer_len);
+    g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", cbor_buffer_len);
 
-    Coap::buildCoapBuffer(coap_buffer, pkt_type, buffer, buffer_len);
+    size_t coap_buffer_len = Coap::buildCoapBuffer(coap_buffer, pkt_type, cbor_buffer, cbor_buffer_len);
 
-    g_logger.info("CoAP packet built: %zu bytes total\n", coap_len);
+    g_logger.info("CoAP packet built: %zu bytes total\n", coap_buffer_len);
 
     // Step 1: Define PDP context
     ATCommand_t define_pdp = {
@@ -275,7 +283,7 @@ bool SimConnection::sendPacket(const uint8_t *buffer, const size_t buffer_len, P
 
     // Step 4: Send CoAP packet as UDP data
     char send_cmd[64];
-    snprintf(send_cmd, sizeof(send_cmd), "AT+QISEND=0,%zu", coap_len);
+    snprintf(send_cmd, sizeof(send_cmd), "AT+QISEND=0,%zu", coap_buffer_len);
 
     ATCommand_t udp_send = {
         send_cmd,
@@ -283,7 +291,7 @@ bool SimConnection::sendPacket(const uint8_t *buffer, const size_t buffer_len, P
         5000,
         MsgType::DATA,
         coap_buffer,
-        coap_len};
+        coap_buffer_len};
 
     if (!hndlr.send(udp_send))
     {

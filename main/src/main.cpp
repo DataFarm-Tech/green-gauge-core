@@ -77,31 +77,6 @@ void init_hw()
         GEN_BUFFER_SIZE     // /* tx_buffer_size */ RS485 benefits from TX buffer
     );
 
-    vTaskDelay(pdMS_TO_TICKS(2000));
-
-    // Modbus RTU request to read 7 registers (Humidity through Potassium)
-    // Address: 0x01, Function: 0x03, Start: 0x0000, Count: 0x0007
-    uint8_t modbus_request[] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x07, 0x04, 0x08};
-    
-    rs485_uart.write(modbus_request, sizeof(modbus_request));
-    g_logger.info("Sent NPK sensor read request");
-    
-    vTaskDelay(pdMS_TO_TICKS(100)); // Small delay for response
-    
-    uint8_t rx_buffer[GEN_BUFFER_SIZE];
-    int len = rs485_uart.read(rx_buffer, GEN_BUFFER_SIZE);
-    
-    if (len > 0)
-    {
-        g_logger.info("RS485 read %d bytes from NPK sensor", len);
-        // Expected response: 19 bytes total
-        // [0x01][0x03][0x0E][humidity 2 bytes][temp 2 bytes][conductivity 2 bytes][PH 2 bytes][N 2 bytes][P 2 bytes][K 2 bytes][CRC 2 bytes]
-    }
-    else
-    {
-        g_logger.warning("No data received from RS485 NPK sensor");
-    }
-
     switch (g_hw_var)
     {
     case ConnectionType::WIFI:
@@ -194,7 +169,9 @@ void hw_features(void)
 void handle_activation()
 {
 
-    ActivatePkt activatePkt(PktType::Activate, std::string(g_device_config.manf_info.nodeId.value), std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value));
+    ActivatePkt activatePkt( PktType::Activate, std::string(g_device_config.manf_info.nodeId.value), 
+    std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value));
+
     const uint8_t *pkt_1 = activatePkt.toBuffer();
     const size_t buffer_len = activatePkt.getBufferLength();
 
@@ -206,7 +183,7 @@ void handle_activation()
 
     g_logger.info("Sending activation packet for node: %s", g_device_config.manf_info.nodeId.value);
 
-    if (!g_comm->sendPacket(pkt_1, buffer_len))
+    if (!g_comm->sendPacket(pkt_1, buffer_len, PktType::Activate))
     {
         g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
         return;
@@ -253,17 +230,22 @@ void checkAndPerformOTA()
 
 void collect_reading()
 {
+    uint8_t reading[NPK_COLLECT_SIZE];
 
     for (const NPK::MeasurementEntry &m_entry : NPK::MEASUREMENT_TABLE)
     {
-        uint8_t reading[NPK_COLLECT_SIZE];
+        memset(reading, 0, NPK_COLLECT_SIZE);
+
         NPK::npk_collect(m_entry, reading);
+
+
         ReadingPkt readingPkt(PktType::Reading, std::string(g_device_config.manf_info.nodeId.value), std::string(DATA_URI), reading,  m_entry.type);
 
-        const uint8_t *buffer = readingPkt.toBuffer();
-        const size_t buffer_len = readingPkt.getBufferLength();
-
-        if (!g_comm->sendPacket(buffer, buffer_len))
+        const uint8_t * cbor_buffer = readingPkt.toBuffer(); //the CBOR payload
+        const size_t cbor_buffer_len = readingPkt.getBufferLength(); // the CBOR payload len
+        
+        //TAkes the cbor data.
+        if (!g_comm->sendPacket(cbor_buffer, cbor_buffer_len, PktType::Reading))
         {
             g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
             return;

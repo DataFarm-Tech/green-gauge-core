@@ -16,7 +16,7 @@ NPK::NPK()
  * @brief Collect sensor readings for all measurement types.
  * Iterates over the mapping table and sends readings.
  */
-static void NPK::npk_collect(const MeasurementEntry m_entry, uint8_t reading[NPK_COLLECT_SIZE])
+void NPK::npk_collect(const MeasurementEntry m_entry, uint8_t reading[NPK_COLLECT_SIZE])
 {
     // Read from the sensors
 }

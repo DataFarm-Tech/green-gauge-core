@@ -24,6 +24,9 @@ private:
     uint8_t reading[NPK_COLLECT_SIZE];
     MeasurementType m_type;
 
+    const char* mTypeToString() const;
+
+
 public:
     ReadingPkt(PktType _pkt_type, std::string _node_id, std::string _uri, uint8_t _reading[NPK_COLLECT_SIZE], MeasurementType _m_type)
         : IPacket(_pkt_type, _node_id, _uri), m_type(_m_type)
