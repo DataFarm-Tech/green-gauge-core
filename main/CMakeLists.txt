@@ -32,6 +32,7 @@ idf_component_register(
         esp_driver_gpio
         esp_netif 
         lwip
+        datafarm__cli
 )
 
 target_include_directories(${COMPONENT_LIB}
