@@ -18,7 +18,13 @@ NPK::NPK()
  */
 void NPK::npk_collect(const MeasurementEntry m_entry, uint8_t reading[NPK_COLLECT_SIZE])
 {
-    // Read from the sensors
+    // for (size_t i = 0; i < NPK_COLLECT_SIZE; i++) {
+    //     for (size_t j = 0; j < m_entry.packet_size; j++) {
+    //         rs485_uart.writeByte(m_entry.packet[j]);
+    //     }
+        
+    // }
+    
 }
 
 /**
