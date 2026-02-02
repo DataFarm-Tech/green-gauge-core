@@ -65,6 +65,140 @@ esp_reset_reason_t reset_reason;
 std::unique_ptr<Communication> g_comm;
 ConnectionType g_hw_var = ConnectionType::SIM;
 
+bool send_rs485_msg() {
+    // Modbus RTU request to read 7 registers (Humidity through Potassium)
+    uint8_t modbus_request[8];
+    modbus_request[0] = 0x01;  // Slave address
+    modbus_request[1] = 0x03;  // Function code (read holding registers)
+    modbus_request[2] = 0x00;  // Start address high
+    modbus_request[3] = 0x00;  // Start address low
+    modbus_request[4] = 0x00;  // Number of registers high
+    modbus_request[5] = 0x07;  // Number of registers low (7 registers)
+    
+    // Calculate CRC16 inline
+    uint16_t crc = 0xFFFF;
+    for (size_t i = 0; i < 6; i++) {
+        crc ^= modbus_request[i];
+        for (int j = 0; j < 8; j++) {
+            if (crc & 0x0001) {
+                crc = (crc >> 1) ^ 0xA001;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    modbus_request[6] = static_cast<uint8_t>(crc & 0xFF);        // CRC low byte
+    modbus_request[7] = static_cast<uint8_t>((crc >> 8) & 0xFF); // CRC high byte
+    
+    uint8_t rx_buffer[32];
+    int len = 0;
+
+    // Flush any existing data
+    uart_flush(UART_NUM_2);
+    
+    // Send request byte by byte
+    for (int i = 0; i < sizeof(modbus_request); i++) {
+        rs485_uart.writeByte(modbus_request[i]);
+    }
+    
+    g_logger.info("Sent NPK sensor read request");
+    
+    // Wait for response
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
+    // Read response using non-blocking readByte with timeout
+    uint32_t start_time = xTaskGetTickCount();
+    uint32_t timeout_ticks = pdMS_TO_TICKS(500);
+    
+    while (len < static_cast<int>(sizeof(rx_buffer))) {
+        if (rs485_uart.readByte(rx_buffer[len])) {
+            len++;
+            // Reset timeout on successful read
+            start_time = xTaskGetTickCount();
+        } else {
+            // Check timeout
+            if ((xTaskGetTickCount() - start_time) > timeout_ticks) {
+                break;
+            }
+            vTaskDelay(pdMS_TO_TICKS(1)); // Small delay to avoid busy-waiting
+        }
+        
+        // Stop reading if we got a complete response (19 bytes expected)
+        if (len >= 5 && len == (3 + rx_buffer[2] + 2)) {
+            break;
+        }
+    }
+    
+    if (len > 0) {
+        g_logger.info("RS485 read %d bytes from NPK sensor", len);
+        
+        // Verify minimum length
+        if (len < 5) {
+            g_logger.warning("Response too short: %d bytes", len);
+            return false;
+        }
+        
+        // Check slave address and function code
+        if (rx_buffer[0] != 0x01 || rx_buffer[1] != 0x03) {
+            g_logger.warning("Invalid response header: addr=0x%02X func=0x%02X", 
+                           rx_buffer[0], rx_buffer[1]);
+            return false;
+        }
+        
+        // Get byte count and verify length
+        uint8_t byte_count = rx_buffer[2];
+        int expected_len = 3 + byte_count + 2; // header + data + CRC
+        
+        if (len != expected_len) {
+            g_logger.warning("Expected %d bytes, got %d", expected_len, len);
+            return false;
+        }
+        
+        // Verify CRC
+        crc = 0xFFFF;
+        for (int i = 0; i < len - 2; i++) {
+            crc ^= rx_buffer[i];
+            for (int j = 0; j < 8; j++) {
+                if (crc & 0x0001) {
+                    crc = (crc >> 1) ^ 0xA001;
+                } else {
+                    crc >>= 1;
+                }
+            }
+        }
+        uint16_t received_crc = static_cast<uint16_t>(rx_buffer[len-2] | (rx_buffer[len-1] << 8));
+        
+        if (received_crc != crc) {
+            g_logger.warning("CRC mismatch: received=0x%04X calculated=0x%04X", 
+                           received_crc, crc);
+            return false;
+        }
+        
+        // Parse data (14 bytes = 7 registers × 2 bytes each)
+        uint16_t humidity = static_cast<uint16_t>((rx_buffer[3] << 8) | rx_buffer[4]);      // 0.1%RH
+        uint16_t temperature = static_cast<uint16_t>((rx_buffer[5] << 8) | rx_buffer[6]);   // 0.1°C
+        uint16_t conductivity = static_cast<uint16_t>((rx_buffer[7] << 8) | rx_buffer[8]);  // us/cm
+        uint16_t ph = static_cast<uint16_t>((rx_buffer[9] << 8) | rx_buffer[10]);           // 0.1 pH
+        uint16_t nitrogen = static_cast<uint16_t>((rx_buffer[11] << 8) | rx_buffer[12]);    // mg/kg
+        uint16_t phosphorus = static_cast<uint16_t>((rx_buffer[13] << 8) | rx_buffer[14]);  // mg/kg
+        uint16_t potassium = static_cast<uint16_t>((rx_buffer[15] << 8) | rx_buffer[16]);   // mg/kg
+        
+        g_logger.info("Soil Data:");
+        g_logger.info("  Humidity: %.1f %%", humidity / 10.0);
+        g_logger.info("  Temperature: %.1f °C", temperature / 10.0);
+        g_logger.info("  Conductivity: %u us/cm", conductivity);
+        g_logger.info("  pH: %.1f", ph / 10.0);
+        g_logger.info("  Nitrogen (N): %u mg/kg", nitrogen);
+        g_logger.info("  Phosphorus (P): %u mg/kg", phosphorus);
+        g_logger.info("  Potassium (K): %u mg/kg", potassium);
+        
+        return true;
+    }
+    else {
+        g_logger.warning("No data received from RS485 NPK sensor");
+        return false;
+    }
+}
 
 /**
  * @brief Initialize core system components.
@@ -87,6 +221,8 @@ void init_hw() {
         GEN_BUFFER_SIZE, /* rx_buffer_size */ 
         GEN_BUFFER_SIZE  // /* tx_buffer_size */ RS485 benefits from TX buffer
     );
+
+    send_rs485_msg();
 
     switch (g_hw_var)
     {
