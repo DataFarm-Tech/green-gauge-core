@@ -27,7 +27,7 @@ size_t NPK::readModbusResponse(uint8_t* rx_buffer, size_t buffer_size, uint32_t 
     uint32_t timeout_ticks = pdMS_TO_TICKS(timeout_ms);
     
     // Wait for initial response
-    vTaskDelay(pdMS_TO_TICKS(100));
+    // vTaskDelay(pdMS_TO_TICKS(100));
 
     while (len < buffer_size) {
         

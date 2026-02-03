@@ -205,15 +205,13 @@ void init_hw()
 
     rs485_uart.init(
         BAUD_4800,          // Baud rate (adjust based on your RS485 device requirements)
-        GPIO_NUM_37,        // TXD0 (IO37) - connects to UART2_TXD
-        GPIO_NUM_36,        // RXD0 (IO36) - connects to UART2_RXD
+        GPIO_NUM_38,        // TXD0 (IO37) - connects to UART2_TXD
+        GPIO_NUM_37,        // RXD0 (IO36) - connects to UART2_RXD
         UART_PIN_NO_CHANGE, /* rts_pin */
         UART_PIN_NO_CHANGE, /* cts_pin */
         GEN_BUFFER_SIZE,    /* rx_buffer_size */
         GEN_BUFFER_SIZE     // /* tx_buffer_size */ RS485 benefits from TX buffer
     );
-
-    send_rs485_msg();
 
     switch (g_hw_var)
     {
