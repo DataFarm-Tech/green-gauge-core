@@ -16,6 +16,7 @@ idf_component_register(
         "src/sys/ATCommandHndlr.cpp"
         "src/net/ReadingPkt.cpp"
         "src/io/Coap.cpp"
+        "src/net/GPS.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash

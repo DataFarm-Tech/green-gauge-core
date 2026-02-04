@@ -1,6 +1,8 @@
 #include "ActivatePkt.hpp"
 #include "psa/crypto.h"
 #include "Config.hpp"
+#include "Logger.hpp"
+#include "GPS.hpp"
 
 void ActivatePkt::computeKey(uint8_t *out_hmac) const
 {
@@ -54,8 +56,6 @@ const uint8_t * ActivatePkt::toBuffer()
     cbor_encoder_init(&encoder, buffer, GEN_BUFFER_SIZE, 0);
     uint8_t hmac[HMAC_KEY_SIZE];
     computeKey(hmac);
-    // TODO: Get GPS Coordinates from GPS MOD
-    std::string gps_coor = "37.421998, -122.084000";
 
     // Root map with 3 elements: node_id, gps, key
     if (cbor_encoder_create_map(&encoder, &mapEncoder, 4) != CborNoError)
@@ -73,7 +73,7 @@ const uint8_t * ActivatePkt::toBuffer()
 
     // gps
     cbor_encode_text_stringz(&mapEncoder, "gps");
-    cbor_encode_text_stringz(&mapEncoder, gps_coor.c_str());
+    cbor_encode_text_stringz(&mapEncoder, GPSCoord.c_str());
 
     // key as raw bytes
     cbor_encode_text_stringz(&mapEncoder, "key");

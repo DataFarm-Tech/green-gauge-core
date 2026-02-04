@@ -8,6 +8,7 @@
 #include "esp_log.h"
 #include <cstdint>
 #include <cstddef>
+#include "GPS.hpp"
 
 /**
  * @class BatteryPacket
@@ -20,7 +21,7 @@ class ActivatePkt : public IPacket
 {
 private:
     std::string secretKeyUser;
-
+    std::string GPSCoord;
     static constexpr size_t HMAC_KEY_SIZE = 32;
 
     const uint8_t secretKey[HMAC_KEY_SIZE] = {
@@ -32,8 +33,8 @@ private:
     void computeKey(uint8_t *out_hmac) const;
 
 public:
-    ActivatePkt(PktType _pkt_type, std::string _node_id, std::string _uri, std::string _secret_key)
-        : IPacket(_pkt_type, _node_id, _uri), secretKeyUser(_secret_key)
+    ActivatePkt(PktType _pkt_type, std::string _node_id, std::string _uri, std::string _secret_key, std::string _gps_coord)
+        : IPacket(_pkt_type, _node_id, _uri), secretKeyUser(_secret_key), GPSCoord(_gps_coord)
     {
     }
 
