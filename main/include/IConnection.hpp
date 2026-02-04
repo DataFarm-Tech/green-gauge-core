@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unistd.h>
+#include "Coap.hpp"
 
 /**
  * @class IConnection
@@ -45,5 +46,7 @@ public:
      */
     virtual void disconnect() = 0;
 
-    virtual bool sendPacket(const uint8_t * pkt, const size_t pkt_len) = 0;
+    virtual bool sendPacket(const uint8_t * cbor_buffer, 
+                            const size_t cbor_buffer_len, 
+                            const PktType pkt_type) = 0;
 };

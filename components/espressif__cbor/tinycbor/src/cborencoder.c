@@ -203,6 +203,7 @@
  */
 void cbor_encoder_init(CborEncoder *encoder, uint8_t *buffer, size_t size, int flags)
 {
+    printf("DATAFARM CBOR PORT\n");
     encoder->data.ptr = buffer;
     encoder->end = buffer + size;
     encoder->remaining = 2;

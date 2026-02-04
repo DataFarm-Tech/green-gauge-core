@@ -63,7 +63,7 @@ public:
     void disconnect();
 
 
-    bool sendPacket(const uint8_t * pkt, const size_t pkt_len);
+    bool sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktType pkt_type);
 
 private:
     std::unique_ptr<IConnection> connection;  ///< Smart pointer to the active connection implementation.

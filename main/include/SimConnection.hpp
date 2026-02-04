@@ -2,7 +2,7 @@
 
 #include "IConnection.hpp"
 #include "ATCommandHndlr.hpp"
-
+#include "Coap.hpp"
 /**
  * @enum SimStatus
  * @brief Represents the current status of the SIM connection.
@@ -48,7 +48,7 @@ public:
     /**
      * @brief Sends packet
      */
-    bool sendPacket(const uint8_t * pkt, const size_t pkt_len) override;
+    bool sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktType pkt_type) override;
 
 private:
     SimStatus sim_stat = SimStatus::DISCONNECTED;  // Default value

@@ -6,14 +6,17 @@ idf_component_register(
         "src/net/SimConnection.cpp"
         "src/net/EthernetConnection.cpp"
         "src/mem/EEPROMConfig.cpp"
-        "src/shell/CLI.cpp"
-        "src/shell/Commands.cpp"
+        # "src/shell/CLI.cpp"
+        # "src/shell/Commands.cpp"
         "src/sys/UARTDriver.cpp"
         "src/sys/OTAUpdater.cpp"
         "src/sys/Logger.cpp"
         "src/io/NPK.cpp"
         "src/net/ActivatePkt.cpp"
         "src/sys/ATCommandHndlr.cpp"
+        "src/net/ReadingPkt.cpp"
+        "src/io/Coap.cpp"
+        "src/net/GPS.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash
@@ -30,6 +33,7 @@ idf_component_register(
         esp_driver_gpio
         esp_netif 
         lwip
+        datafarm__cli
 )
 
 target_include_directories(${COMPONENT_LIB}

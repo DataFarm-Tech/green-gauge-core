@@ -47,6 +47,19 @@ public:
     bool send(const ATCommand_t& atCmd);
 
     /**
+     * @brief Send an AT command and capture the first line that contains the expected response.
+     *
+     * This is useful for commands like AT+QGPSLOC? which return a single-line response
+     * containing the required data instead of an OK termination.
+     *
+     * @param atCmd AT command to send
+     * @param out_buf Buffer to receive the response line
+     * @param out_len Length of the provided buffer
+     * @return true if an expected response line was captured, false otherwise
+     */
+    bool sendAndCapture(const ATCommand_t& atCmd, char* out_buf, size_t out_len);
+
+    /**
      * @brief Table of all AT commands for the FSM.
      */
     static inline const ATCommand_t at_command_table[] = {

@@ -43,6 +43,65 @@ bool ATCommandHndlr::send(const ATCommand_t& atCmd) {
     }
 }
 
+bool ATCommandHndlr::sendAndCapture(const ATCommand_t& atCmd, char* out_buf, size_t out_len) {
+    if (!atCmd.cmd || !atCmd.expect || out_buf == nullptr || out_len == 0) {
+        g_logger.error("Invalid parameters to sendAndCapture\n");
+        return false;
+    }
+
+    g_logger.info("TX(capture): %s\n", atCmd.cmd);
+    m_modem_uart.writef("%s\r\n", atCmd.cmd);
+
+    ResponseState state = {};
+    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(atCmd.timeout_ms);
+
+    while (xTaskGetTickCount() < deadline) {
+        uint8_t c;
+        if (!m_modem_uart.readByte(c)) {
+            vTaskDelay(pdMS_TO_TICKS(1));
+            continue;
+        }
+
+        if (c == '\n') {
+            state.line_buffer[state.line_len] = '\0';
+            // strip trailing CR
+            if (state.line_len > 0 && state.line_buffer[state.line_len - 1] == '\r') {
+                state.line_buffer[--state.line_len] = '\0';
+            }
+
+            if (state.line_len > 0) {
+                g_logger.info("RX: %s\n", state.line_buffer);
+
+                // Check for CME or generic ERROR
+                if (strcmp(state.line_buffer, "ERROR") == 0 || strstr(state.line_buffer, "+CME ERROR") != nullptr) {
+                    g_logger.info("AT response error (capture): %s\n", state.line_buffer);
+                    return false;
+                }
+
+                // If the expected substring is present, capture and return success
+                if (strstr(state.line_buffer, atCmd.expect) != nullptr) {
+                    // Copy into out_buf
+                    strncpy(out_buf, state.line_buffer, out_len - 1);
+                    out_buf[out_len - 1] = '\0';
+                    return true;
+                }
+            }
+
+            state.line_len = 0;
+        } else if (c != '\r') {
+            if (state.line_len < sizeof(state.line_buffer) - 1) {
+                state.line_buffer[state.line_len++] = c;
+            } else {
+                g_logger.warning("RX buffer overflow in sendAndCapture, discarding line\n");
+                state.line_len = 0;
+            }
+        }
+    }
+
+    g_logger.error("AT TIMEOUT (capture): %s (after %dms)\n", atCmd.cmd, atCmd.timeout_ms);
+    return false;
+}
+
 bool ATCommandHndlr::waitForPrompt(int timeout_ms) {
     const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
     
@@ -189,9 +248,9 @@ bool ATCommandHndlr::handleCompleteLine(ResponseState& state, const ATCommand_t&
 
     g_logger.info("RX: %s\n", state.line_buffer);
 
-    // Check for ERROR response
-    if (strcmp(state.line_buffer, "ERROR") == 0) {
-        g_logger.error("AT ERROR: %s\n", atCmd.cmd);
+    // Check for ERROR response (both "ERROR" and "+CME ERROR")
+    if (strcmp(state.line_buffer, "ERROR") == 0 || strstr(state.line_buffer, "+CME ERROR") != nullptr) {
+        g_logger.info("AT response error: %s (command: %s)\n", state.line_buffer, atCmd.cmd);
         state.success = false;
         state.line_len = 0;
         return true;  // Done processing

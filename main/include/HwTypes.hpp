@@ -3,6 +3,7 @@
 #include <string.h>
 
 constexpr const char* HW_VER_0_0_1 = "0.0.1";
+constexpr const char* HW_VER_0_0_2 = "0.0.2";
 
 enum HwVer_e {
     HW_VER_0_0_1_E,
