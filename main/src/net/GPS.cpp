@@ -7,6 +7,11 @@
 #include <cstdlib>
 #include <cstdio>
 
+extern "C" {
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+}
+
 GPS::GPS()
 {
 }
@@ -83,6 +88,25 @@ std::string GPS::parseGPSLine(const std::string &line) const {
 
 bool GPS::getCoordinates(std::string &out)
 {
+    // First, ensure GPS is enabled before querying
+    char resp_enable[256] = {0};
+    ATCommand_t cmd_enable = { "AT+QGPS=1", 
+                               "OK", 
+                               2000, 
+                               MsgType::STATUS, 
+                               nullptr, 0};
+    
+    g_logger.info("GPS: Enabling GNSS receiver...");
+    if (!m_hndlr.send(cmd_enable)) {
+        g_logger.warning("GPS: Failed to enable GNSS, continuing anyway...");
+        // Don't return - still try to query in case GPS is already on
+    }
+    
+    // GPS Cold Start acquisition can take 30-60+ seconds depending on signal and location
+    // Wait substantial time before querying for fix
+    g_logger.info("GPS: Waiting for satellite acquisition (this may take 30-60 seconds)...");
+    vTaskDelay(pdMS_TO_TICKS(30000));  // 30 second initial wait for satellite search
+    
     char resp[256] = {0};
     ATCommand_t cmd = { "AT+QGPSLOC?", 
                         "+QGPSLOC:", 
@@ -90,17 +114,30 @@ bool GPS::getCoordinates(std::string &out)
                         MsgType::STATUS, 
                         nullptr, 0};
 
-    if (!m_hndlr.sendAndCapture(cmd, resp, sizeof(resp))) {
-        g_logger.info("GPS: no response or error\n");
-        return false;
+    // Retry GPS query up to 5 times with 5-second delays between attempts
+    // GPS module may take additional time to lock satellites
+    const int max_retries = 5;
+    for (int attempt = 1; attempt <= max_retries; attempt++) {
+        memset(resp, 0, sizeof(resp));
+        
+        if (m_hndlr.sendAndCapture(cmd, resp, sizeof(resp))) {
+            std::string parsed = parseGPSLine(std::string(resp));
+            if (!parsed.empty()) {
+                g_logger.info("GPS: fix acquired on attempt %d: %s", attempt, parsed.c_str());
+                out = parsed;
+                return true;
+            } else {
+                g_logger.info("GPS: parse failed on attempt %d for response: %s", attempt, resp);
+            }
+        } else {
+            g_logger.info("GPS: no response on attempt %d", attempt);
+        }
+        
+        if (attempt < max_retries) {
+            vTaskDelay(pdMS_TO_TICKS(5000));  // 5-second delay between retries
+        }
     }
-
-    std::string parsed = parseGPSLine(std::string(resp));
-    if (parsed.empty()) {
-        g_logger.info("GPS: parse failed for response: %s\n", resp);
-        return false;
-    }
-
-    out = parsed;
-    return true;
+    
+    g_logger.warning("GPS: failed to acquire fix after %d attempts (total wait: ~55 seconds)", max_retries);
+    return false;
 }

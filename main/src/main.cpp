@@ -169,12 +169,17 @@ void hw_features(void)
 std::string read_gps() {
     std::string parsed;
     
+    // GPS Cold Start (first fix) can take 30-60 seconds. Allow adequate time for acquisition.
+    // Initial 15s delay gives modem time to begin satellite search after AT+QGPS=1 command
+    g_logger.info("Waiting for GPS fix (Cold Start may take 30-60 seconds)...");
+    vTaskDelay(pdMS_TO_TICKS(15000));
+    
     if (m_gps.getCoordinates(parsed)) {
-        g_logger.info("GPS location retrieved: %s\n", parsed.c_str());
+        g_logger.info("GPS location retrieved: %s", parsed.c_str());
         return parsed;
     } else {
         std::string default_coords = "0.0,0.0"; // Define your default
-        g_logger.info("GPS location not available, using default coordinates: %s\n", default_coords.c_str());
+        g_logger.info("GPS location not available, using default coordinates: %s", default_coords.c_str());
         return default_coords;
     }
 }
@@ -290,7 +295,7 @@ void start_app(void *arg)
     }
 
     g_logger.info("Device connected to network");
-    
+
     if (g_comm->isConnected() && !g_device_config.has_activated)
     {
         g_logger.info("Activating UNIT\n");
@@ -322,10 +327,10 @@ void start_app(void *arg)
      */
     // collect_reading();
 
-    g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
-    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    esp_deep_sleep_start();
+    // g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
+    // esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
+    // vTaskDelay(pdMS_TO_TICKS(100));
+    // esp_deep_sleep_start();
 
     vTaskDelete(nullptr);
 }
