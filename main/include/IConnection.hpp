@@ -1,7 +1,7 @@
 #pragma once
 
 #include <unistd.h>
-#include "Coap.hpp"
+#include "CoapPktAssm.hpp"
 
 /**
  * @class IConnection

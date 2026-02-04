@@ -4,7 +4,7 @@
 #include <string>
 #include "IPacket.hpp"
 #include "NPK.hpp"
-#include "Coap.hpp"
+#include "CoapPktAssm.hpp"
 
 #include <cbor.h>
 #include "esp_log.h"

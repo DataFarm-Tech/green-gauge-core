@@ -15,7 +15,7 @@ idf_component_register(
         "src/net/ActivatePkt.cpp"
         "src/sys/ATCommandHndlr.cpp"
         "src/net/ReadingPkt.cpp"
-        "src/io/Coap.cpp"
+        "src/io/CoapPktAssm.cpp"
         "src/net/GPS.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 

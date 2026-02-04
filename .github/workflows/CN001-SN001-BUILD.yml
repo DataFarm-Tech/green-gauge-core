@@ -3,7 +3,7 @@ name: CI/CD ESP-IDF Build
 on:
   push:
     branches:
-      - '**'
+      - release
 
 jobs:
   build:

@@ -8,7 +8,7 @@
 #include "esp_log.h"
 #include <cstddef>
 #include "Types.hpp"
-#include "Coap.hpp"
+#include "CoapPktAssm.hpp"
 
 /**
  * @class IPacket

@@ -11,8 +11,7 @@ GPS::GPS()
 {
 }
 
-std::string GPS::parseGPSLine(const std::string &line) const
-{
+std::string GPS::parseGPSLine(const std::string &line) const {
     // Expecting line like: +QGPSLOC: 051127.0,3752.4632S,14504.0347E,2.2,22.0,2,...
     size_t start = line.find(':');
     if (start == std::string::npos) return "";
@@ -85,7 +84,11 @@ std::string GPS::parseGPSLine(const std::string &line) const
 bool GPS::getCoordinates(std::string &out)
 {
     char resp[256] = {0};
-    ATCommand_t cmd = {"AT+QGPSLOC?", "+QGPSLOC:", 5000, MsgType::STATUS, nullptr, 0};
+    ATCommand_t cmd = { "AT+QGPSLOC?", 
+                        "+QGPSLOC:", 
+                        5000, 
+                        MsgType::STATUS, 
+                        nullptr, 0};
 
     if (!m_hndlr.sendAndCapture(cmd, resp, sizeof(resp))) {
         g_logger.info("GPS: no response or error\n");

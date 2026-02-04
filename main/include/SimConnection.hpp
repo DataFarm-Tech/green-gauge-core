@@ -2,7 +2,7 @@
 
 #include "IConnection.hpp"
 #include "ATCommandHndlr.hpp"
-#include "Coap.hpp"
+#include "CoapPktAssm.hpp"
 /**
  * @enum SimStatus
  * @brief Represents the current status of the SIM connection.

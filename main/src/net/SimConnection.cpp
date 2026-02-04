@@ -4,7 +4,7 @@
 #include "Types.hpp"
 #include "ATCommandHndlr.hpp"
 #include "Logger.hpp"
-#include "Coap.hpp"
+#include "CoapPktAssm.hpp"
 
 extern "C"
 {
@@ -228,7 +228,7 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
 
     g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", cbor_buffer_len);
 
-    size_t coap_buffer_len = Coap::buildCoapBuffer(coap_buffer, pkt_type, cbor_buffer, cbor_buffer_len);
+    size_t coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, pkt_type, cbor_buffer, cbor_buffer_len);
 
     g_logger.info("CoAP packet built: %zu bytes total\n", coap_buffer_len);
 

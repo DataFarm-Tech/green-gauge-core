@@ -275,7 +275,6 @@ void collect_reading()
  */
 void start_app(void *arg)
 {
-
     if (!g_comm)
     {
         g_logger.error("Communication not initialized");
@@ -291,8 +290,6 @@ void start_app(void *arg)
     }
 
     g_logger.info("Device connected to network");
-
-    handle_activation();
     
     if (g_comm->isConnected() && !g_device_config.has_activated)
     {
@@ -325,10 +322,10 @@ void start_app(void *arg)
      */
     // collect_reading();
 
-    // g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
-    // esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
-    // vTaskDelay(pdMS_TO_TICKS(100));
-    // esp_deep_sleep_start();
+    g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
+    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    esp_deep_sleep_start();
 
     vTaskDelete(nullptr);
 }
