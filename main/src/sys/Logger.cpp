@@ -89,7 +89,7 @@ void Logger::error(const char* format, ...) {
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
 
-    ESP_LOGE(TAG, "%s", buffer);
+    ESP_LOGI(TAG, "%s", buffer);
     
     // Add [ERROR] prefix and write to system.log
     std::string prefixed = "[ERROR] ";

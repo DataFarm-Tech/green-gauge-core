@@ -60,7 +60,7 @@ const uint8_t * ActivatePkt::toBuffer()
     // Root map with 3 elements: node_id, gps, key
     if (cbor_encoder_create_map(&encoder, &mapEncoder, 4) != CborNoError)
     {
-        // ESP_LOGE(TAG.c_str(), "Failed to create root map");
+        ESP_LOGI("OK", "Failed to create root map");
         return nullptr;
     }
 
@@ -86,6 +86,7 @@ const uint8_t * ActivatePkt::toBuffer()
     if (bufferLength > GEN_BUFFER_SIZE)
     {
         // ESP_LOGE(TAG.c_str(), "CBOR buffer overflow: %d bytes (max %d)", (int)bufferLength, GEN_BUFFER_SIZE);
+        ESP_LOGI("OK", "CBOR OVERFLOW Failed to create root map");
         return nullptr;
     }
 

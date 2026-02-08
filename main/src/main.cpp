@@ -296,6 +296,8 @@ void start_app(void *arg)
 
     g_logger.info("Device connected to network");
 
+    // handle_activation();
+    
     if (g_comm->isConnected() && !g_device_config.has_activated)
     {
         g_logger.info("Activating UNIT\n");
