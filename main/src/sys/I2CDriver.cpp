@@ -4,8 +4,8 @@
 constexpr const char *TAG = "I2CDriver";
 constexpr TickType_t I2C_TIMEOUT_TICKS = pdMS_TO_TICKS(100);
 
-I2CDriver::I2CDriver(i2c_port_t port, gpio_num_t sda, gpio_num_t scl, uint32_t freqHz)
-    : port(port), sda(sda), scl(scl), freqHz(freqHz), initialized(false) {}
+I2CDriver::I2CDriver(i2c_port_t port_, gpio_num_t sda_, gpio_num_t scl_, uint32_t freqHz_)
+    : port(port_), sda(sda_), scl(scl_), freqHz(freqHz_), initialized(false) {}
 
 bool I2CDriver::init() {
     if (initialized) return true;

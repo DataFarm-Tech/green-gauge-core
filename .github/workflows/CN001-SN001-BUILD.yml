@@ -3,7 +3,7 @@ name: CI/CD ESP-IDF Build
 on:
   push:
     branches:
-      - '**'
+      - main
 
 jobs:
   build:
@@ -20,6 +20,13 @@ jobs:
       - name: Build ESP-IDF project
         shell: bash
         run: |
-          export IDF_TARGET=esp32
+          export IDF_TARGET=esp32s3
           . /opt/esp/idf/export.sh
-          idf.py fullclean build -D PROJECT_VER=$FW_VERSION
+          idf.py fullclean build
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32s3-build
+          path: build/
+          retention-days: 30

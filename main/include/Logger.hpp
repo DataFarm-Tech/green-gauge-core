@@ -1,6 +1,10 @@
 #pragma once
 #include <string>
 #include "esp_err.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <stdio.h>
+
 
 #define MAX_LOG_SIZE    (512 * 1024) // 512 KB per log file
 #define MAX_LOG_BACKUPS 3            // Keep 3 rotated logs
@@ -133,7 +137,8 @@ public:
 private:
     const char* basePath;  ///< Mount path for LittleFS
     bool initialized;      ///< True if filesystem is mounted
-    
+    SemaphoreHandle_t mutex;  // ADD THIS
+
     /**
      * @brief Internal method to write text to a log file
      * @param filename Target log file
