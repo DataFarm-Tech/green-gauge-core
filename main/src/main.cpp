@@ -165,19 +165,22 @@ void hw_features(void)
     net_select(hw_ver);
 }
 
-
-std::string read_gps() {
+std::string read_gps()
+{
     std::string parsed;
-    
+
     // GPS Cold Start (first fix) can take 30-60 seconds. Allow adequate time for acquisition.
     // Initial 15s delay gives modem time to begin satellite search after AT+QGPS=1 command
     g_logger.info("Waiting for GPS fix (Cold Start may take 30-60 seconds)...");
     vTaskDelay(pdMS_TO_TICKS(15000));
-    
-    if (m_gps.getCoordinates(parsed)) {
+
+    if (m_gps.getCoordinates(parsed))
+    {
         g_logger.info("GPS location retrieved: %s", parsed.c_str());
         return parsed;
-    } else {
+    }
+    else
+    {
         std::string default_coords = "0.0,0.0"; // Define your default
         g_logger.info("GPS location not available, using default coordinates: %s", default_coords.c_str());
         return default_coords;
@@ -191,8 +194,8 @@ void handle_activation()
 {
     std::string gps = read_gps();
 
-    ActivatePkt activatePkt( PktType::Activate, std::string(g_device_config.manf_info.nodeId.value), 
-    std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value), gps);
+    ActivatePkt activatePkt(PktType::Activate, std::string(g_device_config.manf_info.nodeId.value),
+                            std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value), gps);
 
     const uint8_t *pkt_1 = activatePkt.toBuffer();
     const size_t buffer_len = activatePkt.getBufferLength();
@@ -260,18 +263,17 @@ void collect_reading()
 
         NPK::npk_collect(m_entry, reading);
 
+        ReadingPkt readingPkt(PktType::Reading, std::string(g_device_config.manf_info.nodeId.value), std::string(DATA_URI), reading, m_entry.type);
 
-        ReadingPkt readingPkt(PktType::Reading, std::string(g_device_config.manf_info.nodeId.value), std::string(DATA_URI), reading,  m_entry.type);
-
-        const uint8_t * cbor_buffer = readingPkt.toBuffer(); //the CBOR payload
+        const uint8_t *cbor_buffer = readingPkt.toBuffer();          // the CBOR payload
         const size_t cbor_buffer_len = readingPkt.getBufferLength(); // the CBOR payload len
-        
-        //TAkes the cbor data.
-        if (!g_comm->sendPacket(cbor_buffer, cbor_buffer_len, PktType::Reading))
-        {
-            g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
-            return;
-        }
+
+        // TAkes the cbor data.
+        //  if (!g_comm->sendPacket(cbor_buffer, cbor_buffer_len, PktType::Reading))
+        //  {
+        //      g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
+        //      return;
+        //  }
     }
 }
 
@@ -280,54 +282,54 @@ void collect_reading()
  */
 void start_app(void *arg)
 {
-    if (!g_comm)
-    {
-        g_logger.error("Communication not initialized");
-        vTaskDelete(nullptr);
-        return;
-    }
+    //     if (!g_comm)
+    //     {
+    //         g_logger.error("Communication not initialized");
+    //         vTaskDelete(nullptr);
+    //         return;
+    //     }
 
-    if (!g_comm->connect())
-    {
-        g_logger.error("Unable to connect to network");
-        vTaskDelete(nullptr);
-        return;
-    }
+    //     if (!g_comm->connect())
+    //     {
+    //         g_logger.error("Unable to connect to network");
+    //         vTaskDelete(nullptr);
+    //         return;
+    //     }
 
-    g_logger.info("Device connected to network");
+    //     g_logger.info("Device connected to network");
 
-    // handle_activation();
-    
-    if (g_comm->isConnected() && !g_device_config.has_activated)
-    {
-        g_logger.info("Activating UNIT\n");
-        ESP_LOGI("UNIT", "ACTIVATING UNIT\n");
-        handle_activation();
-    }
+    //     // handle_activation();
 
-#if OTA_EN == 1
-    if (g_comm->isConnected())
-    {
+    //     if (g_comm->isConnected() && !g_device_config.has_activated)
+    //     {
+    //         g_logger.info("Activating UNIT\n");
+    //         ESP_LOGI("UNIT", "ACTIVATING UNIT\n");
+    //         handle_activation();
+    //     }
 
-        bool should_run_ota = !(wakeup_causes & ESP_SLEEP_WAKEUP_TIMER) && reset_reason == ESP_RST_POWERON;
+    // #if OTA_EN == 1
+    //     if (g_comm->isConnected())
+    //     {
 
-        if (should_run_ota)
-        {
-            g_logger.info("Power-on or hard reset");
-            checkAndPerformOTA();
-        }
-        else
-        {
-            g_logger.info("Good morning!!");
-        }
-    }
-#endif
+    //         bool should_run_ota = !(wakeup_causes & ESP_SLEEP_WAKEUP_TIMER) && reset_reason == ESP_RST_POWERON;
+
+    //         if (should_run_ota)
+    //         {
+    //             g_logger.info("Power-on or hard reset");
+    //             checkAndPerformOTA();
+    //         }
+    //         else
+    //         {
+    //             g_logger.info("Good morning!!");
+    //         }
+    //     }
+    // #endif
 
     /** TODO
      * 1. Read ALL DATA FROM NPK sensor. 50 N, 50 P.... 50 PH, returns a uint8_t buffer
      * 2. Call Communications send method -> See send method.
      */
-    // collect_reading();
+    collect_reading();
 
     // g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
     // esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);

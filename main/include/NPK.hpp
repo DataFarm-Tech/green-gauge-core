@@ -9,19 +9,19 @@
 #include "Config.hpp"
 
 // Modbus RTU packet structure constants
-#define MODBUS_ADDR_SIZE        1  // Device address byte
-#define MODBUS_FUNC_SIZE        1  // Function code byte
-#define MODBUS_BYTE_COUNT_SIZE  1  // Byte count field size
-#define MODBUS_CRC_SIZE         2  // CRC16 (Low + High bytes)
-#define MODBUS_REGISTER_SIZE    2  // Each register is 2 bytes
-#define MODBUS_HEADER_SIZE      (MODBUS_ADDR_SIZE + MODBUS_FUNC_SIZE + MODBUS_BYTE_COUNT_SIZE)
-#define MODBUS_MIN_RESPONSE     (MODBUS_HEADER_SIZE + MODBUS_CRC_SIZE)  // 5 bytes minimum
+#define MODBUS_ADDR_SIZE 1       // Device address byte
+#define MODBUS_FUNC_SIZE 1       // Function code byte
+#define MODBUS_BYTE_COUNT_SIZE 1 // Byte count field size
+#define MODBUS_CRC_SIZE 2        // CRC16 (Low + High bytes)
+#define MODBUS_REGISTER_SIZE 2   // Each register is 2 bytes
+#define MODBUS_HEADER_SIZE (MODBUS_ADDR_SIZE + MODBUS_FUNC_SIZE + MODBUS_BYTE_COUNT_SIZE)
+#define MODBUS_MIN_RESPONSE (MODBUS_HEADER_SIZE + MODBUS_CRC_SIZE) // 5 bytes minimum
 
 // Modbus byte positions in response
-#define MODBUS_ADDR_POS         0
-#define MODBUS_FUNC_POS         1
-#define MODBUS_BYTE_COUNT_POS   2
-#define MODBUS_DATA_START_POS   3
+#define MODBUS_ADDR_POS 0
+#define MODBUS_FUNC_POS 1
+#define MODBUS_BYTE_COUNT_POS 2
+#define MODBUS_DATA_START_POS 3
 
 /**
  * @brief Measurement types supported by the NPK sensor
@@ -69,7 +69,7 @@ public:
     static constexpr size_t SINGLE_RESPONSE_SIZE = 7;
     static constexpr size_t ALL_RESPONSE_SIZE = 19;
     static constexpr size_t READING_SIZE = 30;
-    static constexpr size_t RX_BUFFER_SIZE = 32;
+    static constexpr size_t RX_BUFFER_SIZE = 19;
     std::array<float, READING_SIZE> readingList;
 
     /**
@@ -93,7 +93,7 @@ public:
      * @param reading Output buffer to store the reading
      * @return true if successful, false otherwise
      */
-    static bool npk_collect(const MeasurementEntry& m_entry, uint8_t reading[NPK_COLLECT_SIZE]);
+    static bool npk_collect(const MeasurementEntry &m_entry, uint8_t reading[NPK_COLLECT_SIZE]);
 
     /**
      * @brief Calibrate the NPK sensor
@@ -106,7 +106,7 @@ private:
      * @param packet Pointer to packet data
      * @param packet_size Size of the packet
      */
-    static void sendModbusRequest(const uint8_t* packet, size_t packet_size);
+    static void sendModbusRequest(const uint8_t *packet, size_t packet_size);
 
     /**
      * @brief Read Modbus response from sensor
@@ -115,7 +115,7 @@ private:
      * @param timeout_ms Timeout in milliseconds
      * @return Number of bytes read
      */
-    static size_t readModbusResponse(uint8_t* rx_buffer, size_t buffer_size, uint32_t timeout_ms);
+    static size_t readModbusResponse(uint8_t *rx_buffer, size_t buffer_size, uint32_t timeout_ms);
 
     /**
      * @brief Validate Modbus response (address, function code, length, CRC)
@@ -123,7 +123,7 @@ private:
      * @param length Length of response
      * @return true if valid, false otherwise
      */
-    static bool validateResponse(const uint8_t* rx_buffer, size_t length);
+    static bool validateResponse(const uint8_t *rx_buffer, size_t length);
 
     /**
      * @brief Calculate Modbus CRC16
@@ -131,7 +131,7 @@ private:
      * @param length Length of data
      * @return CRC16 value
      */
-    static uint16_t calculateCRC16(const uint8_t* data, size_t length);
+    static uint16_t calculateCRC16(const uint8_t *data, size_t length);
 
     /**
      * @brief Parse single register value from response
@@ -139,7 +139,7 @@ private:
      * @param register_offset Offset of register in response (0-6 for the 7 registers)
      * @return Parsed 16-bit value
      */
-    static uint16_t parseRegisterValue(const uint8_t* rx_buffer, size_t register_offset);
+    static uint16_t parseRegisterValue(const uint8_t *rx_buffer, size_t register_offset);
 
     /**
      * @brief Extract measurement value based on type
@@ -147,7 +147,7 @@ private:
      * @param type Measurement type to extract
      * @return Raw measurement value
      */
-    static uint16_t extractMeasurement(const uint8_t* rx_buffer, MeasurementType type);
+    static uint16_t extractMeasurement(const uint8_t *rx_buffer, MeasurementType type);
 
     /**
      * @brief Convert raw sensor value to float based on measurement type
@@ -192,6 +192,14 @@ private:
         0x00, 0x01, // Number of registers
         0xC5, 0xCB  // CRC16
     };
+
+    // static constexpr uint8_t READ_NITROGEN[PACKET_SIZE] = {
+    //     0x01,       // Device Address
+    //     0x03,       // Function Code
+    //     0x00, 0x00, // Start Address (Nitrogen)
+    //     0x00, 0x07, // Number of registers
+    //     0x04, 0x08  // CRC16
+    // };
 
     // Read single Phosphorus value (Register 0x0005)
     static constexpr uint8_t READ_PHOSPHORUS[PACKET_SIZE] = {

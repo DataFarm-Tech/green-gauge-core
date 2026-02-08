@@ -17,6 +17,7 @@ idf_component_register(
         "src/net/ReadingPkt.cpp"
         "src/io/CoapPktAssm.cpp"
         "src/net/GPS.cpp"
+        "src/other/Utils.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash
@@ -44,7 +45,7 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
     -Wall
     -Wextra
     -Wshadow
-    -Wconversion
+    # -Wconversion
     -Wdouble-promotion
     -Wformat=2
     -Wformat-truncation

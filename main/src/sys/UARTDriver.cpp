@@ -22,6 +22,8 @@ void UARTDriver::init(int baud, int tx_pin, int rx_pin,
     uart_param_config(m_uart_num, &cfg);
     uart_set_pin(m_uart_num, tx_pin, rx_pin, rts_pin, cts_pin);
     uart_driver_install(m_uart_num, rx_buffer_size, tx_buffer_size, 0, NULL, 0);
+
+    // uart_send_mode(m_uart_num, UART_MODE_RS485_HALF_DUPLEX);
 }
 
 void UARTDriver::write(const char* text) {
@@ -43,10 +45,10 @@ void UARTDriver::writef(const char* fmt, ...) {
 
 int UARTDriver::readByte(uint8_t &out) {
     // Fully non-blocking: returns 1 if byte read, 0 if no data
-    int len = uart_read_bytes(m_uart_num, &out, 1, 0); // 0 ticks => immediate return
+    int len = uart_read_bytes(m_uart_num, &out, 1, pdMS_TO_TICKS(50)); // 0 ticks => immediate return
     return (len > 0) ? 1 : 0;
 }
 
 
 UARTDriver m_modem_uart(UART_NUM_1);
-   UARTDriver rs485_uart(UART_NUM_2);
+UARTDriver rs485_uart(UART_NUM_2);
