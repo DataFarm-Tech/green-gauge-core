@@ -129,6 +129,9 @@ void net_select(HwVer_e hw_ver)
     case HW_VER_0_0_1_E:
         g_hw_var = ConnectionType::SIM;
         break;
+    case HW_VER_0_0_2_E:
+        g_hw_var = ConnectionType::SIM;
+        break;
 
     default:
         g_hw_var = ConnectionType::WIFI;
@@ -159,8 +162,6 @@ void hw_features(void)
             break;
         }
     }
-
-    hw_ver = HW_VER_0_0_1_E;
 
     net_select(hw_ver);
 }
@@ -255,25 +256,24 @@ void checkAndPerformOTA()
 
 void collect_reading()
 {
-    uint8_t reading[NPK_COLLECT_SIZE];
+    uint16_t reading[NPK_COLLECT_SIZE]; // <- THIS SHOULD CONTAIN 35 values.
 
     for (const NPK::MeasurementEntry &m_entry : NPK::MEASUREMENT_TABLE)
     {
-        memset(reading, 0, NPK_COLLECT_SIZE);
+        memset(reading, 0, NPK_COLLECT_SIZE); //clear the reading array that will be populated
 
-        NPK::npk_collect(m_entry, reading);
-
+        NPK::npk_collect(m_entry, reading); //write all the readings rec from the modbus rs485
+        
         ReadingPkt readingPkt(PktType::Reading, std::string(g_device_config.manf_info.nodeId.value), std::string(DATA_URI), reading, m_entry.type);
 
         const uint8_t *cbor_buffer = readingPkt.toBuffer();          // the CBOR payload
         const size_t cbor_buffer_len = readingPkt.getBufferLength(); // the CBOR payload len
 
-        // TAkes the cbor data.
-        //  if (!g_comm->sendPacket(cbor_buffer, cbor_buffer_len, PktType::Reading))
-        //  {
-        //      g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
-        //      return;
-        //  }
+        if (!g_comm->sendPacket(cbor_buffer, cbor_buffer_len, PktType::Reading))
+        {
+            g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
+            return;
+        }
     }
 }
 
@@ -282,59 +282,52 @@ void collect_reading()
  */
 void start_app(void *arg)
 {
-    //     if (!g_comm)
-    //     {
-    //         g_logger.error("Communication not initialized");
-    //         vTaskDelete(nullptr);
-    //         return;
-    //     }
+    if (!g_comm)
+    {
+        g_logger.error("Communication not initialized");
+        vTaskDelete(nullptr);
+        return;
+    }
 
-    //     if (!g_comm->connect())
-    //     {
-    //         g_logger.error("Unable to connect to network");
-    //         vTaskDelete(nullptr);
-    //         return;
-    //     }
+    if (!g_comm->connect())
+    {
+        g_logger.error("Unable to connect to network");
+        vTaskDelete(nullptr);
+        return;
+    }
 
-    //     g_logger.info("Device connected to network");
+    g_logger.info("Device connected to network");
 
-    //     // handle_activation();
+    if (g_comm->isConnected() && !g_device_config.has_activated)
+    {
+        g_logger.info("Activating UNIT\n");
+        ESP_LOGI("UNIT", "ACTIVATING UNIT\n");
+        handle_activation();
+    }
 
-    //     if (g_comm->isConnected() && !g_device_config.has_activated)
-    //     {
-    //         g_logger.info("Activating UNIT\n");
-    //         ESP_LOGI("UNIT", "ACTIVATING UNIT\n");
-    //         handle_activation();
-    //     }
+#if OTA_EN == 1
+    if (g_comm->isConnected())
+    {
+        bool should_run_ota = !(wakeup_causes & ESP_SLEEP_WAKEUP_TIMER) && reset_reason == ESP_RST_POWERON;
 
-    // #if OTA_EN == 1
-    //     if (g_comm->isConnected())
-    //     {
+        if (should_run_ota)
+        {
+            g_logger.info("Power-on or hard reset");
+            checkAndPerformOTA();
+        }
+        else
+        {
+            g_logger.info("Good morning!!");
+        }
+    }
+#endif
 
-    //         bool should_run_ota = !(wakeup_causes & ESP_SLEEP_WAKEUP_TIMER) && reset_reason == ESP_RST_POWERON;
-
-    //         if (should_run_ota)
-    //         {
-    //             g_logger.info("Power-on or hard reset");
-    //             checkAndPerformOTA();
-    //         }
-    //         else
-    //         {
-    //             g_logger.info("Good morning!!");
-    //         }
-    //     }
-    // #endif
-
-    /** TODO
-     * 1. Read ALL DATA FROM NPK sensor. 50 N, 50 P.... 50 PH, returns a uint8_t buffer
-     * 2. Call Communications send method -> See send method.
-     */
     collect_reading();
 
-    // g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
-    // esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
-    // vTaskDelay(pdMS_TO_TICKS(100));
-    // esp_deep_sleep_start();
+    g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
+    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    esp_deep_sleep_start();
 
     vTaskDelete(nullptr);
 }

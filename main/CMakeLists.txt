@@ -1,23 +1,28 @@
 idf_component_register(
     SRCS 
         "src/main.cpp"
-        "src/net/WiFiConnection.cpp"
-        "src/net/Communication.cpp"
-        "src/net/SimConnection.cpp"
-        "src/net/EthernetConnection.cpp"
-        "src/mem/EEPROMConfig.cpp"
-        # "src/shell/CLI.cpp"
-        # "src/shell/Commands.cpp"
-        "src/sys/UARTDriver.cpp"
+
+        "src/io/drivers/UARTDriver.cpp"
+        # "src/io/drivers/I2CDriver.cpp"
+        "src/io/drivers/EEPROMConfig.cpp"
+        "src/io/interfaces/ATCommandHndlr.cpp"
+        
+        "src/net/adapters/Communication.cpp"
+        "src/net/adapters/EthernetConnection.cpp"
+        "src/net/adapters/SimConnection.cpp"
+        "src/net/adapters/WiFiConnection.cpp"
+        
+        "src/net/cbor_pkt_build/ActivatePkt.cpp"
+        "src/net/cbor_pkt_build/ReadingPkt.cpp"
+        "src/net/coap_pkt_build/CoapPktAssm.cpp"
+        
+        "src/routine/NPK.cpp"
+        "src/routine/GPS.cpp"
+
         "src/sys/OTAUpdater.cpp"
         "src/sys/Logger.cpp"
-        "src/io/NPK.cpp"
-        "src/net/ActivatePkt.cpp"
-        "src/sys/ATCommandHndlr.cpp"
-        "src/net/ReadingPkt.cpp"
-        "src/io/CoapPktAssm.cpp"
-        "src/net/GPS.cpp"
-        "src/other/Utils.cpp"
+        
+        "src/other/utils.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
         nvs_flash

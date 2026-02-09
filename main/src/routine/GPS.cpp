@@ -89,7 +89,6 @@ std::string GPS::parseGPSLine(const std::string &line) const {
 bool GPS::getCoordinates(std::string &out)
 {
     // First, ensure GPS is enabled before querying
-    char resp_enable[256] = {0};
     ATCommand_t cmd_enable = { "AT+QGPS=1", 
                                "OK", 
                                2000, 

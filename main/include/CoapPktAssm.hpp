@@ -85,7 +85,6 @@ enum PktType
 class CoapPktAssm
 {
 public:
-	// static void buildCoapBuffer(uint8_t coap_buffer[]);
 	/**
 	 * @brief 
 	 * @param coap_buffer 
@@ -97,20 +96,100 @@ public:
 								   PktType pkt_type, 
 								   const uint8_t * buffer, 
 								   const size_t buffer_len);
+	
+	/**
+	 * @brief Get the URI path string based on the packet type
+	 * @param pkt_type The type of the packet (Activate or Reading)
+	 * @return The corresponding URI path string (e.g., "activate" or "reading
+	 */
 	static std::string getUriPath(PktType pkt_type);
 
 
 private:
+	/**
+	 * @brief Set the CoAP header fields (Version, Type, Token Length)
+	 * @param buffer Pointer to the buffer where the header will be written
+	 * @param version CoAP version (should be 1)
+	 * @param type CoAP message type (CON, NON, ACK, RST)
+	 * @param token_len Length of the token (0-8 bytes)
+	 * @return Number of bytes written to the buffer (should be 1)
+	 */
 	static size_t setHeader(uint8_t *buffer, uint8_t version, uint8_t type, uint8_t token_len);
+	/**
+	 * @brief Set the CoAP code field (Class and Detail)
+	 * @param buffer Pointer to the buffer where the code will be written
+	 * @param code_class CoAP code class (0 for requests, 2 for success
+	 * responses, 4 for client errors, 5 for server errors)
+	 * @param code_detail CoAP code detail (specific to the class)
+	 * @return Number of bytes written to the buffer (should be 1)
+	 */
 	static size_t setCode(uint8_t *buffer, uint8_t code_class, uint8_t code_detail);
+	
+	/**
+	 * @brief Set the CoAP Message ID field
+	 * @param buffer Pointer to the buffer where the Message ID will be written
+	 * @param msg_id 16-bit Message ID to set
+	 * @return Number of bytes written to the buffer (should be 2)
+	 */
 	static size_t setMessageId(uint8_t *buffer, uint16_t msg_id);
+	
+	/**
+	 * @brief Set the CoAP Token field
+	 * @param buffer Pointer to the buffer where the token will be written
+	 * @param token Pointer to the token bytes
+	 * @param token_len Length of the token (0-8 bytes)
+	 * @return Number of bytes written to the buffer (should be equal to token_len)
+	 */
 	static size_t setToken(uint8_t *buffer, const uint8_t *token, uint8_t token_len);
+	
+	/**
+	 * @brief Set the Uri-Path option in the CoAP packet
+	 * @param buffer Pointer to the buffer where the option will be written
+	 * @param uri_path The URI path string to set (e.g., "activate"
+	 * 	or "reading")
+	 * @param delta The option delta value (should be COAP_DELTA_URI_PATH)
+	 * @return Number of bytes written to the buffer (varies based on uri_path length
+	 */
 	static size_t setUriPathOption(uint8_t *buffer, const std::string &uri_path, uint8_t delta);
+	/**
+	 * @brief Set the Content-Format option in the CoAP packet
+	 * @param buffer Pointer to the buffer where the option will be written
+	 * @param content_format The content format value (e.g., COAP_CONTENT_FORMAT_CB
+	 * 	OR)
+	 * @param delta The option delta value (should be COAP_DELTA_CONTENT_FORMAT)
+	 * @return Number of bytes written to the buffer (should be 2)
+	 */
 	static size_t setContentFormatOption(uint8_t *buffer, uint8_t content_format, uint8_t delta);
+	
+	/**
+	 * @brief Set the Payload Marker in the CoAP packet
+	 * @param buffer Pointer to the buffer where the payload marker will be written
+	 * @return Number of bytes written to the buffer (should be 1)
+	 */
 	static size_t setPayloadMarker(uint8_t *buffer);
+	
+	/**
+	 * @brief Set the payload data in the CoAP packet
+	 * @param buffer Pointer to the buffer where the payload will be written
+	 * @param payload Pointer to the payload data bytes
+	 * @param payload_len Length of the payload data in bytes
+	 * @return Number of bytes written to the buffer (should be equal to payload_len)
+	 */
 	static size_t setPayload(uint8_t *buffer, const uint8_t *payload, size_t payload_len);
 	
-	// Helper methods
+	/**
+	 * @brief Set a generic CoAP option with specified delta, length, and value
+	 * @param buffer Pointer to the buffer where the option will be written
+	 * @param delta The option delta value (relative to the previous option)
+	 * @param length The length of the option value in bytes
+	 * @param value Pointer to the option value bytes
+	 * @return Number of bytes written to the buffer (varies based on length)
+	 */
 	static size_t setOption(uint8_t *buffer, uint8_t delta, uint8_t length, const uint8_t *value);
+	
+	/**
+	 * @brief Generate the next Message ID for CoAP packets
+	 * @return A unique 16-bit Message ID value
+	 */
 	static uint16_t getNextMessageId();
 };

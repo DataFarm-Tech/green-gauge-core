@@ -27,7 +27,7 @@ private:
 
 
 public:
-    ReadingPkt(PktType _pkt_type, std::string _node_id, std::string _uri, uint8_t _reading[NPK_COLLECT_SIZE], MeasurementType _m_type)
+    ReadingPkt(PktType _pkt_type, std::string _node_id, std::string _uri, uint16_t _reading[NPK_COLLECT_SIZE], MeasurementType _m_type)
         : IPacket(_pkt_type, _node_id, _uri), m_type(_m_type)
     {
     }

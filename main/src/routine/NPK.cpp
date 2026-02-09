@@ -31,15 +31,10 @@ size_t NPK::readModbusResponse(uint8_t *rx_buffer, size_t buffer_size, uint32_t 
     uint32_t start_time = xTaskGetTickCount();
     uint32_t timeout_ticks = pdMS_TO_TICKS(timeout_ms);
 
-    // Wait for initial response
-    // vTaskDelay(pdMS_TO_TICKS(100));
-
     while (len < buffer_size)
     {
-
         if (!rs485_uart.readByte(rx_buffer[len]))
         {
-
             if ((xTaskGetTickCount() - start_time) > timeout_ticks)
             {
                 break;
@@ -81,21 +76,10 @@ uint16_t NPK::calculateCRC16(const uint8_t *data, size_t length)
 
 bool NPK::validateResponse(const uint8_t *rx_buffer, size_t length)
 {
-    uint8_t byte_count = 0;
-    size_t expected_len = 0;
-    uint16_t calculated_crc = 0;
-    uint16_t received_crc = 0;
+    size_t byte_count, expected_len = 0;
+    uint16_t calculated_crc, received_crc = 0;
 
-    // Verify minimum length
-    if (length < 5)
-    {
-        g_logger.warning("Response too short: %zu bytes", length);
-        return false;
-    }
-
-    // Check slave address and function code
-    if (rx_buffer[0] != 0x01 || rx_buffer[1] != 0x03)
-    {
+    if (rx_buffer[0] != DEV_ADDR || rx_buffer[1] != FUNC_CODE) {
         g_logger.warning("Invalid response header: addr=0x%02X func=0x%02X",
                          rx_buffer[0], rx_buffer[1]);
         return false;
@@ -131,58 +115,17 @@ uint16_t NPK::parseRegisterValue(const uint8_t *rx_buffer, size_t register_offse
     return Utils::hexStringToInt(hexStr);
 }
 
-uint16_t NPK::extractMeasurement(const uint8_t *rx_buffer, MeasurementType type)
+
+bool NPK::npk_collect(const MeasurementEntry &m_entry, uint16_t reading[NPK_COLLECT_SIZE])
 {
-    // Map measurement type to register offset (for READ_ALL_SENSORS response)
-    size_t offset = 0;
-
-    switch (type)
-    {
-    case MeasurementType::Moisture:
-        offset = 0;
-        break; // Register 0x0000
-    case MeasurementType::Temperature:
-        offset = 1;
-        break; // Register 0x0001
-    // Conductivity at offset 2 (not used in table)
-    case MeasurementType::PH:
-        offset = 3;
-        break; // Register 0x0003
-    case MeasurementType::Nitrogen:
-        offset = 4;
-        break; // Register 0x0004
-    case MeasurementType::Phosphorus:
-        offset = 5;
-        break; // Register 0x0005
-    case MeasurementType::Potassium:
-        offset = 6;
-        break; // Register 0x0006
-    default:
-        return 0;
-    }
-
-    offset *= 2;
-    offset += 3;
-
-    return parseRegisterValue(rx_buffer, offset);
-}
-
-bool NPK::npk_collect(const MeasurementEntry &m_entry, uint8_t reading[NPK_COLLECT_SIZE])
-{
-    printf("Running NPK collect\n");
-    // Compile-time check that NPK_COLLECT_SIZE is correct
     static_assert(NPK_COLLECT_SIZE == 5, "NPK_COLLECT_SIZE must be 35");
 
     uint8_t rx_buffer[RX_BUFFER_SIZE];
     size_t len = 0;
-    float value = 0.0f;
     uint16_t raw_value = 0;
 
     g_logger.info("Starting collection of %d readings for measurement type %d",
                   NPK_COLLECT_SIZE, static_cast<int>(m_entry.type));
-
-    static int x = 0;
-    printf("Type number: %d\n", x);
 
     for (size_t sample = 0; sample < NPK_COLLECT_SIZE; sample++)
     {
@@ -192,12 +135,7 @@ bool NPK::npk_collect(const MeasurementEntry &m_entry, uint8_t reading[NPK_COLLE
 
         len = readModbusResponse(rx_buffer, RX_BUFFER_SIZE, 500);
 
-        // check buffer len is greater than 2.
-        // if it is: size_t num_bytes = rx_buffer[2]
-        // check num_bytes == 2
-        // read num_bytes forward from 2. num_bytes should be 2
-
-        if (len != 7)
+        if (len != MODBUS_HEADER_SIZE + MODBUS_CRC_SIZE + MODBUS_PAYLOAD_SIZE)
         {
             g_logger.warning("No data received from RS485 NPK sensor on sample %zu", sample);
             return false;
@@ -210,12 +148,13 @@ bool NPK::npk_collect(const MeasurementEntry &m_entry, uint8_t reading[NPK_COLLE
             return false;
         }
 
-        // Parse the single register value (for single-register queries)
-        raw_value = extractMeasurement(rx_buffer, m_entry.type);
+        raw_value = parseRegisterValue(rx_buffer, m_entry.offset);
 
-        printf("%d\n", raw_value);
+        printf("%d", raw_value);
+        reading[sample] = raw_value;
         // Small delay between readings to avoid overwhelming the sensor
         vTaskDelay(pdMS_TO_TICKS(50));
+        printf("\n");
     }
 
     g_logger.info("Completed collection of %d readings for measurement type %d",

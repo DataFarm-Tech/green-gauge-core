@@ -7,6 +7,7 @@ constexpr const char* HW_VER_0_0_2 = "0.0.2";
 
 enum HwVer_e {
     HW_VER_0_0_1_E,
+    HW_VER_0_0_2_E,
     HW_VER_UNKNOWN_E
 };
 
@@ -17,5 +18,6 @@ struct HwVer_t {
 
 const HwVer_t ver[] = {
     { HW_VER_0_0_1, HW_VER_0_0_1_E },
+    { HW_VER_0_0_2, HW_VER_0_0_2_E },
     { nullptr,      HW_VER_UNKNOWN_E }   // table terminator
 };
