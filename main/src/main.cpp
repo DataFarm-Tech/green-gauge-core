@@ -34,6 +34,7 @@ extern "C"
 #include "ReadingPkt.hpp"
 #include <memory>
 #include "cli.hpp"
+
 /**
  * @brief Global device configuration stored in EEPROM.
  */
@@ -101,6 +102,7 @@ void init_hw()
         break;
     }
 }
+
 /**
  * @brief Load existing config or create default configuration.
  */
@@ -162,6 +164,8 @@ void hw_features(void)
             break;
         }
     }
+
+    hw_ver = HW_VER_0_0_1_E;
 
     net_select(hw_ver);
 }
@@ -235,7 +239,6 @@ void handle_activation()
  */
 void checkAndPerformOTA()
 {
-
     OTAUpdater ota;
     const char *url = "http://45.79.118.187:8080/release/latest/cn1.bin";
 
@@ -256,25 +259,46 @@ void checkAndPerformOTA()
 
 void collect_reading()
 {
-    uint16_t reading[NPK_COLLECT_SIZE]; // <- THIS SHOULD CONTAIN 35 values.
+    uint16_t reading[NPK_COLLECT_SIZE];
+    int successful_sends = 0;
+    int failed_sends = 0;
 
     for (const NPK::MeasurementEntry &m_entry : NPK::MEASUREMENT_TABLE)
     {
-        memset(reading, 0, NPK_COLLECT_SIZE); //clear the reading array that will be populated
-
-        NPK::npk_collect(m_entry, reading); //write all the readings rec from the modbus rs485
+        memset(reading, 0, NPK_COLLECT_SIZE);
         
-        ReadingPkt readingPkt(PktType::Reading, std::string(g_device_config.manf_info.nodeId.value), std::string(DATA_URI), reading, m_entry.type);
-
-        const uint8_t *cbor_buffer = readingPkt.toBuffer();          // the CBOR payload
-        const size_t cbor_buffer_len = readingPkt.getBufferLength(); // the CBOR payload len
-
-        if (!g_comm->sendPacket(cbor_buffer, cbor_buffer_len, PktType::Reading))
+        if (!NPK::npk_collect(m_entry, reading))
         {
-            g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
-            return;
+            g_logger.warning("Failed to collect measurement type %d", 
+                           static_cast<int>(m_entry.type));
+            continue;  // Skip to next measurement
+        }
+        
+        ReadingPkt readingPkt(PktType::Reading, 
+                             std::string(g_device_config.manf_info.nodeId.value), 
+                             std::string(DATA_URI), 
+                             reading, 
+                             m_entry.type);
+
+        const uint8_t *cbor_buffer = readingPkt.toBuffer();
+        const size_t cbor_buffer_len = readingPkt.getBufferLength();
+
+        if (g_comm->sendPacket(cbor_buffer, cbor_buffer_len, PktType::Reading))
+        {
+            successful_sends++;
+            g_logger.info("Sent measurement type %d successfully", 
+                         static_cast<int>(m_entry.type));
+        }
+        else
+        {
+            failed_sends++;
+            g_logger.warning("Failed to send measurement type %d (will continue)", 
+                           static_cast<int>(m_entry.type));
         }
     }
+    
+    g_logger.info("Collection complete: %d sent, %d failed", 
+                 successful_sends, failed_sends);
 }
 
 /**
@@ -289,6 +313,7 @@ void start_app(void *arg)
         return;
     }
 
+    // Initial connection
     if (!g_comm->connect())
     {
         g_logger.error("Unable to connect to network");
@@ -298,14 +323,15 @@ void start_app(void *arg)
 
     g_logger.info("Device connected to network");
 
+    // Handle activation only once
     if (g_comm->isConnected() && !g_device_config.has_activated)
     {
         g_logger.info("Activating UNIT\n");
-        ESP_LOGI("UNIT", "ACTIVATING UNIT\n");
         handle_activation();
     }
 
 #if OTA_EN == 1
+    // OTA check only on power-on
     if (g_comm->isConnected())
     {
         bool should_run_ota = !(wakeup_causes & ESP_SLEEP_WAKEUP_TIMER) && reset_reason == ESP_RST_POWERON;
@@ -314,10 +340,6 @@ void start_app(void *arg)
         {
             g_logger.info("Power-on or hard reset");
             checkAndPerformOTA();
-        }
-        else
-        {
-            g_logger.info("Good morning!!");
         }
     }
 #endif

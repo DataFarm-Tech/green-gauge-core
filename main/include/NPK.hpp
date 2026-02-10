@@ -249,12 +249,13 @@ private:
 public:
     // Measurement table - must be defined AFTER the packet arrays
     static constexpr MeasurementEntry MEASUREMENT_TABLE[] = {
-        {MeasurementType::Nitrogen, READ_ALL_SENSORS, PACKET_SIZE, NITROGEN_OFFSET * 2 + 3},
-        {MeasurementType::Moisture, READ_ALL_SENSORS, PACKET_SIZE, MOISTURE_OFFSET * 2 + 3},
-        {MeasurementType::PH, READ_ALL_SENSORS, PACKET_SIZE, PH_OFFSET * 2 + 3},
-        {MeasurementType::Phosphorus, READ_ALL_SENSORS, PACKET_SIZE, PHOS_OFFSET * 2 + 3},
-        {MeasurementType::Potassium, READ_ALL_SENSORS, PACKET_SIZE, POT_OFFSET * 2 + 3},
-        {MeasurementType::Temperature, READ_ALL_SENSORS, PACKET_SIZE, TEMPER_OFFSET * 2 + 3}};
+    {MeasurementType::Nitrogen,    READ_ALL_SENSORS, PACKET_SIZE, 11},  // Register 4: bytes 11-12
+    {MeasurementType::Moisture,    READ_ALL_SENSORS, PACKET_SIZE, 3},   // Register 0: bytes 3-4
+    {MeasurementType::PH,          READ_ALL_SENSORS, PACKET_SIZE, 9},   // Register 3: bytes 9-10
+    {MeasurementType::Phosphorus,  READ_ALL_SENSORS, PACKET_SIZE, 13},  // Register 5: bytes 13-14
+    {MeasurementType::Potassium,   READ_ALL_SENSORS, PACKET_SIZE, 15},  // Register 6: bytes 15-16
+    {MeasurementType::Temperature, READ_ALL_SENSORS, PACKET_SIZE, 5}    // Register 1: bytes 5-6
+};
 
     static constexpr size_t MEASUREMENT_TABLE_SIZE = sizeof(MEASUREMENT_TABLE) / sizeof(MeasurementEntry);
 };

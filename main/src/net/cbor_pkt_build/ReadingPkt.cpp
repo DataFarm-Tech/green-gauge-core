@@ -45,9 +45,9 @@ const uint8_t * ReadingPkt::toBuffer()
     // Encode each reading value
     for (size_t i = 0; i < NPK_COLLECT_SIZE; i++)
     {
+        // Now this->reading[i] contains actual sensor data!
         if (cbor_encode_float(&arrayEncoder, this->reading[i]) != CborNoError)
         {
-            // ESP_LOGE(TAG.c_str(), "Failed to encode reading %d", (int)i);
             return nullptr;
         }
     }

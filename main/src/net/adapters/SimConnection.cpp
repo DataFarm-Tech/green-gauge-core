@@ -15,6 +15,21 @@ extern "C"
 bool SimConnection::connect()
 {
     g_logger.info("Starting Quectel Connection\n");
+
+    ATCommand_t cfun_reset = {
+    "AT+CFUN=1,1",
+    "OK",
+    5000,
+    MsgType::INIT,
+    nullptr,
+    0
+};
+
+    hndlr.send(cfun_reset);
+    vTaskDelay(pdMS_TO_TICKS(8000));  // EC25 reboot time
+
+    
+
     uint8_t retry_counter = 0;
 
     while (sim_stat != SimStatus::CONNECTED)
@@ -23,80 +38,87 @@ bool SimConnection::connect()
         {
         case SimStatus::DISCONNECTED:
             g_logger.info("DISCONNECTED SIM STAT\n");
+            
+
             sim_stat = SimStatus::INIT;
             break;
 
         case SimStatus::INIT:
-            g_logger.info("INIT SIM STAT\n");
+    g_logger.info("INIT SIM STAT\n");
+    {
+        bool init_success = true;
+        for (auto &cmd : hndlr.at_command_table)
+        {
+            if (cmd.msg_type != MsgType::INIT)
+                continue;
+            if (!hndlr.send(cmd))
             {
-                bool init_success = true;
-                for (auto &cmd : hndlr.at_command_table)
-                {
-                    if (cmd.msg_type != MsgType::INIT)
-                        continue;
-                    if (!hndlr.send(cmd))
-                    {
-                        init_success = false;
-                        break;
-                    }
-                }
-
-                if (init_success)
-                {
-                    retry_counter = 0;
-                    sim_stat = SimStatus::NOTREADY;
-                }
-                else
-                {
-                    retry_counter++;
-                    if (retry_counter >= RETRIES)
-                    {
-                        sim_stat = SimStatus::ERROR;
-                    }
-                    else
-                    {
-                        vTaskDelay(pdMS_TO_TICKS(2000));
-                    }
-                }
+                init_success = false;
+                break;
             }
-            break;
+            // ADD: Small delay between INIT commands
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+
+        if (init_success)
+        {
+            retry_counter = 0;
+            // ADD: Allow modem to settle after INIT before checking status
+            g_logger.info("INIT complete, waiting for modem to settle...\n");
+            vTaskDelay(pdMS_TO_TICKS(3000)); // 3 second settling time
+            sim_stat = SimStatus::NOTREADY;
+        }
+        else
+        {
+            retry_counter++;
+            if (retry_counter >= RETRIES)
+            {
+                sim_stat = SimStatus::ERROR;
+            }
+            else
+            {
+                vTaskDelay(pdMS_TO_TICKS(5000)); // Increase retry delay for INIT
+            }
+        }
+    }
+    break;
 
         case SimStatus::NOTREADY:
-            // printf("NOTREADY SIM STAT\n");
-            g_logger.info("NOTREADY SIM STAT\n");
-
+    g_logger.info("NOTREADY SIM STAT\n");
+    {
+        bool status_ok = false;
+        for (auto &cmd : hndlr.at_command_table)
+        {
+            if (cmd.msg_type != MsgType::STATUS)
+                continue;
+            if (hndlr.send(cmd))
             {
-                bool status_ok = false;
-                for (auto &cmd : hndlr.at_command_table)
-                {
-                    if (cmd.msg_type != MsgType::STATUS)
-                        continue;
-                    if (hndlr.send(cmd))
-                    {
-                        status_ok = true;
-                        break;
-                    }
-                }
-
-                if (status_ok)
-                {
-                    retry_counter = 0;
-                    sim_stat = SimStatus::REGISTERING;
-                }
-                else
-                {
-                    retry_counter++;
-                    if (retry_counter >= RETRIES)
-                    {
-                        sim_stat = SimStatus::ERROR;
-                    }
-                    else
-                    {
-                        vTaskDelay(pdMS_TO_TICKS(2000));
-                    }
-                }
+                status_ok = true;
+                break;
             }
-            break;
+        }
+
+        if (status_ok)
+        {
+            retry_counter = 0;
+            sim_stat = SimStatus::REGISTERING;
+        }
+        else
+        {
+            retry_counter++;
+            if (retry_counter >= RETRIES)
+            {
+                sim_stat = SimStatus::ERROR;
+            }
+            else
+            {
+                // Increase delay for STATUS retries (SIM might still be initializing)
+                g_logger.info("STATUS check failed, retry %d/%d\n", retry_counter, RETRIES);
+                vTaskDelay(pdMS_TO_TICKS(5000)); // Increased from 2000
+            }
+        }
+    }
+    break;
 
         case SimStatus::REGISTERING:
             g_logger.info("REGISTERING SIM STAT\n");
@@ -148,6 +170,56 @@ bool SimConnection::connect()
         }
     }
 
+    // Step 1: Define PDP context
+    ATCommand_t define_pdp = {
+        "AT+QICSGP=1,1,\"telstra.internet\",\"\",\"\",1",
+        "OK",
+        2000,
+        MsgType::DATA,
+        nullptr,
+        0};
+
+    if (!hndlr.send(define_pdp))
+    {
+        g_logger.error("Failed to define PDP context\n");
+        return false;
+    }
+
+    // Step 2: Activate PDP context
+    ATCommand_t activate_pdp = {
+        "AT+QIACT=1",
+        "OK",
+        10000,
+        MsgType::DATA,
+        nullptr,
+        0};
+
+    if (!hndlr.send(activate_pdp))
+    {
+        g_logger.error("Failed to activate PDP context\n");
+        return false;
+    }
+
+    // Step 3: Open UDP socket for CoAP
+    ATCommand_t open_socket = {
+        "AT+QIOPEN=1,0,\"UDP\",\"45.79.239.100\",5683,0,0",
+        "OK",
+        5000,
+        MsgType::DATA,
+        nullptr,
+        0};
+
+    if (!hndlr.send(open_socket))
+    {
+        g_logger.error("Failed to open UDP socket\n");
+        deactivatePDP();
+        return false;
+    }
+
+    // Wait for QIOPEN URC
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+
     return true;
 }
 
@@ -178,10 +250,15 @@ bool SimConnection::isConnected()
 
 void SimConnection::disconnect()
 {
-
     g_logger.info("Disconnecting from network...\n");
 
-    // Send shutdown commands
+    // Close UDP socket first
+    closeUDPSocket();
+    
+    // Deactivate PDP context
+    deactivatePDP();
+
+    // Send any remaining shutdown commands
     for (auto &cmd : hndlr.at_command_table)
     {
         if (cmd.msg_type != MsgType::SHUTDOWN)
@@ -232,55 +309,6 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
 
     g_logger.info("CoAP packet built: %zu bytes total\n", coap_buffer_len);
 
-    // Step 1: Define PDP context
-    ATCommand_t define_pdp = {
-        "AT+QICSGP=1,1,\"telstra.internet\",\"\",\"\",1",
-        "OK",
-        2000,
-        MsgType::DATA,
-        nullptr,
-        0};
-
-    if (!hndlr.send(define_pdp))
-    {
-        g_logger.error("Failed to define PDP context\n");
-        return false;
-    }
-
-    // Step 2: Activate PDP context
-    ATCommand_t activate_pdp = {
-        "AT+QIACT=1",
-        "OK",
-        10000,
-        MsgType::DATA,
-        nullptr,
-        0};
-
-    if (!hndlr.send(activate_pdp))
-    {
-        g_logger.error("Failed to activate PDP context\n");
-        return false;
-    }
-
-    // Step 3: Open UDP socket for CoAP
-    ATCommand_t open_socket = {
-        "AT+QIOPEN=1,0,\"UDP\",\"45.79.239.100\",5683,0,0",
-        "OK",
-        5000,
-        MsgType::DATA,
-        nullptr,
-        0};
-
-    if (!hndlr.send(open_socket))
-    {
-        g_logger.error("Failed to open UDP socket\n");
-        deactivatePDP();
-        return false;
-    }
-
-    // Wait for QIOPEN URC
-    vTaskDelay(pdMS_TO_TICKS(2000));
-
     // Step 4: Send CoAP packet as UDP data
     char send_cmd[64];
     snprintf(send_cmd, sizeof(send_cmd), "AT+QISEND=0,%zu", coap_buffer_len);
@@ -305,10 +333,6 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
     vTaskDelay(pdMS_TO_TICKS(1000));
 
     g_logger.info("CoAP packet sent successfully via UDP\n");
-
-    // Cleanup
-    closeUDPSocket();
-    deactivatePDP();
 
     return true;
 }

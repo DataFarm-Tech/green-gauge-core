@@ -26,7 +26,7 @@ void NPK::sendModbusRequest(const uint8_t *packet, size_t packet_size)
 
 size_t NPK::readModbusResponse(uint8_t *rx_buffer, size_t buffer_size, uint32_t timeout_ms)
 {
-    buffer_size = 7;
+    // buffer_size = 7;
     size_t len = 0;
     uint32_t start_time = xTaskGetTickCount();
     uint32_t timeout_ticks = pdMS_TO_TICKS(timeout_ms);
@@ -115,17 +115,16 @@ uint16_t NPK::parseRegisterValue(const uint8_t *rx_buffer, size_t register_offse
     return Utils::hexStringToInt(hexStr);
 }
 
-
 bool NPK::npk_collect(const MeasurementEntry &m_entry, uint16_t reading[NPK_COLLECT_SIZE])
 {
-    static_assert(NPK_COLLECT_SIZE == 5, "NPK_COLLECT_SIZE must be 35");
+    static_assert(NPK_COLLECT_SIZE == 5, "NPK_COLLECT_SIZE must be 5");
 
     uint8_t rx_buffer[RX_BUFFER_SIZE];
     size_t len = 0;
     uint16_t raw_value = 0;
 
-    g_logger.info("Starting collection of %d readings for measurement type %d",
-                  NPK_COLLECT_SIZE, static_cast<int>(m_entry.type));
+    g_logger.info("Starting collection of %d readings for measurement type %d (offset %zu)",
+                  NPK_COLLECT_SIZE, static_cast<int>(m_entry.type), m_entry.offset);
 
     for (size_t sample = 0; sample < NPK_COLLECT_SIZE; sample++)
     {
@@ -135,26 +134,42 @@ bool NPK::npk_collect(const MeasurementEntry &m_entry, uint16_t reading[NPK_COLL
 
         len = readModbusResponse(rx_buffer, RX_BUFFER_SIZE, 500);
 
-        if (len != MODBUS_HEADER_SIZE + MODBUS_CRC_SIZE + MODBUS_PAYLOAD_SIZE)
+        // Print full response
+        g_logger.info("Received %zu bytes: [%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X]",
+            len,
+            rx_buffer[0], rx_buffer[1], rx_buffer[2], rx_buffer[3],
+            rx_buffer[4], rx_buffer[5], rx_buffer[6], rx_buffer[7],
+            rx_buffer[8], rx_buffer[9], rx_buffer[10], rx_buffer[11],
+            rx_buffer[12], rx_buffer[13], rx_buffer[14], rx_buffer[15],
+            rx_buffer[16], rx_buffer[17], rx_buffer[18]);
+
+        const size_t EXPECTED_LENGTH = MODBUS_HEADER_SIZE + (7 * MODBUS_REGISTER_SIZE) + MODBUS_CRC_SIZE;
+        
+        if (len != EXPECTED_LENGTH)
         {
-            g_logger.warning("No data received from RS485 NPK sensor on sample %zu", sample);
+            g_logger.warning("Expected %zu bytes, got %zu", EXPECTED_LENGTH, len);
             return false;
         }
 
-        // Validate response
         if (!validateResponse(rx_buffer, len))
         {
             g_logger.warning("Validation failed on sample %zu", sample);
             return false;
         }
 
+        // Debug: show what bytes we're reading
+        g_logger.info("Reading bytes at offset %zu: [%02X %02X]", 
+                      m_entry.offset,
+                      rx_buffer[m_entry.offset], 
+                      rx_buffer[m_entry.offset + 1]);
+
         raw_value = parseRegisterValue(rx_buffer, m_entry.offset);
 
-        printf("%d", raw_value);
+        g_logger.info("Sample %zu: Raw value = %u", sample, raw_value);
+        
         reading[sample] = raw_value;
-        // Small delay between readings to avoid overwhelming the sensor
+        
         vTaskDelay(pdMS_TO_TICKS(50));
-        printf("\n");
     }
 
     g_logger.info("Completed collection of %d readings for measurement type %d",
