@@ -34,19 +34,22 @@ extern "C"
 #include "ReadingPkt.hpp"
 #include <memory>
 #include "cli.hpp"
+#include "GpsUpdatePkt.hpp"
 
 /**
  * @brief Global device configuration stored in EEPROM.
  */
 DeviceConfig g_device_config = {
     .has_activated = false,
+    .main_app_delay = 30,
     .manf_info = {
         .hw_ver = {.value = ""},
         .hw_var = {.value = ""},
         .fw_ver = {.value = ""},
         .nodeId = {.value = ""},
         .secretkey = {.value = ""},
-        .p_code = {.value = ""}},
+        .p_code = {.value = ""},
+        .sim_sn = {.value = ""}},
     .calib = {.calib_list = {{.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Nitrogen}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Phosphorus}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Potassium}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Moisture}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::PH}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Temperature}}, .last_cal_ts = 0}};
 
 uint32_t wakeup_causes = 0;
@@ -192,6 +195,21 @@ std::string read_gps()
     }
 }
 
+void handle_gps_update() {
+    std::string gps = read_gps();
+
+    GpsUpdatePkt gpsupdatePkt(PktType::GpsUpdate, std::string(g_device_config.manf_info.nodeId.value), std::string(GPS_URI), gps);
+
+    const uint8_t * pkt_1 = gpsupdatePkt.toBuffer();
+    const size_t buffer_len = gpsupdatePkt.getBufferLength();
+
+    if (!g_comm->sendPacket(pkt_1, buffer_len, PktType::GpsUpdate, CoapMethod::PUT))
+    {
+        g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
+        return;
+    }
+}
+
 /**
  * @brief Handle device activation process.
  */
@@ -213,7 +231,7 @@ void handle_activation()
 
     g_logger.info("Sending activation packet for node: %s", g_device_config.manf_info.nodeId.value);
 
-    if (!g_comm->sendPacket(pkt_1, buffer_len, PktType::Activate))
+    if (!g_comm->sendPacket(pkt_1, buffer_len, PktType::Activate, CoapMethod::POST))
     {
         g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
         return;
@@ -260,8 +278,6 @@ void checkAndPerformOTA()
 void collect_reading()
 {
     uint16_t reading[NPK_COLLECT_SIZE];
-    int successful_sends = 0;
-    int failed_sends = 0;
 
     for (const NPK::MeasurementEntry &m_entry : NPK::MEASUREMENT_TABLE)
     {
@@ -283,22 +299,19 @@ void collect_reading()
         const uint8_t *cbor_buffer = readingPkt.toBuffer();
         const size_t cbor_buffer_len = readingPkt.getBufferLength();
 
-        if (g_comm->sendPacket(cbor_buffer, cbor_buffer_len, PktType::Reading))
+        if (g_comm->sendPacket(cbor_buffer, cbor_buffer_len, PktType::Reading, CoapMethod::POST))
         {
-            successful_sends++;
             g_logger.info("Sent measurement type %d successfully", 
                          static_cast<int>(m_entry.type));
         }
         else
         {
-            failed_sends++;
             g_logger.warning("Failed to send measurement type %d (will continue)", 
                            static_cast<int>(m_entry.type));
         }
     }
     
-    g_logger.info("Collection complete: %d sent, %d failed", 
-                 successful_sends, failed_sends);
+    g_logger.info("Collection complete");
 }
 
 /**
@@ -324,10 +337,13 @@ void start_app(void *arg)
     g_logger.info("Device connected to network");
 
     // Handle activation only once
-    if (g_comm->isConnected() && !g_device_config.has_activated)
-    {
-        g_logger.info("Activating UNIT\n");
-        handle_activation();
+    if (g_comm->isConnected()) {
+        if (!g_device_config.has_activated) {
+            handle_activation();
+        }
+        else {
+            handle_gps_update();    
+        }
     }
 
 #if OTA_EN == 1
@@ -346,8 +362,8 @@ void start_app(void *arg)
 
     collect_reading();
 
-    g_logger.info("Entering deep sleep for %d seconds", sleep_time_sec);
-    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
+    g_logger.info("Entering deep sleep for %d seconds", g_device_config.main_app_delay);
+    esp_sleep_enable_timer_wakeup(g_device_config.main_app_delay * 1000000ULL);
     vTaskDelay(pdMS_TO_TICKS(100));
     esp_deep_sleep_start();
 
@@ -359,7 +375,7 @@ void start_app(void *arg)
  */
 extern "C" void app_main(void)
 {
-    cli_init();
+    // cli_init();
 
     reset_reason = esp_reset_reason();
     wakeup_causes = esp_sleep_get_wakeup_causes();

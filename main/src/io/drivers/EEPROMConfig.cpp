@@ -103,8 +103,12 @@ bool EEPROMConfig::loadConfig(DeviceConfig& config) {
     
     readString("p_code", config.manf_info.p_code.value, MANF_MAX_LEN);
     
+    readString("sim_sn", config.manf_info.sim_sn.value, MANF_MAX_LEN);
+    
     // Load activation status
     readBool("has_activated", &config.has_activated);
+
+    readU32("main_app_delay", &config.main_app_delay);
     
     // Load calibration data
     readFloat("cal_n_offset", &config.calib.calib_list[0].offset);
@@ -152,9 +156,12 @@ bool EEPROMConfig::saveConfig(const DeviceConfig& config) {
     writeString("secret_key", config.manf_info.secretkey.value);
     
     writeString("p_code", config.manf_info.p_code.value);
+
+    writeString("sim_sn", config.manf_info.sim_sn.value);
     
     // Save activation status
     writeBool("has_activated", config.has_activated);
+    writeU32("main_app_delay", config.main_app_delay);
     
     // Save calibration data
     writeFloat("cal_n_offset", config.calib.calib_list[0].offset);

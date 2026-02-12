@@ -6,6 +6,7 @@
 constexpr char BATT_URI[] = "coap://45.79.239.100/battery";
 constexpr char DATA_URI[] = "coap://45.79.239.100/reading";
 constexpr char ACT_URI[] = "coap://45.79.239.100/activate";
+constexpr char GPS_URI[] = "coap://45.79.239.100/update-gps";
 
 constexpr char BATT_TAG[] = "BatteryPacket";
 constexpr char DATA_TAG[] = "DataPacket";
@@ -13,4 +14,4 @@ constexpr char ACT_TAG[] = "ActivatePacket";
 
 constexpr int sleep_time_sec = 60;
 
-constexpr int NPK_COLLECT_SIZE = 5;
+constexpr int NPK_COLLECT_SIZE = 25;

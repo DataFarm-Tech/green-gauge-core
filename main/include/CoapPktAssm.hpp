@@ -25,6 +25,7 @@
 
 // CoAP Code Details
 #define COAP_CODE_DETAIL_POST       2
+#define COAP_CODE_DETAIL_PUT        3
 #define COAP_CODE_DETAIL_CREATED    1
 #define COAP_CODE_DETAIL_CHANGED    4
 
@@ -79,7 +80,14 @@
 enum PktType
 {
 	Activate,
-	Reading
+	Reading,
+	GpsUpdate
+};
+
+enum CoapMethod 
+{
+	POST,
+	PUT
 };
 
 class CoapPktAssm
@@ -95,7 +103,7 @@ public:
 	static size_t buildCoapBuffer( uint8_t coap_buffer[], 
 								   PktType pkt_type, 
 								   const uint8_t * buffer, 
-								   const size_t buffer_len);
+								   const size_t buffer_len, CoapMethod meth);
 	
 	/**
 	 * @brief Get the URI path string based on the packet type

@@ -31,10 +31,12 @@ typedef struct {
     MANF_entry_t nodeId;
     MANF_entry_t secretkey;
     MANF_entry_t p_code;
+    MANF_entry_t sim_sn;
 } MANF_info_t;
 
 typedef struct {
     bool has_activated;
+    uint32_t main_app_delay;
     MANF_info_t manf_info;
     NPK_Calib_t calib;
 } DeviceConfig;

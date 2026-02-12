@@ -34,7 +34,7 @@ void Communication::disconnect()
     connection->disconnect();
 }
 
-bool Communication::sendPacket(const uint8_t * pkt, const size_t pkt_len, PktType pkt_type)
+bool Communication::sendPacket(const uint8_t * pkt, const size_t pkt_len, PktType pkt_type, const CoapMethod meth)
 {
-    return connection->sendPacket(pkt, pkt_len, pkt_type);
+    return connection->sendPacket(pkt, pkt_len, pkt_type, meth);
 }
