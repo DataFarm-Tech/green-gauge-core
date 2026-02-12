@@ -9,13 +9,27 @@
 
 static const char* TAG = "Logger";
 
+/**
+ * @brief Global Logger instance.
+ * This instance can be used throughout the application.
+ */
 Logger g_logger; // Global instance
 
-Logger::Logger(const char* basePath)
-    : basePath(basePath), initialized(false) {}
+Logger::Logger(const char* basePath_)
+    : basePath(basePath_), initialized(false) {}
+
 
 esp_err_t Logger::init() {
     if (initialized) return ESP_OK;
+
+    // Create mutex BEFORE filesystem init
+    if (!mutex) {
+        mutex = xSemaphoreCreateMutex();
+        if (!mutex) {
+            ESP_LOGE(TAG, "Failed to create logger mutex");
+            return ESP_FAIL;
+        }
+    }
 
     esp_vfs_littlefs_conf_t conf = {};  // zero-initialize
 
@@ -41,46 +55,61 @@ esp_err_t Logger::init() {
 void Logger::log(const char* filename, const char* format, ...) {
     if (!initialized && init() != ESP_OK) return;
 
-    char buffer[512];
+    char buffer[480];
     va_list args;
     va_start(args, format);
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
 
-    writeLog(filename, buffer);
+    // Add [LOG] prefix
+    std::string prefixed = "[LOG] ";
+    prefixed += buffer;
+    writeLog("system.log", prefixed);  // Changed to system.log
 }
 
 void Logger::info(const char* format, ...) {
-    char buffer[512];
+    char buffer[480];
     va_list args;
     va_start(args, format);
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
 
     ESP_LOGI(TAG, "%s", buffer);
-    writeLog("system.log", buffer);
+    
+    // Add [INFO] prefix and write to system.log
+    std::string prefixed = "[INFO] ";
+    prefixed += buffer;
+    writeLog("system.log", prefixed);
 }
 
 void Logger::error(const char* format, ...) {
-    char buffer[512];
+    char buffer[480];
     va_list args;
     va_start(args, format);
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
 
-    ESP_LOGE(TAG, "%s", buffer);
-    writeLog("error.log", buffer);
+    ESP_LOGI(TAG, "%s", buffer);
+    
+    // Add [ERROR] prefix and write to system.log
+    std::string prefixed = "[ERROR] ";
+    prefixed += buffer;
+    writeLog("system.log", prefixed);  // Changed from error.log to system.log
 }
 
 void Logger::warning(const char* format, ...) {
-    char buffer[512];
+    char buffer[480];
     va_list args;
     va_start(args, format);
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
 
     ESP_LOGW(TAG, "%s", buffer);
-    writeLog("system.log", buffer);
+    
+    // Add [WARN] prefix and write to system.log
+    std::string prefixed = "[WARN] ";
+    prefixed += buffer;
+    writeLog("system.log", prefixed);
 }
 
 bool Logger::hasSpace(size_t bytes) {
@@ -118,10 +147,17 @@ esp_err_t Logger::rotateIfNeeded(const char* filename, size_t newSize) {
 esp_err_t Logger::writeLog(const char* filename, const std::string& text) {
     if (!initialized) return ESP_ERR_INVALID_STATE;
 
+    
+    if (xSemaphoreTake(mutex, pdMS_TO_TICKS(1000)) != pdTRUE) {
+        ESP_LOGE(TAG, "Failed to acquire logger mutex");
+        return ESP_ERR_TIMEOUT;
+    }
+
     std::string line = text + "\n";
 
     if (!hasSpace(line.size())) {
         ESP_LOGE(TAG, "Insufficient space for log");
+        xSemaphoreGive(mutex);  // RELEASE before return
         return ESP_ERR_NO_MEM;
     }
 
@@ -133,11 +169,14 @@ esp_err_t Logger::writeLog(const char* filename, const std::string& text) {
     FILE* f = fopen(path, "a");
     if (!f) {
         ESP_LOGE(TAG, "Failed to open %s", path);
+        xSemaphoreGive(mutex);  // RELEASE before return
         return ESP_FAIL;
     }
 
     fwrite(line.c_str(), 1, line.size(), f);
     fclose(f);
+    xSemaphoreGive(mutex);  // RELEASE MUTEX
+
     return ESP_OK;
 }
 
@@ -163,5 +202,9 @@ void Logger::deinit() {
     if (initialized) {
         esp_vfs_littlefs_unregister("littlefs");
         initialized = false;
+    }
+    if (mutex) {
+        vSemaphoreDelete(mutex);
+        mutex = nullptr;
     }
 }

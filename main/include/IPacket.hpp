@@ -2,24 +2,13 @@
 
 #include <string>
 #include <cstdint>
+#include <sys/socket.h>
 #include "coap3/coap.h"
 #include <cbor.h>
-#include <sys/socket.h>
 #include "esp_log.h"
 #include <cstddef>
-
-/**
- * @enum CoAPResponseType
- * @brief Defines available CoAP response types
- *
- * Used to specify which network interface should be initialized
- * for data transmission.
- */
-enum class CoAPResponseType : uint8_t {
-    COAP_RESPONSE = 2,
-    COAP_RESPONSE_CLIENT_ERROR = 4,
-    COAP_RESPONSE_SERVER_ERROR = 5
-};
+#include "Types.hpp"
+#include "CoapPktAssm.hpp"
 
 /**
  * @class IPacket
@@ -29,35 +18,14 @@ enum class CoAPResponseType : uint8_t {
  * over a CoAP network. Derived classes should implement the serialization
  * method to convert packet data into a buffer.
  */
-class IPacket {
+class IPacket
+{
 protected:
-    std::string nodeId;        ///< Unique identifier for the node sending the packet
-    size_t bufferLength = 0;   ///< Length of the serialized packet buffer
-    std::string uri;           ///< URI endpoint for the CoAP packet
-
-    /// Default buffer size for packet serialization
-    static constexpr size_t BUFFER_SIZE = 1024;
-
-    /// Internal buffer to store serialized packet data
-    uint8_t buffer[BUFFER_SIZE];
-
-    /**
-     * @brief CoAP message handler callback.
-     *
-     * Handles CoAP responses for a sent message.
-     *
-     * @param session Pointer to the CoAP session.
-     * @param sent Pointer to the sent PDU.
-     * @param received Pointer to the received PDU.
-     * @param mid Message ID of the CoAP message.
-     * @return coap_response_t indicating how the response was handled.
-     */
-    static coap_response_t message_handler(
-        coap_session_t * session, 
-        const coap_pdu_t * sent, 
-        const coap_pdu_t * received, 
-        const coap_mid_t mid
-    );
+    PktType pkt_type;
+    std::string node_id;     ///< Unique identifier for the node sending the packet
+    std::string uri;         ///< URI endpoint for the CoAP packet
+    size_t bufferLength = 0; ///< Length of the serialized packet buffer
+    uint8_t buffer[GEN_BUFFER_SIZE];
 
 public:
     /**
@@ -65,7 +33,9 @@ public:
      *
      * Ensures proper cleanup of derived packet classes.
      */
-    virtual ~IPacket() = default;
+    IPacket(PktType _pkt_type, std::string _node_id, std::string _uri) : pkt_type(_pkt_type), node_id(_node_id), uri(_uri)
+    {
+    }
 
     /**
      * @brief Serializes the packet into a buffer.
@@ -75,15 +45,7 @@ public:
      *
      * @return Pointer to the serialized buffer.
      */
-    virtual const uint8_t * toBuffer() = 0;
-
-    /**
-     * @brief Sends the packet over the network.
-     *
-     * Uses the CoAP protocol to transmit the serialized packet to
-     * the URI endpoint specified in the packet.
-     */
-    void sendPacket();
+    virtual const uint8_t *toBuffer() = 0;
 
     /**
      * @brief Gets the length of the serialized packet buffer.

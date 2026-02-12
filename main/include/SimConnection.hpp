@@ -1,6 +1,21 @@
 #pragma once
 
 #include "IConnection.hpp"
+#include "ATCommandHndlr.hpp"
+#include "CoapPktAssm.hpp"
+/**
+ * @enum SimStatus
+ * @brief Represents the current status of the SIM connection.
+ */
+enum class SimStatus : uint8_t {
+    DISCONNECTED,    // Modem off / UART not init
+    INIT,            // UART init, modem ping
+    NOTREADY,        // SIM not ready (CPIN != READY)
+    REGISTERING,     // SIM ready, waiting for network
+    CONNECTED,       // Registered on network
+    ERROR            // Fatal / unrecoverable
+};
+
 
 /**
  * @class SimConnection
@@ -29,4 +44,21 @@ public:
      * @brief Disconnects from the SIM network.
      */
     void disconnect() override;
+
+    /**
+     * @brief Sends packet
+     */
+    bool sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktType pkt_type) override;
+
+private:
+    SimStatus sim_stat = SimStatus::DISCONNECTED;  // Default value
+    static constexpr size_t RETRIES = 5;
+    /**
+     * @brief Closes COAP Session
+     */
+    void closeCoAPSession();
+    void deactivatePDP();
+    void closeUDPSocket();
+
+    ATCommandHndlr hndlr;
 };

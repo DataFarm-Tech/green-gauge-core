@@ -1,5 +1,8 @@
 #pragma once
 
+#include <unistd.h>
+#include "CoapPktAssm.hpp"
+
 /**
  * @class IConnection
  * @brief Interface for network connection implementations.
@@ -42,4 +45,8 @@ public:
      * Must be implemented by derived classes.
      */
     virtual void disconnect() = 0;
+
+    virtual bool sendPacket(const uint8_t * cbor_buffer, 
+                            const size_t cbor_buffer_len, 
+                            const PktType pkt_type) = 0;
 };
