@@ -115,7 +115,7 @@ bool GPS::getCoordinates(std::string &out)
 
     // Retry GPS query up to 5 times with 5-second delays between attempts
     // GPS module may take additional time to lock satellites
-    const int max_retries = 5;
+    const int max_retries = 2;
     for (int attempt = 1; attempt <= max_retries; attempt++) {
         memset(resp, 0, sizeof(resp));
         

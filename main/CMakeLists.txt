@@ -14,6 +14,7 @@ idf_component_register(
         
         "src/net/cbor_pkt_build/ActivatePkt.cpp"
         "src/net/cbor_pkt_build/ReadingPkt.cpp"
+        "src/net/cbor_pkt_build/GpsUpdatePkt.cpp"
         "src/net/coap_pkt_build/CoapPktAssm.cpp"
         
         "src/routine/NPK.cpp"

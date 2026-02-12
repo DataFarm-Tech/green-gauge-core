@@ -5,6 +5,7 @@
 #include "ATCommandHndlr.hpp"
 #include "Logger.hpp"
 #include "CoapPktAssm.hpp"
+#include "EEPROMConfig.hpp"
 
 extern "C"
 {
@@ -16,14 +17,16 @@ bool SimConnection::connect()
 {
     g_logger.info("Starting Quectel Connection\n");
 
+    g_logger.info(g_device_config.manf_info.sim_sn.value);
+
     ATCommand_t cfun_reset = {
-    "AT+CFUN=1,1",
-    "OK",
-    5000,
-    MsgType::INIT,
-    nullptr,
-    0
-};
+        "AT+CFUN=1,1",
+        "OK",
+        5000,
+        MsgType::INIT,
+        nullptr,
+        0
+    };
 
     hndlr.send(cfun_reset);
     vTaskDelay(pdMS_TO_TICKS(8000));  // EC25 reboot time
@@ -280,7 +283,7 @@ void SimConnection::disconnect()
     g_logger.info("SIM disconnected\n");
 }
 
-bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktType pkt_type)
+bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktType pkt_type, const CoapMethod meth)
 {
     /**
      * Storing the complete COAP packet to be sent.
@@ -305,7 +308,7 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
 
     g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", cbor_buffer_len);
 
-    size_t coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, pkt_type, cbor_buffer, cbor_buffer_len);
+    size_t coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, pkt_type, cbor_buffer, cbor_buffer_len, meth);
 
     g_logger.info("CoAP packet built: %zu bytes total\n", coap_buffer_len);
 

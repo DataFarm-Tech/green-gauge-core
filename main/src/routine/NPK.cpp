@@ -117,7 +117,7 @@ uint16_t NPK::parseRegisterValue(const uint8_t *rx_buffer, size_t register_offse
 
 bool NPK::npk_collect(const MeasurementEntry &m_entry, uint16_t reading[NPK_COLLECT_SIZE])
 {
-    static_assert(NPK_COLLECT_SIZE == 5, "NPK_COLLECT_SIZE must be 5");
+    static_assert(NPK_COLLECT_SIZE == 25, "NPK_COLLECT_SIZE must be 5");
 
     uint8_t rx_buffer[RX_BUFFER_SIZE];
     size_t len = 0;

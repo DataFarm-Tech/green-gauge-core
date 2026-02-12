@@ -89,7 +89,7 @@ void WifiConnection::disconnect()
     esp_wifi_deinit();
 }
 
-bool WifiConnection::sendPacket(const uint8_t * pkt, const size_t pkt_len, PktType pkt_type) {
+bool WifiConnection::sendPacket(const uint8_t * pkt, const size_t pkt_len, PktType pkt_type, const CoapMethod meth) {
     /**
      * Build CBOR Packet with pkt from NPK readings
      * Send packet using SOCKET

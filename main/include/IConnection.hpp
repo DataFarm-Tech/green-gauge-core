@@ -48,5 +48,5 @@ public:
 
     virtual bool sendPacket(const uint8_t * cbor_buffer, 
                             const size_t cbor_buffer_len, 
-                            const PktType pkt_type) = 0;
+                            const PktType pkt_type, const CoapMethod meth) = 0;
 };

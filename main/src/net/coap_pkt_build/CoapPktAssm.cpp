@@ -6,17 +6,30 @@
 size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], 
 							PktType pkt_type, 
 							const uint8_t *buffer, 
-							const size_t buffer_len)
+							const size_t buffer_len, CoapMethod meth)
 {
 	g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", buffer_len);
 
 	size_t offset = 0;
+	uint8_t code_detail = 0;
 	
 	// CoAP Header
 	offset += setHeader(&coap_buffer[offset], COAP_VERSION, COAP_TYPE_CON, COAP_DEFAULT_TOKEN_LEN);
 	
-	// Method Code: POST (0.02)
-	offset += setCode(&coap_buffer[offset], COAP_CODE_CLASS_REQUEST, COAP_CODE_DETAIL_POST);
+	// Method Code: POST (0.02) or PUT (0.03)
+	switch (meth)
+	{
+	case CoapMethod::PUT:
+		code_detail = COAP_CODE_DETAIL_PUT;
+		break;
+	case CoapMethod::POST:
+		code_detail = COAP_CODE_DETAIL_POST;
+		break;
+	default:
+		break;
+	}
+
+	offset += setCode(&coap_buffer[offset], COAP_CODE_CLASS_REQUEST, code_detail);
 	
 	// Message ID
 	uint16_t msg_id = getNextMessageId();
@@ -161,6 +174,8 @@ std::string CoapPktAssm::getUriPath(PktType pkt_type)
 		return "activate";
 	case PktType::Reading:
 		return "reading";
+	case PktType::GpsUpdate:
+		return "gps-update";
 	default:
 		return "";
 	}

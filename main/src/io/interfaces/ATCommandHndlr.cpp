@@ -13,7 +13,7 @@ bool ATCommandHndlr::send(const ATCommand_t& atCmd) {
         return false;
     }
 
-    g_logger.info("TX: %s\n", atCmd.cmd);
+    // g_logger.info("TX: %s\n", atCmd.cmd);
     m_modem_uart.writef("%s\r\n", atCmd.cmd);
 
     // Check if this command includes a payload
@@ -49,7 +49,7 @@ bool ATCommandHndlr::sendAndCapture(const ATCommand_t& atCmd, char* out_buf, siz
         return false;
     }
 
-    g_logger.info("TX(capture): %s\n", atCmd.cmd);
+    // g_logger.info("TX(capture): %s\n", atCmd.cmd);
     m_modem_uart.writef("%s\r\n", atCmd.cmd);
 
     ResponseState state = {};
@@ -246,7 +246,7 @@ bool ATCommandHndlr::handleCompleteLine(ResponseState& state, const ATCommand_t&
         return false;
     }
 
-    g_logger.info("RX: %s\n", state.line_buffer);
+    // g_logger.info("RX: %s\n", state.line_buffer);
 
     // Check for ERROR response (both "ERROR" and "+CME ERROR")
     if (strcmp(state.line_buffer, "ERROR") == 0 || strstr(state.line_buffer, "+CME ERROR") != nullptr) {
