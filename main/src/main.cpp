@@ -291,6 +291,11 @@ void collect_reading()
             continue;  // Skip to next measurement
         }
 
+        if (!(g_device_config.session_count < UINT64_MAX)) {
+            printf("Error: session_count would overflow!\n");  // Handle overflow - can't increment anymore
+            continue;
+        }
+
         g_device_config.session_count++;
         
         ReadingPkt readingPkt(PktType::Reading, 
