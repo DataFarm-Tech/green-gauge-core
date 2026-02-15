@@ -54,6 +54,7 @@ private:
     bool readBool(const char* key, bool* dest);
     bool readU8(const char* key, uint8_t* dest);
     bool readU32(const char* key, uint32_t* dest);
+    bool readU64(const char* key, uint64_t* dest);
     bool readFloat(const char* key, float* dest);
     
     // Helper functions for writing individual values
@@ -61,6 +62,7 @@ private:
     bool writeBool(const char* key, bool value);
     bool writeU8(const char* key, uint8_t value);
     bool writeU32(const char* key, uint32_t value);
+    bool writeU64(const char* key, uint64_t value);
     bool writeFloat(const char* key, float value);
 
 public:

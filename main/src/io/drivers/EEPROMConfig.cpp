@@ -56,6 +56,10 @@ bool EEPROMConfig::readU32(const char* key, uint32_t* dest) {
     return (nvs_get_u32(handle, key, dest) == ESP_OK);
 }
 
+bool EEPROMConfig::readU64(const char* key, uint64_t* dest) {
+    return (nvs_get_u64(handle, key, dest) == ESP_OK);
+}
+
 bool EEPROMConfig::readFloat(const char* key, float* dest) {
     char str_value[16];
     if (readString(key, str_value, sizeof(str_value))) {
@@ -87,6 +91,10 @@ bool EEPROMConfig::writeU32(const char* key, uint32_t value) {
     return (nvs_set_u32(handle, key, value) == ESP_OK);
 }
 
+bool EEPROMConfig::writeU64(const char* key, uint64_t value) {
+    return (nvs_set_u64(handle, key, value) == ESP_OK);
+}
+
 bool EEPROMConfig::loadConfig(DeviceConfig& config) {
     if (handle == 0) return false;
 
@@ -109,6 +117,7 @@ bool EEPROMConfig::loadConfig(DeviceConfig& config) {
     readBool("has_activated", &config.has_activated);
 
     readU32("main_app_delay", &config.main_app_delay);
+    readU64("session_count", &config.session_count);
     
     // Load calibration data
     readFloat("cal_n_offset", &config.calib.calib_list[0].offset);
@@ -162,6 +171,7 @@ bool EEPROMConfig::saveConfig(const DeviceConfig& config) {
     // Save activation status
     writeBool("has_activated", config.has_activated);
     writeU32("main_app_delay", config.main_app_delay);
+    writeU64("session_count", config.session_count);
     
     // Save calibration data
     writeFloat("cal_n_offset", config.calib.calib_list[0].offset);
