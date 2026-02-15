@@ -21,7 +21,6 @@ typedef struct {
 
 typedef struct {
     char value[MANF_MAX_LEN];
-    // bool has_provision;
 } MANF_entry_t;
 
 typedef struct {
@@ -37,6 +36,7 @@ typedef struct {
 typedef struct {
     bool has_activated;
     uint32_t main_app_delay;
+    uint64_t session_count;
     MANF_info_t manf_info;
     NPK_Calib_t calib;
 } DeviceConfig;

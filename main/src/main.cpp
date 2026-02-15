@@ -42,6 +42,7 @@ extern "C"
 DeviceConfig g_device_config = {
     .has_activated = false,
     .main_app_delay = 30,
+    .session_count = 0,
     .manf_info = {
         .hw_ver = {.value = ""},
         .hw_var = {.value = ""},
@@ -289,12 +290,15 @@ void collect_reading()
                            static_cast<int>(m_entry.type));
             continue;  // Skip to next measurement
         }
+
+        g_device_config.session_count++;
         
         ReadingPkt readingPkt(PktType::Reading, 
                              std::string(g_device_config.manf_info.nodeId.value), 
                              std::string(DATA_URI), 
                              reading, 
-                             m_entry.type);
+                             m_entry.type,
+                            g_device_config.session_count);
 
         const uint8_t *cbor_buffer = readingPkt.toBuffer();
         const size_t cbor_buffer_len = readingPkt.getBufferLength();
@@ -311,6 +315,8 @@ void collect_reading()
         }
     }
     
+    eeprom.saveConfig(g_device_config);
+
     g_logger.info("Collection complete");
 }
 

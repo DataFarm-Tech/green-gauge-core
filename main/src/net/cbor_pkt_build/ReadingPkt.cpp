@@ -8,7 +8,7 @@ const uint8_t * ReadingPkt::toBuffer()
     cbor_encoder_init(&encoder, buffer, GEN_BUFFER_SIZE, 0);
 
     // Create root map with 3 entries: node_id, measurement_type, and readings
-    if (cbor_encoder_create_map(&encoder, &mapEncoder, 3) != CborNoError) 
+    if (cbor_encoder_create_map(&encoder, &mapEncoder, 4) != CborNoError) 
     {
         // ESP_LOGE(TAG.c_str(), "Failed to create root map");
         return nullptr;
@@ -50,6 +50,13 @@ const uint8_t * ReadingPkt::toBuffer()
         {
             return nullptr;
         }
+    }
+
+    // For signed integers (can be negative)
+    if (cbor_encode_text_stringz(&mapEncoder, "session") != CborNoError ||
+        cbor_encode_int(&mapEncoder, this->session_count) != CborNoError)  // ← Changed here
+    {
+        return nullptr;
     }
 
     // Close readings array

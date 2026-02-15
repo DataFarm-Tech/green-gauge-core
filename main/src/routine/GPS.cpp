@@ -166,7 +166,7 @@ bool GPS::getCoordinates(std::string &out)
 
         if (attempt < max_retries)
         {
-            vTaskDelay(pdMS_TO_TICKS(20000)); // 5-second delay between retries
+            vTaskDelay(pdMS_TO_TICKS(45000)); // 5-second delay between retries
         }
     }
 
