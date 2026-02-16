@@ -8,11 +8,19 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[],
 							const uint8_t *buffer, 
 							const size_t buffer_len, CoapMethod meth)
 {
-	g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", buffer_len);
-
 	size_t offset = 0;
 	uint8_t code_detail = 0;
+	uint16_t msg_id = 0;
+	std::string uri_path;
+
+	if (!buffer || buffer_len == 0)
+    {
+        g_logger.error("Invalid packet parameters\n");
+        return 0;
+    }
 	
+	g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", buffer_len);
+
 	// CoAP Header
 	offset += setHeader(&coap_buffer[offset], COAP_VERSION, COAP_TYPE_CON, COAP_DEFAULT_TOKEN_LEN);
 	
@@ -32,7 +40,7 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[],
 	offset += setCode(&coap_buffer[offset], COAP_CODE_CLASS_REQUEST, code_detail);
 	
 	// Message ID
-	uint16_t msg_id = getNextMessageId();
+	msg_id = getNextMessageId();
 	offset += setMessageId(&coap_buffer[offset], msg_id);
 	
 	// Token (4 bytes)
@@ -45,7 +53,7 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[],
 	offset += setToken(&coap_buffer[offset], token, COAP_DEFAULT_TOKEN_LEN);
 	
 	// Uri-Path option
-	std::string uri_path = getUriPath(pkt_type);
+	uri_path = getUriPath(pkt_type);
 	offset += setUriPathOption(&coap_buffer[offset], uri_path, COAP_DELTA_URI_PATH);
 	
 	// Content-Format option (CBOR)

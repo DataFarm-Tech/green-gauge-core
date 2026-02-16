@@ -295,12 +295,8 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
      * CBOR placed into COAP pkt
      */
     uint8_t coap_buffer[512];
-
-    if (!cbor_buffer || cbor_buffer_len == 0)
-    {
-        g_logger.error("Invalid packet parameters\n");
-        return false;
-    }
+    size_t coap_buffer_len = 0;
+    char send_cmd[64];
 
     if (sim_stat != SimStatus::CONNECTED)
     {
@@ -310,12 +306,15 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
 
     g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", cbor_buffer_len);
 
-    size_t coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, pkt_type, cbor_buffer, cbor_buffer_len, meth);
+    coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, pkt_type, cbor_buffer, cbor_buffer_len, meth);
 
+    if (coap_buffer_len == 0) {
+        return false;
+    }
+    
     g_logger.info("CoAP packet built: %zu bytes total\n", coap_buffer_len);
 
     // Step 4: Send CoAP packet as UDP data
-    char send_cmd[64];
     snprintf(send_cmd, sizeof(send_cmd), "AT+QISEND=0,%zu", coap_buffer_len);
 
     ATCommand_t udp_send = {

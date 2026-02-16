@@ -5,6 +5,13 @@
 #include "lwip/inet.h"
 #include "lwip/ip4_addr.h"
 #include "esp_netif_ip_addr.h"
+#include "Logger.hpp"
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <cstring>
 
 #define WIFI_SSID "NETGEAR77"
 #define WIFI_PASS "aquaticcarrot628"
@@ -89,12 +96,52 @@ void WifiConnection::disconnect()
     esp_wifi_deinit();
 }
 
-bool WifiConnection::sendPacket(const uint8_t * pkt, const size_t pkt_len, PktType pkt_type, const CoapMethod meth) {
+bool WifiConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, PktType pkt_type, const CoapMethod meth) {
     /**
      * Build CBOR Packet with pkt from NPK readings
      * Send packet using SOCKET
      */
 
-     printf("DOING");
-     return false;
+    uint8_t coap_buffer[512];
+    size_t coap_buffer_len = 0;
+    int sock_fd = -1;
+    struct sockaddr_in dest_addr;
+
+    g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", cbor_buffer_len);
+
+
+    coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, pkt_type, cbor_buffer, cbor_buffer_len, meth);
+
+
+    if (coap_buffer_len == 0) {
+        return false;
+    }
+
+    sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+    if (sock_fd < 0) {
+        g_logger.error("Failed to create socket\n");
+        return false;
+    }
+
+    memset(&dest_addr, 0, sizeof(dest_addr));
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_port = htons(5683);
+    inet_pton(AF_INET, "45.79.239.100", &dest_addr.sin_addr);
+
+
+    // --- Send the packet ---
+    int err = sendto(sock_fd, coap_buffer, coap_buffer_len, 0,
+                     (struct sockaddr*)&dest_addr, sizeof(dest_addr));
+    if (err < 0)
+    {
+        ESP_LOGE("WifiConnection", "Failed to send UDP packet: errno=%d", errno);
+        close(sock_fd);
+        return false;
+    }
+
+    ESP_LOGI("WifiConnection", "Sent %zu bytes to 45.79.239.100", coap_buffer_len);
+
+    close(sock_fd);
+
+    return false;
 }

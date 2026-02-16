@@ -356,10 +356,10 @@ void start_app(void *arg)
     // Handle activation only once
     if (g_comm->isConnected()) {
         if (!g_device_config.has_activated) {
-            handle_activation();
+            handle_activation(); //must be done before everything else
         }
         else {
-            handle_gps_update();    
+            handle_gps_update(); //can be run in paralell
         }
     }
 
