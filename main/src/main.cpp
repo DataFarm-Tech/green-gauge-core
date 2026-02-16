@@ -392,7 +392,23 @@ void start_app(void *arg)
  */
 extern "C" void app_main(void)
 {
-    // cli_init();
+    cli_init();
+
+    // try {
+    //     printf("Starting try block\n");
+
+    //     // simulate error
+    //     throw std::runtime_error("Something went wrong!");
+
+    //     printf("This won't be printed\n");
+
+    // } catch (const std::runtime_error &e) {
+    //     printf("Caught exception: %s\n", e.what());
+    // } catch (...) {
+    //     printf("Caught unknown exception\n");
+    // }
+
+    // printf("Continuing normal execution\n");
 
     reset_reason = esp_reset_reason();
     wakeup_causes = esp_sleep_get_wakeup_causes();
