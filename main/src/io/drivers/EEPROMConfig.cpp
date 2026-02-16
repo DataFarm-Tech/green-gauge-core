@@ -111,7 +111,9 @@ bool EEPROMConfig::loadConfig(DeviceConfig& config) {
     
     readString("p_code", config.manf_info.p_code.value, MANF_MAX_LEN);
     
-    readString("sim_sn", config.manf_info.sim_sn.value, MANF_MAX_LEN);
+    readString("sim_mod_sn", config.manf_info.sim_mod_sn.value, MANF_MAX_LEN);
+    
+    readString("sim_card_sn", config.manf_info.sim_card_sn.value, MANF_MAX_LEN);
     
     // Load activation status
     readBool("has_activated", &config.has_activated);
@@ -166,7 +168,8 @@ bool EEPROMConfig::saveConfig(const DeviceConfig& config) {
     
     writeString("p_code", config.manf_info.p_code.value);
 
-    writeString("sim_sn", config.manf_info.sim_sn.value);
+    writeString("sim_mod_sn", config.manf_info.sim_mod_sn.value);
+    writeString("sim_card_sn", config.manf_info.sim_card_sn.value);
     
     // Save activation status
     writeBool("has_activated", config.has_activated);

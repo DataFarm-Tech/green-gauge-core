@@ -50,7 +50,8 @@ DeviceConfig g_device_config = {
         .nodeId = {.value = ""},
         .secretkey = {.value = ""},
         .p_code = {.value = ""},
-        .sim_sn = {.value = ""}},
+        .sim_mod_sn = {.value = ""},
+        .sim_card_sn = {.value = ""}},
     .calib = {.calib_list = {{.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Nitrogen}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Phosphorus}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Potassium}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Moisture}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::PH}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Temperature}}, .last_cal_ts = 0}};
 
 uint32_t wakeup_causes = 0;

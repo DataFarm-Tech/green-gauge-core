@@ -30,7 +30,8 @@ typedef struct {
     MANF_entry_t nodeId;
     MANF_entry_t secretkey;
     MANF_entry_t p_code;
-    MANF_entry_t sim_sn;
+    MANF_entry_t sim_mod_sn;
+    MANF_entry_t sim_card_sn;
 } MANF_info_t;
 
 typedef struct {

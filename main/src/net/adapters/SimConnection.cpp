@@ -17,7 +17,9 @@ bool SimConnection::connect()
 {
     g_logger.info("Starting Quectel Connection\n");
 
-    g_logger.info(g_device_config.manf_info.sim_sn.value);
+    g_logger.info(g_device_config.manf_info.sim_mod_sn.value);
+
+    g_logger.info(g_device_config.manf_info.sim_card_sn.value);
 
     ATCommand_t cfun_reset = {
         "AT+CFUN=1,1",
