@@ -42,6 +42,7 @@ extern "C"
 DeviceConfig g_device_config = {
     .has_activated = false,
     .main_app_delay = 30,
+    .session_count = 0,
     .manf_info = {
         .hw_ver = {.value = ""},
         .hw_var = {.value = ""},
@@ -49,7 +50,8 @@ DeviceConfig g_device_config = {
         .nodeId = {.value = ""},
         .secretkey = {.value = ""},
         .p_code = {.value = ""},
-        .sim_sn = {.value = ""}},
+        .sim_mod_sn = {.value = ""},
+        .sim_card_sn = {.value = ""}},
     .calib = {.calib_list = {{.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Nitrogen}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Phosphorus}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Potassium}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Moisture}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::PH}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Temperature}}, .last_cal_ts = 0}};
 
 uint32_t wakeup_causes = 0;
@@ -289,12 +291,20 @@ void collect_reading()
                            static_cast<int>(m_entry.type));
             continue;  // Skip to next measurement
         }
+
+        if (!(g_device_config.session_count < UINT64_MAX)) {
+            printf("Error: session_count would overflow!\n");  // Handle overflow - can't increment anymore
+            continue;
+        }
+
+        g_device_config.session_count++;
         
         ReadingPkt readingPkt(PktType::Reading, 
                              std::string(g_device_config.manf_info.nodeId.value), 
                              std::string(DATA_URI), 
                              reading, 
-                             m_entry.type);
+                             m_entry.type,
+                            g_device_config.session_count);
 
         const uint8_t *cbor_buffer = readingPkt.toBuffer();
         const size_t cbor_buffer_len = readingPkt.getBufferLength();
@@ -311,6 +321,13 @@ void collect_reading()
         }
     }
     
+    if (eeprom.saveConfig(g_device_config)) {
+        g_logger.info("Readings complete saving new session, config saved to EEPROM");
+    }
+    else {
+        g_logger.error("Failed to save new session status to EEPROM");
+    }
+
     g_logger.info("Collection complete");
 }
 
@@ -375,7 +392,23 @@ void start_app(void *arg)
  */
 extern "C" void app_main(void)
 {
-    // cli_init();
+    cli_init();
+
+    // try {
+    //     printf("Starting try block\n");
+
+    //     // simulate error
+    //     throw std::runtime_error("Something went wrong!");
+
+    //     printf("This won't be printed\n");
+
+    // } catch (const std::runtime_error &e) {
+    //     printf("Caught exception: %s\n", e.what());
+    // } catch (...) {
+    //     printf("Caught unknown exception\n");
+    // }
+
+    // printf("Continuing normal execution\n");
 
     reset_reason = esp_reset_reason();
     wakeup_causes = esp_sleep_get_wakeup_causes();

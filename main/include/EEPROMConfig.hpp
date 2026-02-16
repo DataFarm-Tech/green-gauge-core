@@ -21,7 +21,6 @@ typedef struct {
 
 typedef struct {
     char value[MANF_MAX_LEN];
-    // bool has_provision;
 } MANF_entry_t;
 
 typedef struct {
@@ -31,12 +30,14 @@ typedef struct {
     MANF_entry_t nodeId;
     MANF_entry_t secretkey;
     MANF_entry_t p_code;
-    MANF_entry_t sim_sn;
+    MANF_entry_t sim_mod_sn;
+    MANF_entry_t sim_card_sn;
 } MANF_info_t;
 
 typedef struct {
     bool has_activated;
     uint32_t main_app_delay;
+    uint64_t session_count;
     MANF_info_t manf_info;
     NPK_Calib_t calib;
 } DeviceConfig;
@@ -54,6 +55,7 @@ private:
     bool readBool(const char* key, bool* dest);
     bool readU8(const char* key, uint8_t* dest);
     bool readU32(const char* key, uint32_t* dest);
+    bool readU64(const char* key, uint64_t* dest);
     bool readFloat(const char* key, float* dest);
     
     // Helper functions for writing individual values
@@ -61,6 +63,7 @@ private:
     bool writeBool(const char* key, bool value);
     bool writeU8(const char* key, uint8_t value);
     bool writeU32(const char* key, uint32_t value);
+    bool writeU64(const char* key, uint64_t value);
     bool writeFloat(const char* key, float value);
 
 public:
