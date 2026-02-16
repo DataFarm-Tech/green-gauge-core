@@ -321,7 +321,12 @@ void collect_reading()
         }
     }
     
-    eeprom.saveConfig(g_device_config);
+    if (eeprom.saveConfig(g_device_config)) {
+        g_logger.info("Readings complete saving new session, config saved to EEPROM");
+    }
+    else {
+        g_logger.error("Failed to save new session status to EEPROM");
+    }
 
     g_logger.info("Collection complete");
 }
