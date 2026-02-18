@@ -1,28 +1,22 @@
 idf_component_register(
     SRCS 
         "src/main.cpp"
-
         "src/io/drivers/UARTDriver.cpp"
-        # "src/io/drivers/I2CDriver.cpp"
         "src/io/drivers/EEPROMConfig.cpp"
         "src/io/interfaces/ATCommandHndlr.cpp"
-        
         "src/net/adapters/Communication.cpp"
         "src/net/adapters/EthernetConnection.cpp"
         "src/net/adapters/SimConnection.cpp"
         "src/net/adapters/WiFiConnection.cpp"
-        
         "src/net/cbor_pkt_build/ActivatePkt.cpp"
         "src/net/cbor_pkt_build/ReadingPkt.cpp"
         "src/net/cbor_pkt_build/GpsUpdatePkt.cpp"
+        "src/net/cbor_pkt_build/Key.cpp"
         "src/net/coap_pkt_build/CoapPktAssm.cpp"
-        
         "src/routine/NPK.cpp"
         "src/routine/GPS.cpp"
-
         "src/sys/OTAUpdater.cpp"
         "src/sys/Logger.cpp"
-        
         "src/other/utils.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 
@@ -51,7 +45,7 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
     -Wall
     -Wextra
     -Wshadow
-    # -Wconversion
+    -Wconversion
     -Wdouble-promotion
     -Wformat=2
     -Wformat-truncation

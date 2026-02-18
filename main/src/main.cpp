@@ -35,6 +35,7 @@ extern "C"
 #include <memory>
 #include "cli.hpp"
 #include "GpsUpdatePkt.hpp"
+#include "Key.hpp"
 
 /**
  * @brief Global device configuration stored in EEPROM.
@@ -43,6 +44,7 @@ DeviceConfig g_device_config = {
     .has_activated = false,
     .main_app_delay = 30,
     .session_count = 0,
+    .secretKey = "",
     .manf_info = {
         .hw_ver = {.value = ""},
         .hw_var = {.value = ""},
@@ -241,6 +243,8 @@ void handle_activation()
 
     g_device_config.has_activated = true;
 
+    Key::computeKey(g_device_config.secretKey, Key::HMAC_SIZE);
+
     if (eeprom.saveConfig(g_device_config))
     {
         g_logger.info("Activation complete, config saved to EEPROM");
@@ -393,22 +397,6 @@ void start_app(void *arg)
 extern "C" void app_main(void)
 {
     cli_init();
-
-    // try {
-    //     printf("Starting try block\n");
-
-    //     // simulate error
-    //     throw std::runtime_error("Something went wrong!");
-
-    //     printf("This won't be printed\n");
-
-    // } catch (const std::runtime_error &e) {
-    //     printf("Caught exception: %s\n", e.what());
-    // } catch (...) {
-    //     printf("Caught unknown exception\n");
-    // }
-
-    // printf("Continuing normal execution\n");
 
     reset_reason = esp_reset_reason();
     wakeup_causes = esp_sleep_get_wakeup_causes();

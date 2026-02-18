@@ -9,27 +9,25 @@
 #include <cstdint>
 #include <cstddef>
 #include "GPS.hpp"
+#include "Key.hpp"
 
 /**
- * @class BatteryPacket
- * @brief Represents a battery data packet that can be serialized to CBOR and sent via CoAP.
+ * @class GpsUpdatePkt
+ * @brief Represents a GPS update data packet that can be serialized to CBOR and sent via CoAP.
  *
- * The BatteryPacket class extends the IPacket interface and provides functionality for reading
- * battery data (level, health) and encoding it into CBOR format before transmission over CoAP.
+ * The GpsUpdatePkt class extends the IPacket interface and provides functionality for reading
+ * GPS coordinates and encoding them into CBOR format before transmission over CoAP.
  */
 class GpsUpdatePkt : public IPacket
 {
 private:
     std::string GPSCoord;
-    static constexpr size_t HMAC_KEY_SIZE = 32;
 
-    const uint8_t secretKey[HMAC_KEY_SIZE] = {
-        0x12, 0xA4, 0x56, 0xB7, 0x8C, 0x91, 0xDE, 0xF3,
-        0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23,
-        0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x12,
-        0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x12};
+    static constexpr const char* NODE_ID_KEY = "node_id";
+    static constexpr const char* GPS_KEY = "gps";
+    static constexpr const char* SECRET_KEY_KEY = "secretkey";
+    static constexpr const char* KEY_KEY = "key";
 
-    void computeKey(uint8_t *out_hmac) const;
 
 public:
     GpsUpdatePkt(PktType _pkt_type, std::string _node_id, std::string _uri, std::string _gps_coord)
@@ -38,11 +36,11 @@ public:
     }
 
     /**
-     * @brief Converts the current BatteryPacket data to a CBOR-encoded byte buffer.
+     * @brief Converts the current GpsUpdatePkt data to a CBOR-encoded byte buffer.
      *
      * @return Pointer to the encoded CBOR buffer, or nullptr if encoding fails.
      *
-     * This method encodes the node ID, battery level, and battery health into a CBOR payload
+     * This method encodes the node ID and GPS coordinates into a CBOR payload
      * suitable for transmission over a CoAP connection.
      */
     const uint8_t *toBuffer() override;
