@@ -385,6 +385,8 @@ void start_app(void *arg)
     collect_reading();
 
     g_logger.info("Entering deep sleep for %d seconds", g_device_config.main_app_delay);
+
+    g_logger.deinit(); // Ensure logs are flushed and filesystem is cleanly unmounted before sleep
     esp_sleep_enable_timer_wakeup(g_device_config.main_app_delay * 1000000ULL);
     vTaskDelay(pdMS_TO_TICKS(100));
     esp_deep_sleep_start();
