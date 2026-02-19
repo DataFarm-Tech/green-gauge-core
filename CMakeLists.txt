@@ -15,4 +15,4 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 
 set(COMPONENTS main esp_eth)
-project(firmware-idf)
+project(df-firmware)
