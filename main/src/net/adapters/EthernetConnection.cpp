@@ -34,7 +34,7 @@ void EthernetConnection::disconnect()
 }
 
 
-bool EthernetConnection::sendPacket(const uint8_t * pkt, const size_t pkt_len, PktType pkt_type, const CoapMethod meth) {
+bool EthernetConnection::sendPacket(const uint8_t * pkt, const size_t pkt_len, const PktEntry_t pkt_config) {
     //do thing
     printf("DOING\n");
     return false;

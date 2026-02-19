@@ -3,10 +3,12 @@
 #include <cstring>
 #include "Logger.hpp"
 
-size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], 
-							PktType pkt_type, 
-							const uint8_t *buffer, 
-							const size_t buffer_len, CoapMethod meth)
+PktEntry_t activate_entry = {PktType::Activate, CoapMethod::POST};
+PktEntry_t reading_entry = {PktType::Reading, CoapMethod::POST};
+PktEntry_t gpsupdate_entry = {PktType::GpsUpdate, CoapMethod::PUT};
+
+
+size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], const uint8_t *buffer, const size_t buffer_len, PktEntry_t pkt_config) 
 {
 	g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", buffer_len);
 
@@ -17,7 +19,7 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[],
 	offset += setHeader(&coap_buffer[offset], COAP_VERSION, COAP_TYPE_CON, COAP_DEFAULT_TOKEN_LEN);
 	
 	// Method Code: POST (0.02) or PUT (0.03)
-	switch (meth)
+	switch (pkt_config.method)
 	{
 	case CoapMethod::PUT:
 		code_detail = COAP_CODE_DETAIL_PUT;
@@ -45,7 +47,7 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[],
 	offset += setToken(&coap_buffer[offset], token, COAP_DEFAULT_TOKEN_LEN);
 	
 	// Uri-Path option
-	std::string uri_path = getUriPath(pkt_type);
+	std::string uri_path = getUriPath(pkt_config.pkt_type);
 	offset += setUriPathOption(&coap_buffer[offset], uri_path, COAP_DELTA_URI_PATH);
 	
 	// Content-Format option (CBOR)

@@ -285,7 +285,7 @@ void SimConnection::disconnect()
     g_logger.info("SIM disconnected\n");
 }
 
-bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktType pkt_type, const CoapMethod meth)
+bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktEntry_t pkt_config)
 {
     /**
      * Storing the complete COAP packet to be sent.
@@ -310,7 +310,7 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
 
     g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", cbor_buffer_len);
 
-    size_t coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, pkt_type, cbor_buffer, cbor_buffer_len, meth);
+    size_t coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, cbor_buffer, cbor_buffer_len, pkt_config);
 
     g_logger.info("CoAP packet built: %zu bytes total\n", coap_buffer_len);
 

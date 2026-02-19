@@ -36,6 +36,7 @@ extern "C"
 #include "cli.hpp"
 #include "GpsUpdatePkt.hpp"
 #include "Key.hpp"
+#include "CoapPktAssm.hpp"
 
 /**
  * @brief Global device configuration stored in EEPROM.
@@ -207,7 +208,7 @@ void handle_gps_update() {
     const uint8_t * pkt_1 = gpsupdatePkt.toBuffer();
     const size_t buffer_len = gpsupdatePkt.getBufferLength();
 
-    if (!g_comm->sendPacket(pkt_1, buffer_len, PktType::GpsUpdate, CoapMethod::PUT))
+    if (!g_comm->sendPacket(pkt_1, buffer_len, gpsupdate_entry))
     {
         g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
         return;
@@ -235,7 +236,7 @@ void handle_activation()
 
     g_logger.info("Sending activation packet for node: %s", g_device_config.manf_info.nodeId.value);
 
-    if (!g_comm->sendPacket(pkt_1, buffer_len, PktType::Activate, CoapMethod::POST))
+    if (!g_comm->sendPacket(pkt_1, buffer_len, activate_entry))
     {
         g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
         return;
@@ -313,7 +314,7 @@ void collect_reading()
         const uint8_t *cbor_buffer = readingPkt.toBuffer();
         const size_t cbor_buffer_len = readingPkt.getBufferLength();
 
-        if (g_comm->sendPacket(cbor_buffer, cbor_buffer_len, PktType::Reading, CoapMethod::POST))
+        if (g_comm->sendPacket(cbor_buffer, cbor_buffer_len, reading_entry))
         {
             g_logger.info("Sent measurement type %d successfully", 
                          static_cast<int>(m_entry.type));
