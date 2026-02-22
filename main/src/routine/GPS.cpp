@@ -119,16 +119,16 @@ bool GPS::getCoordinates(std::string &out)
                               MsgType::STATUS,
                               nullptr, 0};
 
-    g_logger.info("GPS: Enabling GNSS receiver...");
+    printf("GPS: Enabling GNSS receiver...\n");
     if (!m_hndlr.send(cmd_enable))
     {
-        g_logger.warning("GPS: Failed to enable GNSS, continuing anyway...");
+        printf("Failed to enable GPS\n");
         // Don't return - still try to query in case GPS is already on
     }
 
     // GPS Cold Start acquisition can take 30-60+ seconds depending on signal and location
     // Wait substantial time before querying for fix
-    g_logger.info("GPS: Waiting for satellite acquisition (this may take 30-60 seconds)...");
+    printf("GPS: Waiting for satellite acquisition (this may take 30-60 seconds)...\n");
     vTaskDelay(pdMS_TO_TICKS(30000)); // 30 second initial wait for satellite search
 
     char resp[256] = {0};
@@ -150,18 +150,18 @@ bool GPS::getCoordinates(std::string &out)
             std::string parsed = parseGPSLine(std::string(resp));
             if (!parsed.empty())
             {
-                g_logger.info("GPS: fix acquired on attempt %d: %s", attempt, parsed.c_str());
+                printf("GPS: fix acquired on attempt %d: %s\n", attempt, parsed.c_str());
                 out = parsed;
                 return true;
             }
             else
             {
-                g_logger.info("GPS: parse failed on attempt %d for response: %s", attempt, resp);
+                printf("GPS: parse failed on attempt %d for response: %s\n", attempt, resp);
             }
         }
         else
         {
-            g_logger.info("GPS: no response on attempt %d", attempt);
+            printf("GPS: no response on attempt %d\n", attempt);
         }
 
         if (attempt < max_retries)
@@ -170,6 +170,6 @@ bool GPS::getCoordinates(std::string &out)
         }
     }
 
-    g_logger.warning("GPS: failed to acquire fix after %d attempts (total wait: ~55 seconds)", max_retries);
+    printf("GPS: failed to acquire fix after %d attempts (total wait: ~55 seconds)\n", max_retries);
     return false;
 }

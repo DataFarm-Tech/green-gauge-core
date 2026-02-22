@@ -52,7 +52,7 @@ public:
 
 private:
     SimStatus sim_stat = SimStatus::DISCONNECTED;  // Default value
-    static constexpr size_t RETRIES = 5;
+    static constexpr size_t RETRIES = 10;
     /**
      * @brief Closes COAP Session
      */

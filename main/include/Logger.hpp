@@ -4,6 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <stdio.h>
+#include <functional>
 
 
 #define MAX_LOG_SIZE    (512 * 1024) // 512 KB per log file
@@ -20,11 +21,17 @@
  */
 class Logger {
 public:
+    static constexpr const char* PENDING_PKT_FILENAME = "unsent_readings.bin";
+
     /**
      * @brief Construct a new Logger object
      * @param basePath Base mount path for LittleFS (default: "/rootfs")
      */
     Logger(const char* basePath = "/rootfs");
+    
+    esp_err_t flushPendingPkts(std::function<bool(const uint8_t*, size_t)> send_cb);
+
+    uint8_t getPendingPktCount();
     
     /**
      * @brief Initialize the LittleFS filesystem
@@ -125,6 +132,16 @@ public:
      * @endcode
      */
     esp_err_t read(const char* filename, std::string& out);
+
+
+    /**
+     * @brief Write a binary packet to a log file
+     * @param filename Target log file
+     * @param pkt Pointer to the packet data
+     * @param pkt_len Length of the packet data
+     * @return ESP_OK on success, error code on failure
+     */
+    esp_err_t writePendingPkt(const uint8_t *pkt, size_t pkt_len, uint8_t queued_count);
     
     /**
      * @brief Unmount the LittleFS filesystem
@@ -139,13 +156,11 @@ private:
     bool initialized;      ///< True if filesystem is mounted
     SemaphoreHandle_t mutex;  // ADD THIS
 
-    /**
-     * @brief Internal method to write text to a log file
-     * @param filename Target log file
-     * @param text Text to append (newline will be added)
-     * @return ESP_OK on success, error code on failure
-     */
-    esp_err_t writeLog(const char* filename, const std::string& text);
+    esp_err_t flushPkts(const char* filename, std::function<bool(const uint8_t*, size_t)> send_cb);
+
+    uint8_t getPktCount(const char* filename);
+
+    esp_err_t writePkt(const char * filename, const uint8_t *pkt, size_t pkt_len);
     
     /**
      * @brief Rotate log file if it exceeds MAX_LOG_SIZE
