@@ -48,11 +48,11 @@ public:
     /**
      * @brief Sends packet
      */
-    bool sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktType pkt_type, const CoapMethod meth) override;
+    bool sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktEntry_t pkt_config) override;
 
 private:
     SimStatus sim_stat = SimStatus::DISCONNECTED;  // Default value
-    static constexpr size_t RETRIES = 5;
+    static constexpr size_t RETRIES = 10;
     /**
      * @brief Closes COAP Session
      */

@@ -3,60 +3,14 @@
 #include "Config.hpp"
 #include "Logger.hpp"
 #include "GPS.hpp"
+#include "EEPROMConfig.hpp"
 
-void ActivatePkt::computeKey(uint8_t *out_hmac) const
-{
-    psa_status_t status;
-    psa_key_attributes_t attributes = PSA_KEY_ATTRIBUTES_INIT;
-    psa_key_id_t key_id = 0;
-    size_t mac_length = 0;
 
-    // Initialize PSA Crypto (safe to call multiple times)
-    psa_crypto_init();
-
-    // Configure key attributes for HMAC-SHA256
-    psa_set_key_usage_flags(&attributes, PSA_KEY_USAGE_SIGN_HASH);
-    psa_set_key_algorithm(&attributes, PSA_ALG_HMAC(PSA_ALG_SHA_256));
-    psa_set_key_type(&attributes, PSA_KEY_TYPE_HMAC);
-    psa_set_key_bits(&attributes, HMAC_KEY_SIZE * 8);
-
-    // Import the secret key
-    status = psa_import_key(&attributes, secretKey, HMAC_KEY_SIZE, &key_id);
-    if (status != PSA_SUCCESS)
-    {
-        // ESP_LOGE(TAG.c_str(), "Failed to import HMAC key: %d", status);
-        psa_reset_key_attributes(&attributes);
-        return;
-    }
-
-    // Since you're not hashing any additional data (no update calls),
-    // we compute HMAC of an empty message
-    status = psa_mac_compute(
-        key_id,
-        PSA_ALG_HMAC(PSA_ALG_SHA_256),
-        NULL, // No input data (empty message)
-        0,    // Zero length
-        out_hmac,
-        32, // SHA256 produces 32 bytes
-        &mac_length);
-
-    if (status != PSA_SUCCESS)
-    {
-        // ESP_LOGE(TAG.c_str(), "Failed to compute HMAC: %d", status);
-    }
-
-    // Cleanup
-    psa_destroy_key(key_id);
-    psa_reset_key_attributes(&attributes);
-}
 
 const uint8_t * ActivatePkt::toBuffer()
 {
     CborEncoder encoder, mapEncoder;
     cbor_encoder_init(&encoder, buffer, GEN_BUFFER_SIZE, 0);
-    uint8_t hmac[HMAC_KEY_SIZE];
-    computeKey(hmac);
-
     // Root map with 3 elements: node_id, gps, key
     if (cbor_encoder_create_map(&encoder, &mapEncoder, 4) != CborNoError)
     {
@@ -64,20 +18,25 @@ const uint8_t * ActivatePkt::toBuffer()
         return nullptr;
     }
 
+    if (strlen((const char*)g_device_config.secretKey) == 0) {
+        ESP_LOGI("OK", "Secret key is empty, cannot encode ActivatePkt");
+        return nullptr;
+    }
+
     // node_id
-    cbor_encode_text_stringz(&mapEncoder, "node_id");
+    cbor_encode_text_stringz(&mapEncoder, NODE_ID_KEY);
     cbor_encode_text_stringz(&mapEncoder, node_id.c_str());
 
-    cbor_encode_text_stringz(&mapEncoder, "secretkey");
+    cbor_encode_text_stringz(&mapEncoder, SECRET_KEY_KEY);
     cbor_encode_text_stringz(&mapEncoder, secretKeyUser.c_str());
 
     // gps
-    cbor_encode_text_stringz(&mapEncoder, "gps");
+    cbor_encode_text_stringz(&mapEncoder, GPS_KEY);
     cbor_encode_text_stringz(&mapEncoder, GPSCoord.c_str());
 
     // key as raw bytes
-    cbor_encode_text_stringz(&mapEncoder, "key");
-    cbor_encode_byte_string(&mapEncoder, hmac, sizeof(hmac));
+    cbor_encode_text_stringz(&mapEncoder, KEY_KEY);
+    cbor_encode_byte_string(&mapEncoder, g_device_config.secretKey, sizeof(g_device_config.secretKey));
 
     // Close map
     cbor_encoder_close_container(&encoder, &mapEncoder);

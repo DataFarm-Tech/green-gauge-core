@@ -10,7 +10,7 @@ echo "=== Building firmware ==="
 idf.py build -D CMAKE_VERBOSE_MAKEFILE=ON -DOTA_EN=0 -DDEEP_SLEEP_EN=0 -DPROJECT_VER="$PROJECT_VER"
 
 # Path to the built firmware
-BIN_FILE="build/firmware-idf.bin"
+BIN_FILE="build/df-firmware.bin"
 RENAMED_FILE="cn1.bin"
 
 if [[ ! -f "$BIN_FILE" ]]; then

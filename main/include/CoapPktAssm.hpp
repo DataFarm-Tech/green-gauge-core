@@ -77,6 +77,7 @@
 #define COAP_OPTION_DELTA_SHIFT     4
 
 
+
 enum PktType
 {
 	Activate,
@@ -90,6 +91,10 @@ enum CoapMethod
 	PUT
 };
 
+typedef struct {
+	PktType pkt_type;
+	CoapMethod method;
+} PktEntry_t;
 class CoapPktAssm
 {
 public:
@@ -100,10 +105,7 @@ public:
 	 * @param buffer
 	 * @param buffler_len
 	 */
-	static size_t buildCoapBuffer( uint8_t coap_buffer[], 
-								   PktType pkt_type, 
-								   const uint8_t * buffer, 
-								   const size_t buffer_len, CoapMethod meth);
+	static size_t buildCoapBuffer(uint8_t coap_buffer[], const uint8_t *buffer, const size_t buffer_len, PktEntry_t pkt_config);
 	
 	/**
 	 * @brief Get the URI path string based on the packet type
@@ -201,3 +203,8 @@ private:
 	 */
 	static uint16_t getNextMessageId();
 };
+
+
+extern PktEntry_t activate_entry;
+extern PktEntry_t reading_entry;
+extern PktEntry_t gpsupdate_entry;

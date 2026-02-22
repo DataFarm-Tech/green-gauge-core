@@ -3,12 +3,14 @@
 #include <cstring>
 #include "Logger.hpp"
 
-size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], 
-							PktType pkt_type, 
-							const uint8_t *buffer, 
-							const size_t buffer_len, CoapMethod meth)
+PktEntry_t activate_entry = {PktType::Activate, CoapMethod::POST};
+PktEntry_t reading_entry = {PktType::Reading, CoapMethod::POST};
+PktEntry_t gpsupdate_entry = {PktType::GpsUpdate, CoapMethod::PUT};
+
+
+size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], const uint8_t *buffer, const size_t buffer_len, PktEntry_t pkt_config) 
 {
-	g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", buffer_len);
+	printf("Building CoAP packet from CBOR payload (%zu bytes)\n", buffer_len);
 
 	size_t offset = 0;
 	uint8_t code_detail = 0;
@@ -17,7 +19,7 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[],
 	offset += setHeader(&coap_buffer[offset], COAP_VERSION, COAP_TYPE_CON, COAP_DEFAULT_TOKEN_LEN);
 	
 	// Method Code: POST (0.02) or PUT (0.03)
-	switch (meth)
+	switch (pkt_config.method)
 	{
 	case CoapMethod::PUT:
 		code_detail = COAP_CODE_DETAIL_PUT;
@@ -45,7 +47,7 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[],
 	offset += setToken(&coap_buffer[offset], token, COAP_DEFAULT_TOKEN_LEN);
 	
 	// Uri-Path option
-	std::string uri_path = getUriPath(pkt_type);
+	std::string uri_path = getUriPath(pkt_config.pkt_type);
 	offset += setUriPathOption(&coap_buffer[offset], uri_path, COAP_DELTA_URI_PATH);
 	
 	// Content-Format option (CBOR)
@@ -57,7 +59,7 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[],
 	// CBOR payload
 	offset += setPayload(&coap_buffer[offset], buffer, buffer_len);
 	
-	g_logger.info("CoAP packet built: %zu bytes total\n", offset);
+	printf("CoAP packet built: %zu bytes total\n", offset);
 	
 	return offset;
 }
@@ -91,7 +93,7 @@ size_t CoapPktAssm::setToken(uint8_t *buffer, const uint8_t *token, uint8_t toke
 {
 	if (token_len > COAP_MAX_TOKEN_LEN)
 	{
-		g_logger.error("Token length exceeds maximum of %d bytes\n", COAP_MAX_TOKEN_LEN);
+		printf("Token length exceeds maximum of %d bytes\n", COAP_MAX_TOKEN_LEN);
 		return 0;
 	}
 	
@@ -106,7 +108,7 @@ size_t CoapPktAssm::setUriPathOption(uint8_t *buffer, const std::string &uri_pat
 	if (uri_len > COAP_OPTION_MAX_STANDARD)
 	{
 		// Extended length encoding needed
-		g_logger.warning("Uri-Path length > %d, using extended encoding\n", COAP_OPTION_MAX_STANDARD);
+		printf("Uri-Path length > %d, using extended encoding\n", COAP_OPTION_MAX_STANDARD);
 		buffer[0] = ((delta & COAP_OPTION_DELTA_MASK) << COAP_OPTION_DELTA_SHIFT) | COAP_OPTION_EXTENDED_LEN;
 		buffer[1] = static_cast<uint8_t>(uri_len - COAP_OPTION_EXTENDED_LEN);
 		memcpy(&buffer[2], uri_path.c_str(), uri_len);

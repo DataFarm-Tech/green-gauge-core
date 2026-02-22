@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstddef>
 #include "GPS.hpp"
+#include "Key.hpp"
 
 /**
  * @class BatteryPacket
@@ -22,15 +23,11 @@ class ActivatePkt : public IPacket
 private:
     std::string secretKeyUser;
     std::string GPSCoord;
-    static constexpr size_t HMAC_KEY_SIZE = 32;
-
-    const uint8_t secretKey[HMAC_KEY_SIZE] = {
-        0x12, 0xA4, 0x56, 0xB7, 0x8C, 0x91, 0xDE, 0xF3,
-        0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23,
-        0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x12,
-        0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x12};
-
-    void computeKey(uint8_t *out_hmac) const;
+    
+    static constexpr const char* NODE_ID_KEY = "node_id";
+    static constexpr const char* GPS_KEY = "gps";
+    static constexpr const char* SECRET_KEY_KEY = "secretkey";
+    static constexpr const char* KEY_KEY = "key";
 
 public:
     ActivatePkt(PktType _pkt_type, std::string _node_id, std::string _uri, std::string _secret_key, std::string _gps_coord)
