@@ -9,7 +9,7 @@ extern "C" {
 
 bool ATCommandHndlr::send(const ATCommand_t& atCmd) {
     if (!atCmd.cmd || !atCmd.expect) {
-        g_logger.error("Invalid AT command parameters\n");
+        printf("Invalid AT command parameters\n");
         return false;
     }
 
@@ -20,7 +20,7 @@ bool ATCommandHndlr::send(const ATCommand_t& atCmd) {
     if (atCmd.payload != nullptr && atCmd.payload_len > 0) {
         // Wait for '>' prompt
         if (!waitForPrompt(atCmd.timeout_ms)) {
-            g_logger.error("Timeout waiting for '>' prompt\n");
+            printf("Timeout waiting for '>' prompt after command: %s\n", atCmd.cmd);
             return false;
         }
 
@@ -38,14 +38,14 @@ bool ATCommandHndlr::send(const ATCommand_t& atCmd) {
             vTaskDelay(pdMS_TO_TICKS(1));
         }
 
-        g_logger.error("AT TIMEOUT: %s (after %dms)\n", atCmd.cmd, atCmd.timeout_ms);
+        printf("AT TIMEOUT: %s (after %dms)\n", atCmd.cmd, atCmd.timeout_ms);
         return false;
     }
 }
 
 bool ATCommandHndlr::sendAndCapture(const ATCommand_t& atCmd, char* out_buf, size_t out_len) {
     if (!atCmd.cmd || !atCmd.expect || out_buf == nullptr || out_len == 0) {
-        g_logger.error("Invalid parameters to sendAndCapture\n");
+        printf("Invalid parameters to sendAndCapture\n");
         return false;
     }
 
@@ -70,11 +70,11 @@ bool ATCommandHndlr::sendAndCapture(const ATCommand_t& atCmd, char* out_buf, siz
             }
 
             if (state.line_len > 0) {
-                g_logger.info("RX: %s\n", state.line_buffer);
+                printf("RX: %s\n", state.line_buffer);
 
                 // Check for CME or generic ERROR
                 if (strcmp(state.line_buffer, "ERROR") == 0 || strstr(state.line_buffer, "+CME ERROR") != nullptr) {
-                    g_logger.info("AT response error (capture): %s\n", state.line_buffer);
+                    printf("AT response error (capture): %s\n", state.line_buffer);
                     return false;
                 }
 
@@ -92,13 +92,13 @@ bool ATCommandHndlr::sendAndCapture(const ATCommand_t& atCmd, char* out_buf, siz
             if (state.line_len < sizeof(state.line_buffer) - 1) {
                 state.line_buffer[state.line_len++] = c;
             } else {
-                g_logger.warning("RX buffer overflow in sendAndCapture, discarding line\n");
+                printf("RX buffer overflow in sendAndCapture, discarding line\n");
                 state.line_len = 0;
             }
         }
     }
 
-    g_logger.error("AT TIMEOUT (capture): %s (after %dms)\n", atCmd.cmd, atCmd.timeout_ms);
+    printf("AT TIMEOUT (capture): %s (after %dms)\n", atCmd.cmd, atCmd.timeout_ms);
     return false;
 }
 
@@ -108,9 +108,9 @@ bool ATCommandHndlr::waitForPrompt(int timeout_ms) {
     while (xTaskGetTickCount() < deadline) {
         uint8_t c;
         if (m_modem_uart.readByte(c)) {
-            g_logger.info("Prompt char: 0x%02X\n", c);
+            printf("Prompt char: 0x%02X\n", c);
             if (c == '>') {
-                g_logger.info("Got '>' prompt\n");
+                printf("Got '>' prompt\n");
                 return true;
             }
         }
@@ -125,7 +125,7 @@ bool ATCommandHndlr::sendPayloadAndWaitResponse(const uint8_t* payload, size_t p
         m_modem_uart.writeByte(payload[i]);
     }
     
-    g_logger.info("Sent %zu bytes of payload\n", payload_len);
+    printf("Sent %zu bytes of payload\n", payload_len);
     
     // Small delay to ensure data is transmitted
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -150,11 +150,11 @@ bool ATCommandHndlr::sendPayloadAndWaitResponse(const uint8_t* payload, size_t p
             }
 
             if (state.line_len > 0) {
-                g_logger.info("RX: %s\n", state.line_buffer);
+                printf("RX: %s\n", state.line_buffer);
 
                 // Check for SEND OK (UDP/TCP socket send confirmation)
                 if (strcmp(state.line_buffer, "SEND OK") == 0) {
-                    g_logger.info("Payload sent successfully\n");
+                    printf("Payload sent successfully\n");
                     return true;
                 }
 
@@ -163,31 +163,31 @@ bool ATCommandHndlr::sendPayloadAndWaitResponse(const uint8_t* payload, size_t p
                     // Check for success response codes (65 = 2.01 Created, 69 = 2.05 Content)
                     if (strstr(state.line_buffer, ",65") != nullptr || 
                         strstr(state.line_buffer, ",69") != nullptr) {
-                        g_logger.info("CoAP server acknowledged packet\n");
+                        printf("CoAP server acknowledged packet\n");
                     }
                 }
 
                 // Check for OK (generic success)
                 if (strcmp(state.line_buffer, "OK") == 0) {
-                    g_logger.info("Payload send confirmed with OK\n");
+                    printf("Payload send confirmed with OK\n");
                     return true;
                 }
 
                 // Check for SEND FAIL
                 if (strcmp(state.line_buffer, "SEND FAIL") == 0) {
-                    g_logger.error("Payload send failed\n");
+                    printf("Payload send failed\n");
                     return false;
                 }
 
                 // Check for ERROR
                 if (strcmp(state.line_buffer, "ERROR") == 0) {
-                    g_logger.error("Payload send error\n");
+                    printf("Payload send error\n");
                     return false;
                 }
 
                 // Check for +QIURC: "closed" (connection closed)
                 if (strstr(state.line_buffer, "+QIURC: \"closed\"") != nullptr) {
-                    g_logger.warning("Socket closed during send\n");
+                    printf("Socket closed during send\n");
                     return false;
                 }
             }
@@ -198,13 +198,13 @@ bool ATCommandHndlr::sendPayloadAndWaitResponse(const uint8_t* payload, size_t p
             if (state.line_len < sizeof(state.line_buffer) - 1) {
                 state.line_buffer[state.line_len++] = c;
             } else {
-                g_logger.warning("RX buffer overflow\n");
+                printf("RX buffer overflow\n");
                 state.line_len = 0;
             }
         }
     }
 
-    g_logger.error("Timeout waiting for payload confirmation\n");
+    printf("Timeout waiting for payload confirmation\n");
     return false;
 }
 
@@ -226,7 +226,7 @@ bool ATCommandHndlr::processResponse(ResponseState& state, const ATCommand_t& at
         if (state.line_len < sizeof(state.line_buffer) - 1) {
             state.line_buffer[state.line_len++] = c;
         } else {
-            g_logger.warning("RX buffer overflow, discarding line\n");
+            printf("RX buffer overflow, discarding line\n");
             state.line_len = 0;
         }
     }
@@ -250,7 +250,7 @@ bool ATCommandHndlr::handleCompleteLine(ResponseState& state, const ATCommand_t&
 
     // Check for ERROR response (both "ERROR" and "+CME ERROR")
     if (strcmp(state.line_buffer, "ERROR") == 0 || strstr(state.line_buffer, "+CME ERROR") != nullptr) {
-        g_logger.info("AT response error: %s (command: %s)\n", state.line_buffer, atCmd.cmd);
+        printf("AT response error: %s (command: %s)\n", state.line_buffer, atCmd.cmd);
         state.success = false;
         state.line_len = 0;
         return true;  // Done processing
@@ -259,16 +259,16 @@ bool ATCommandHndlr::handleCompleteLine(ResponseState& state, const ATCommand_t&
     // Check for expected response
     if (strstr(state.line_buffer, atCmd.expect) != nullptr) {
         state.got_expected = true;
-        g_logger.info("Got expected response: %s\n", atCmd.expect);
+        printf("Got expected response: %s\n", atCmd.expect);
     }
 
     // Check for OK response
     if (strcmp(state.line_buffer, "OK") == 0) {
         if (state.got_expected || atCmd.msg_type == MsgType::SHUTDOWN) {
-            g_logger.info("AT OK: %s\n", atCmd.cmd);
+            printf("AT OK: %s\n", atCmd.cmd);
             state.success = true;
         } else {
-            g_logger.warning("AT OK without expected response: %s (expected: %s)\n", 
+            printf("AT OK without expected response: %s (expected: %s)\n", 
                            atCmd.cmd, atCmd.expect);
             state.success = false;
         }

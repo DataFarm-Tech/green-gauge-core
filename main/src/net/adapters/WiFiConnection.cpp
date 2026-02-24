@@ -5,7 +5,6 @@
 #include "lwip/inet.h"
 #include "lwip/ip4_addr.h"
 #include "esp_netif_ip_addr.h"
-#include "Logger.hpp"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -96,7 +95,7 @@ void WifiConnection::disconnect()
     esp_wifi_deinit();
 }
 
-bool WifiConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, PktType pkt_type, const CoapMethod meth) {
+bool WifiConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktEntry_t pkt_config) {
     /**
      * Build CBOR Packet with pkt from NPK readings
      * Send packet using SOCKET
@@ -107,10 +106,16 @@ bool WifiConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_b
     int sock_fd = -1;
     struct sockaddr_in dest_addr;
 
-    g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", cbor_buffer_len);
+    if (!cbor_buffer || cbor_buffer_len == 0)
+    {
+        printf("Invalid packet parameters\n");
+        return false;
+    }
+
+    printf("Building CoAP packet from CBOR payload (%zu bytes)\n", cbor_buffer_len);
 
 
-    coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, pkt_type, cbor_buffer, cbor_buffer_len, meth);
+    coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, cbor_buffer, cbor_buffer_len, pkt_config);
 
 
     if (coap_buffer_len == 0) {
@@ -119,7 +124,7 @@ bool WifiConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_b
 
     sock_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
     if (sock_fd < 0) {
-        g_logger.error("Failed to create socket\n");
+        printf("Failed to create socket\n");
         return false;
     }
 
@@ -134,14 +139,14 @@ bool WifiConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_b
                      (struct sockaddr*)&dest_addr, sizeof(dest_addr));
     if (err < 0)
     {
-        ESP_LOGE("WifiConnection", "Failed to send UDP packet: errno=%d", errno);
+        printf("Failed to send UDP packet: errno=%d\n", errno);
         close(sock_fd);
         return false;
     }
 
-    ESP_LOGI("WifiConnection", "Sent %zu bytes to 45.79.239.100", coap_buffer_len);
+    printf("Sent %zu bytes to 45.79.239.100\n", coap_buffer_len);
 
     close(sock_fd);
 
-    return false;
+    return true;
 }
