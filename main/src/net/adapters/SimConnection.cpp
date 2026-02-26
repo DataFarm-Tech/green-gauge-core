@@ -6,6 +6,7 @@
 #include "Logger.hpp"
 #include "CoapPktAssm.hpp"
 #include "EEPROMConfig.hpp"
+#include <cstdio>
 
 extern "C"
 {
@@ -61,14 +62,12 @@ bool SimConnection::connect()
                 init_success = false;
                 break;
             }
-            // ADD: Small delay between INIT commands
             vTaskDelay(pdMS_TO_TICKS(100));
         }
 
         if (init_success)
         {
             retry_counter = 0;
-            // ADD: Allow modem to settle after INIT before checking status
             printf("INIT complete, waiting for modem to settle...\n");
             vTaskDelay(pdMS_TO_TICKS(3000)); // 3 second settling time
             sim_stat = SimStatus::NOTREADY;
@@ -89,55 +88,80 @@ bool SimConnection::connect()
     break;
 
         case SimStatus::NOTREADY:
-    printf("NOTREADY SIM STAT\n");
-    {
-        bool status_ok = false;
-        for (auto &cmd : hndlr.at_command_table)
+        printf("NOTREADY SIM STAT\n");
         {
-            if (cmd.msg_type != MsgType::STATUS)
-                continue;
-            if (hndlr.send(cmd))
+            bool status_ok = false;
+            for (auto &cmd : hndlr.at_command_table)
             {
-                status_ok = true;
-                break;
+                if (cmd.msg_type != MsgType::STATUS)
+                    continue;
+                if (hndlr.send(cmd))
+                {
+                    status_ok = true;
+                    break;
+                }
             }
-        }
 
-        if (status_ok)
-        {
-            retry_counter = 0;
-            sim_stat = SimStatus::REGISTERING;
-        }
-        else
-        {
-            retry_counter++;
-            if (retry_counter >= RETRIES)
+            if (status_ok)
             {
-                sim_stat = SimStatus::ERROR;
+                retry_counter = 0;
+                sim_stat = SimStatus::REGISTERING;
             }
             else
             {
-                // Increase delay for STATUS retries (SIM might still be initializing)
-                printf("STATUS check failed, retry %d/%d\n", retry_counter, RETRIES);
-                vTaskDelay(pdMS_TO_TICKS(5000)); // Increased from 2000
+                retry_counter++;
+                if (retry_counter >= RETRIES)
+                {
+                    sim_stat = SimStatus::ERROR;
+                }
+                else
+                {
+                    // Increase delay for STATUS retries (SIM might still be initializing)
+                    printf("STATUS check failed, retry %d/%d\n", retry_counter, RETRIES);
+                    vTaskDelay(pdMS_TO_TICKS(5000)); // Increased from 2000
+                }
             }
         }
-    }
     break;
 
         case SimStatus::REGISTERING:
             printf("REGISTERING SIM STAT\n");
             {
                 bool registered = false;
-                for (auto &cmd : hndlr.at_command_table)
+
+                ATCommand_t cereg_cmd = {
+                    "AT+CEREG?",
+                    "+CEREG:",
+                    3000,
+                    MsgType::NETREG,
+                    nullptr,
+                    0};
+
+                char cereg_resp[128] = {0};
+                if (hndlr.sendAndCapture(cereg_cmd, cereg_resp, sizeof(cereg_resp)))
                 {
-                    if (cmd.msg_type != MsgType::NETREG)
-                        continue;
-                    if (hndlr.send(cmd))
+                    int n = -1;
+                    int stat = -1;
+
+                    if (sscanf(cereg_resp, "+CEREG: %d,%d", &n, &stat) == 2)
                     {
-                        registered = true;
-                        break;
+                        if (stat == 1 || stat == 5)
+                        {
+                            registered = true;
+                        }
+                        else
+                        {
+                            printf("CEREG not registered yet (stat=%d)\n", stat);
+                        }
                     }
+                    else
+                    {
+                        printf("Unable to parse CEREG response: %s\n", cereg_resp);
+                    }
+                }
+                else
+                {
+                    printf("Failed to query CEREG state\n");
                 }
 
                 if (registered)
@@ -151,13 +175,14 @@ bool SimConnection::connect()
                 else
                 {
                     retry_counter++;
-                    if (retry_counter >= RETRIES)
+                    constexpr uint8_t REG_RETRIES = 20;
+                    if (retry_counter >= REG_RETRIES)
                     {
                         sim_stat = SimStatus::ERROR;
                     }
                     else
                     {
-                        vTaskDelay(pdMS_TO_TICKS(2000));
+                        vTaskDelay(pdMS_TO_TICKS(3000));
                     }
                 }
             }
@@ -190,7 +215,7 @@ bool SimConnection::connect()
         return false;
     }
 
-    // Step 2: Activate PDP context
+    // Step 2: Activate PDP context (can fail transiently right after registration)
     ATCommand_t activate_pdp = {
         "AT+QIACT=1",
         "OK",
@@ -199,9 +224,25 @@ bool SimConnection::connect()
         nullptr,
         0};
 
-    if (!hndlr.send(activate_pdp))
+    bool pdp_active = false;
+    for (int attempt = 1; attempt <= 3; ++attempt)
     {
-        printf("Failed to activate PDP context\n");
+        if (hndlr.send(activate_pdp))
+        {
+            pdp_active = true;
+            break;
+        }
+
+        printf("PDP activate failed (attempt %d/3)\n", attempt);
+
+        // Reset context and retry after a short backoff.
+        deactivatePDP();
+        vTaskDelay(pdMS_TO_TICKS(3000));
+    }
+
+    if (!pdp_active)
+    {
+        printf("Failed to activate PDP context after retries\n");
         return false;
     }
 
@@ -233,13 +274,33 @@ bool SimConnection::isConnected()
     if (sim_stat != SimStatus::CONNECTED)
         return false;
 
+    bool ran_hard_status_check = false;
     for (auto &cmd : hndlr.at_command_table)
     {
         if (cmd.msg_type != MsgType::STATUS)
             continue;
-        return hndlr.send(cmd);  // remove the sim_stat = ERROR side effect
+
+        const bool is_ping_check = (cmd.cmd != nullptr) && (strstr(cmd.cmd, "AT+QPING") != nullptr);
+
+        if (!hndlr.send(cmd))
+        {
+            if (is_ping_check)
+            {
+                // ICMP may be blocked by carrier/APN; do not mark link down solely on ping failure.
+                printf("STATUS warning: ping check failed, keeping session as connected\n");
+                continue;
+            }
+
+            return false;
+        }
+
+        if (!is_ping_check)
+        {
+            ran_hard_status_check = true;
+        }
     }
-    return false;
+
+    return ran_hard_status_check;
 }
 
 void SimConnection::disconnect()
@@ -283,7 +344,7 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
      * ReadingArray -> CBOR data
      * CBOR placed into COAP pkt
      */
-    uint8_t coap_buffer[512];
+    uint8_t coap_buffer[GEN_BUFFER_SIZE + 64];
     size_t coap_buffer_len = 0;
     char send_cmd[64];
 
@@ -293,13 +354,20 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
         return false;
     }
 
-    if (sim_stat != SimStatus::CONNECTED)
+    auto ensure_connected = [this]() -> bool {
+        if (sim_stat == SimStatus::CONNECTED) {
+            return true;
+        }
+
+        printf("SIM not connected, attempting reconnect before send\n");
+        return connect();
+    };
+
+    if (!ensure_connected())
     {
-        printf("Cannot send packet: not connected\n");
+        printf("Cannot send packet: reconnect failed\n");
         return false;
     }
-
-    printf("Building CoAP packet from CBOR payload (%zu bytes)\n", cbor_buffer_len);
 
     coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, cbor_buffer, cbor_buffer_len, pkt_config);
 
@@ -308,25 +376,37 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
     }
     
 
-    printf("CoAP packet built: %zu bytes total\n", coap_buffer_len);
+    auto send_udp_packet = [&]() -> bool {
+        snprintf(send_cmd, sizeof(send_cmd), "AT+QISEND=0,%zu", coap_buffer_len);
 
-    // Step 4: Send CoAP packet as UDP data
-    snprintf(send_cmd, sizeof(send_cmd), "AT+QISEND=0,%zu", coap_buffer_len);
+        ATCommand_t udp_send = {
+            send_cmd,
+            ">",
+            5000,
+            MsgType::DATA,
+            coap_buffer,
+            coap_buffer_len};
 
-    ATCommand_t udp_send = {
-        send_cmd,
-        ">",
-        5000,
-        MsgType::DATA,
-        coap_buffer,
-        coap_buffer_len};
+        return hndlr.send(udp_send);
+    };
 
-    if (!hndlr.send(udp_send))
+    if (!send_udp_packet())
     {
-        printf("Failed to send UDP packet\n");
-        closeUDPSocket();
-        deactivatePDP();
-        return false;
+        printf("Failed to send UDP packet, resetting SIM data link\n");
+        disconnect();
+
+        if (!ensure_connected())
+        {
+            printf("SIM reconnect failed after send failure\n");
+            return false;
+        }
+
+        if (!send_udp_packet())
+        {
+            printf("Failed to send UDP packet after reconnect\n");
+            disconnect();
+            return false;
+        }
     }
 
     // Wait for SEND OK
@@ -351,12 +431,6 @@ void SimConnection::closeUDPSocket()
     {
         printf("Failed to close UDP socket\n");
     }
-}
-
-void SimConnection::closeCoAPSession()
-{
-    // Keep for compatibility, but use closeUDPSocket instead
-    closeUDPSocket();
 }
 
 void SimConnection::deactivatePDP()

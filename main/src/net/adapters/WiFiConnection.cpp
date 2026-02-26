@@ -112,9 +112,6 @@ bool WifiConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_b
         return false;
     }
 
-    printf("Building CoAP packet from CBOR payload (%zu bytes)\n", cbor_buffer_len);
-
-
     coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, cbor_buffer, cbor_buffer_len, pkt_config);
 
 

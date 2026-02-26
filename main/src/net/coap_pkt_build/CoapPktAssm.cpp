@@ -10,8 +10,6 @@ PktEntry_t gpsupdate_entry = {PktType::GpsUpdate, CoapMethod::PUT};
 
 size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], const uint8_t *buffer, const size_t buffer_len, PktEntry_t pkt_config) 
 {
-	printf("Building CoAP packet from CBOR payload (%zu bytes)\n", buffer_len);
-
 	size_t offset = 0;
 	uint8_t code_detail = 0;
 	uint16_t msg_id = 0;
@@ -68,8 +66,6 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], const uint8_t *buffer
 	
 	// CBOR payload
 	offset += setPayload(&coap_buffer[offset], buffer, buffer_len);
-	
-	printf("CoAP packet built: %zu bytes total\n", offset);
 	
 	return offset;
 }
