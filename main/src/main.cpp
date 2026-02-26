@@ -183,10 +183,10 @@ std::string read_gps()
 {
     std::string parsed;
 
-    // GPS Cold Start (first fix) can take 30-60 seconds. Allow adequate time for acquisition.
-    // Initial 15s delay gives modem time to begin satellite search after AT+QGPS=1 command
+    // GPS Cold Start (first fix) can take 30-60 seconds. Keep this short to avoid blocking
+    // the main cycle too long; retry logic in GPS handler still handles slower acquisitions.
     printf("Waiting for GPS fix (Cold Start may take 30-60 seconds)...\n");
-    vTaskDelay(pdMS_TO_TICKS(15000));
+    vTaskDelay(pdMS_TO_TICKS(5000));
 
     if (m_gps.getCoordinates(parsed))
     {
@@ -208,6 +208,12 @@ void handle_gps_update() {
 
     const uint8_t * pkt_1 = gpsupdatePkt.toBuffer();
     const size_t buffer_len = gpsupdatePkt.getBufferLength();
+
+    if (!pkt_1 || buffer_len == 0)
+    {
+        printf("Failed to build GPS update packet for node: %s\n", g_device_config.manf_info.nodeId.value);
+        return;
+    }
 
     if (!g_comm->sendPacket(pkt_1, buffer_len, gpsupdate_entry))
     {
@@ -239,6 +245,12 @@ void handle_activation()
 
     printf("Sending activation packet for node: %s\n", g_device_config.manf_info.nodeId.value);
 
+
+    if (!pkt_1 || buffer_len == 0)
+    {
+        printf("Failed to build activation packet for node: %s\n", g_device_config.manf_info.nodeId.value);
+        return;
+    }
 
     if (!g_comm->sendPacket(pkt_1, buffer_len, activate_entry))
     {
@@ -307,7 +319,7 @@ void collect_reading()
 
     for (const NPK::MeasurementEntry &m_entry : NPK::MEASUREMENT_TABLE)
     {
-        memset(reading, 0, NPK_COLLECT_SIZE);
+        memset(reading, 0, sizeof(reading));
 
         if (!NPK::npk_collect(m_entry, reading))
         {
@@ -331,6 +343,12 @@ void collect_reading()
 
         const uint8_t *cbor_buffer = readingPkt.toBuffer();
         const size_t cbor_buffer_len = readingPkt.getBufferLength();
+
+        if (!cbor_buffer || cbor_buffer_len == 0)
+        {
+            printf("Failed to build measurement packet type %d\n", static_cast<int>(m_entry.type));
+            continue;
+        }
 
         if (g_comm->sendPacket(cbor_buffer, cbor_buffer_len, reading_entry))
         {
@@ -402,12 +420,18 @@ void start_app(void *arg)
     }
 #endif
 
-    if (g_comm->isConnected())
+    const bool connected_for_collection = g_comm->isConnected();
+    if (connected_for_collection)
     {
+        printf("Connection check passed, starting collect_reading()\n");
         collect_reading();
         // g_logger.flushPendingPkts([](const uint8_t* data, size_t len) -> bool {
         //     return g_comm->sendPacket(data, len, reading_entry);
         // });
+    }
+    else
+    {
+        printf("Connection check failed before collect_reading(), skipping collection this cycle\n");
     }
 
     // // Flush any previously queued packets before collecting new ones

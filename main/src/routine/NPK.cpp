@@ -15,8 +15,6 @@ NPK::NPK()
 
 void NPK::sendModbusRequest(const uint8_t *packet, size_t packet_size)
 {
-    // uart_flush(UART_NUM_2); // Flush any existing data
-
     for (size_t i = 0; i < packet_size; i++)
     {
         rs485_uart.writeByte(packet[i]);
@@ -26,7 +24,6 @@ void NPK::sendModbusRequest(const uint8_t *packet, size_t packet_size)
 
 size_t NPK::readModbusResponse(uint8_t *rx_buffer, size_t buffer_size, uint32_t timeout_ms)
 {
-    // buffer_size = 7;
     size_t len = 0;
     uint32_t start_time = xTaskGetTickCount();
     uint32_t timeout_ticks = pdMS_TO_TICKS(timeout_ms);
