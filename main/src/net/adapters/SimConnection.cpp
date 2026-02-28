@@ -37,6 +37,8 @@ bool SimConnection::connect()
     
 
     uint8_t retry_counter = 0;
+        uint8_t retry_limit = static_cast<uint8_t>(RETRIES);
+        const char *retry_phase = "initialization";
 
     while (sim_stat != SimStatus::CONNECTED)
     {
@@ -52,6 +54,8 @@ bool SimConnection::connect()
         case SimStatus::INIT:
     printf("INIT SIM STAT\n");
     {
+        retry_limit = static_cast<uint8_t>(RETRIES);
+        retry_phase = "modem initialization";
         bool init_success = true;
         for (auto &cmd : hndlr.at_command_table)
         {
@@ -75,7 +79,7 @@ bool SimConnection::connect()
         else
         {
             retry_counter++;
-            if (retry_counter >= RETRIES)
+            if (retry_counter >= retry_limit)
             {
                 sim_stat = SimStatus::ERROR;
             }
@@ -90,6 +94,8 @@ bool SimConnection::connect()
         case SimStatus::NOTREADY:
         printf("NOTREADY SIM STAT\n");
         {
+            retry_limit = static_cast<uint8_t>(RETRIES);
+            retry_phase = "SIM ready check";
             bool status_ok = false;
             for (auto &cmd : hndlr.at_command_table)
             {
@@ -110,14 +116,14 @@ bool SimConnection::connect()
             else
             {
                 retry_counter++;
-                if (retry_counter >= RETRIES)
+                if (retry_counter >= retry_limit)
                 {
                     sim_stat = SimStatus::ERROR;
                 }
                 else
                 {
                     // Increase delay for STATUS retries (SIM might still be initializing)
-                    printf("STATUS check failed, retry %d/%d\n", retry_counter, RETRIES);
+                    printf("STATUS check failed, retry %d/%d\n", retry_counter, retry_limit);
                     vTaskDelay(pdMS_TO_TICKS(5000)); // Increased from 2000
                 }
             }
@@ -127,6 +133,8 @@ bool SimConnection::connect()
         case SimStatus::REGISTERING:
             printf("REGISTERING SIM STAT\n");
             {
+                retry_limit = static_cast<uint8_t>(REG_RETRIES);
+                retry_phase = "network registration";
                 bool registered = false;
 
                 ATCommand_t cereg_cmd = {
@@ -175,13 +183,13 @@ bool SimConnection::connect()
                 else
                 {
                     retry_counter++;
-                    constexpr uint8_t REG_RETRIES = 20;
-                    if (retry_counter >= REG_RETRIES)
+                    if (retry_counter >= retry_limit)
                     {
                         sim_stat = SimStatus::ERROR;
                     }
                     else
                     {
+                        printf("CEREG not ready, retry %d/%d\n", retry_counter, retry_limit);
                         vTaskDelay(pdMS_TO_TICKS(3000));
                     }
                 }
@@ -190,7 +198,7 @@ bool SimConnection::connect()
 
         case SimStatus::ERROR:
             printf("ERROR SIM STAT - Max retries exceeded\n");
-            printf("Failed to connect to network after %d retries\n", RETRIES);
+            printf("Failed during %s after %d/%d retries\n", retry_phase, retry_counter, retry_limit);
             return false;
 
         case SimStatus::CONNECTED:
@@ -215,7 +223,22 @@ bool SimConnection::connect()
         return false;
     }
 
-    // Step 2: Activate PDP context (can fail transiently right after registration)
+    // Step 2: Enable multi-socket mode so CoAP (UDP) and telnet (TCP) can coexist.
+    ATCommand_t enable_multi_socket = {
+        "AT+QIMUX=1",
+        "OK",
+        3000,
+        MsgType::DATA,
+        nullptr,
+        0};
+
+    if (!hndlr.send(enable_multi_socket))
+    {
+        printf("Failed to enable multi-socket mode (QIMUX=1)\n");
+        return false;
+    }
+
+    // Step 3: Activate PDP context (can fail transiently right after registration)
     ATCommand_t activate_pdp = {
         "AT+QIACT=1",
         "OK",
@@ -246,9 +269,30 @@ bool SimConnection::connect()
         return false;
     }
 
+    // After PDP activation success
+vTaskDelay(pdMS_TO_TICKS(4000));   // REQUIRED for EC25 stability
+
+ATCommand_t check_ip = {
+    "AT+QIACT?",
+    "+QIACT:",
+    3000,
+    MsgType::DATA,
+    nullptr,
+    0
+};
+
+if (!hndlr.send(check_ip)) {
+    printf("PDP context not fully active\n");
+    return false;
+}
+
+vTaskDelay(pdMS_TO_TICKS(5000));   // REQUIRED for EC25 stability
+
+
+
     // Step 3: Open UDP socket for CoAP
     ATCommand_t open_socket = {
-        "AT+QIOPEN=1,0,\"UDP\",\"45.79.239.100\",5683,0,0",
+        "AT+QIOPEN=1,0,\"UDP\",\"45.79.118.187\",5683,0,0",
         "OK",
         5000,
         MsgType::DATA,
@@ -261,10 +305,6 @@ bool SimConnection::connect()
         deactivatePDP();
         return false;
     }
-
-    // Wait for QIOPEN URC
-    vTaskDelay(pdMS_TO_TICKS(2000));
-
 
     return true;
 }
@@ -306,6 +346,8 @@ bool SimConnection::isConnected()
 void SimConnection::disconnect()
 {
     printf("Disconnecting SIM connection\n");
+
+    telnet_session.stop();
 
     // Close UDP socket first
     closeUDPSocket();
@@ -415,6 +457,21 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
     printf("CoAP packet sent successfully via UDP\n");
 
     return true;
+}
+
+bool SimConnection::startTelnetSession()
+{
+    if (sim_stat != SimStatus::CONNECTED)
+    {
+        return false;
+    }
+
+    if (telnet_session.isRunning())
+    {
+        return true;
+    }
+
+    return telnet_session.start(hndlr);
 }
 
 void SimConnection::closeUDPSocket()

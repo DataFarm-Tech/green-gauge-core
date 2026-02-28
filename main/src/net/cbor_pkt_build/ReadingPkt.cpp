@@ -1,27 +1,31 @@
 #include "ReadingPkt.hpp"
 #include "psa/crypto.h"
 #include "Config.hpp"
+#include "EEPROMConfig.hpp"
 
 const uint8_t * ReadingPkt::toBuffer()
 {
     CborEncoder encoder, mapEncoder, arrayEncoder;
     cbor_encoder_init(&encoder, buffer, GEN_BUFFER_SIZE, 0);
 
-    if (cbor_encoder_create_map(&encoder, &mapEncoder, 4) != CborNoError)
+    if (cbor_encoder_create_map(&encoder, &mapEncoder, 5) != CborNoError)
         return nullptr;
 
     // node_id
-    if (cbor_encode_text_stringz(&mapEncoder, "node_id") != CborNoError ||
+    if (cbor_encode_text_stringz(&mapEncoder, NODE_ID_KEY) != CborNoError ||
         cbor_encode_text_stringz(&mapEncoder, this->node_id.c_str()) != CborNoError)
         return nullptr;
 
     // m_type
-    if (cbor_encode_text_stringz(&mapEncoder, "m_type") != CborNoError ||
+    if (cbor_encode_text_stringz(&mapEncoder, M_TYPE) != CborNoError ||
         cbor_encode_text_stringz(&mapEncoder, mTypeToString()) != CborNoError)
         return nullptr;
 
+    cbor_encode_text_stringz(&mapEncoder, KEY_KEY);
+    cbor_encode_byte_string(&mapEncoder, g_device_config.secretKey, sizeof(g_device_config.secretKey));
+
     // readings array
-    if (cbor_encode_text_stringz(&mapEncoder, "readings") != CborNoError)
+    if (cbor_encode_text_stringz(&mapEncoder, READINGS_ARR) != CborNoError)
         return nullptr;
 
     if (cbor_encoder_create_array(&mapEncoder, &arrayEncoder, NPK_COLLECT_SIZE) != CborNoError)
@@ -38,7 +42,7 @@ const uint8_t * ReadingPkt::toBuffer()
         return nullptr;
 
     // session
-    if (cbor_encode_text_stringz(&mapEncoder, "session") != CborNoError ||
+    if (cbor_encode_text_stringz(&mapEncoder, SESSION) != CborNoError ||
         cbor_encode_int(&mapEncoder, this->session_count) != CborNoError)
         return nullptr;
 

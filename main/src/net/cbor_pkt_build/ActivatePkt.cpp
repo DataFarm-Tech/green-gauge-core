@@ -12,7 +12,7 @@ const uint8_t * ActivatePkt::toBuffer()
     CborEncoder encoder, mapEncoder;
     cbor_encoder_init(&encoder, buffer, GEN_BUFFER_SIZE, 0);
     // Root map with 3 elements: node_id, gps, key
-    if (cbor_encoder_create_map(&encoder, &mapEncoder, 4) != CborNoError)
+    if (cbor_encoder_create_map(&encoder, &mapEncoder, 5) != CborNoError)
     {
         ESP_LOGI("OK", "Failed to create root map");
         return nullptr;
@@ -37,6 +37,9 @@ const uint8_t * ActivatePkt::toBuffer()
     // key as raw bytes
     cbor_encode_text_stringz(&mapEncoder, KEY_KEY);
     cbor_encode_byte_string(&mapEncoder, g_device_config.secretKey, sizeof(g_device_config.secretKey));
+
+    cbor_encode_text_stringz(&mapEncoder, FW_VER_KEY);
+    cbor_encode_text_stringz(&mapEncoder, g_device_config.manf_info.fw_ver.value);
 
     // Close map
     cbor_encoder_close_container(&encoder, &mapEncoder);

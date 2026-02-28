@@ -3,6 +3,7 @@
 #include "IConnection.hpp"
 #include "ATCommandHndlr.hpp"
 #include "CoapPktAssm.hpp"
+#include "TelnetSession.hpp"
 /**
  * @enum SimStatus
  * @brief Represents the current status of the SIM connection.
@@ -50,9 +51,12 @@ public:
      */
     bool sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktEntry_t pkt_config) override;
 
+    bool startTelnetSession() override;
+
 private:
     SimStatus sim_stat = SimStatus::DISCONNECTED;  // Default value
     static constexpr size_t RETRIES = 10;
+    static constexpr size_t REG_RETRIES = 60;
     /**
      * @brief Closes COAP Session
      */
@@ -60,4 +64,5 @@ private:
     void closeUDPSocket();
 
     ATCommandHndlr hndlr;
+    TelnetSession telnet_session;
 };

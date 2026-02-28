@@ -128,7 +128,7 @@ bool WifiConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_b
     memset(&dest_addr, 0, sizeof(dest_addr));
     dest_addr.sin_family = AF_INET;
     dest_addr.sin_port = htons(5683);
-    inet_pton(AF_INET, "45.79.239.100", &dest_addr.sin_addr);
+    inet_pton(AF_INET, "45.79.118.187", &dest_addr.sin_addr);
 
 
     // --- Send the packet ---
@@ -141,7 +141,7 @@ bool WifiConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_b
         return false;
     }
 
-    printf("Sent %zu bytes to 45.79.239.100\n", coap_buffer_len);
+    printf("Sent %zu bytes to 45.79.118.187\n", coap_buffer_len);
 
     close(sock_fd);
 

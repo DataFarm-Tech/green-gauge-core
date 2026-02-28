@@ -25,7 +25,6 @@ extern "C"
 #include "EEPROMConfig.hpp"
 #include "UARTDriver.hpp"
 // #include "CLI.hpp"
-#include "cli.hpp"
 #include "OTAUpdater.hpp"
 #include "Logger.hpp"
 #include "NPK.hpp"
@@ -33,7 +32,6 @@ extern "C"
 #include "ActivatePkt.hpp"
 #include "ReadingPkt.hpp"
 #include <memory>
-#include "cli.hpp"
 #include "GpsUpdatePkt.hpp"
 #include "Key.hpp"
 #include "CoapPktAssm.hpp"
@@ -186,7 +184,7 @@ std::string read_gps()
     // GPS Cold Start (first fix) can take 30-60 seconds. Keep this short to avoid blocking
     // the main cycle too long; retry logic in GPS handler still handles slower acquisitions.
     printf("Waiting for GPS fix (Cold Start may take 30-60 seconds)...\n");
-    vTaskDelay(pdMS_TO_TICKS(5000));
+    vTaskDelay(pdMS_TO_TICKS(30000));
 
     if (m_gps.getCoordinates(parsed))
     {
@@ -297,22 +295,6 @@ void checkAndPerformOTA()
 }
 #endif
 
-
-void offline_backup(const uint8_t *cbor_buffer, const size_t cbor_buffer_len) {
-    uint8_t queued = g_logger.getPendingPktCount();
-    
-    if (queued >= 20) {
-        printf("Pending packet limit reached (%d), dropping measurement type \n", queued);
-    }
-    else
-    {
-        if (g_logger.writePendingPkt(cbor_buffer, cbor_buffer_len, queued) != ESP_OK)
-        {
-            printf("Failed to queue measurement type to file\n");
-        }
-    }
-}
-
 void collect_reading()
 {
     uint16_t reading[NPK_COLLECT_SIZE];
@@ -357,7 +339,6 @@ void collect_reading()
         else
         {
             printf("Failed to send measurement type %d, queuing to file\n", static_cast<int>(m_entry.type));
-            offline_backup(cbor_buffer, cbor_buffer_len);
         }
     }
 
@@ -381,19 +362,19 @@ void collect_reading()
  */
 void start_app(void *arg)
 {
+    bool connected_for_collection = false;
+
     if (!g_comm)
     {
         printf("Communication not initialized\n");
-        vTaskDelete(nullptr);
-        return;
+        goto cleanup;
     }
 
     // Initial connection
     if (!g_comm->connect())
     {
         printf("Unable to connect to network\n");
-        vTaskDelete(nullptr);
-        return;
+        esp_restart();
     }
 
     printf("Device connected to network\n");
@@ -403,8 +384,15 @@ void start_app(void *arg)
         handle_activation();
     }
     else {
-        handle_gps_update();    
+        handle_gps_update();
     }
+
+#if TELNET_CLI_EN == 1
+    if (!g_comm->startTelnetSession())
+    {
+        printf("Warning: failed to start telnet session\n");
+    }
+#endif
 
 #if OTA_EN == 1
     // OTA check only on power-on
@@ -420,37 +408,26 @@ void start_app(void *arg)
     }
 #endif
 
-    const bool connected_for_collection = g_comm->isConnected();
+    connected_for_collection = g_comm->isConnected();
     if (connected_for_collection)
     {
         printf("Connection check passed, starting collect_reading()\n");
         collect_reading();
-        // g_logger.flushPendingPkts([](const uint8_t* data, size_t len) -> bool {
-        //     return g_comm->sendPacket(data, len, reading_entry);
-        // });
     }
     else
     {
         printf("Connection check failed before collect_reading(), skipping collection this cycle\n");
+        goto cleanup;
     }
 
-    // // Flush any previously queued packets before collecting new ones
-    // if (g_comm->isConnected()) {
-    //     g_logger.flushPendingPkts([](const uint8_t* data, size_t len) -> bool {
-    //         return g_comm->sendPacket(data, len, reading_entry);
-    //     });
-    // }
-
-    // collect_reading();
-
-    printf("Entering deep sleep for %ld seconds\n", g_device_config.main_app_delay);
-
-    g_logger.deinit(); // Ensure logs are flushed and filesystem is cleanly unmounted before sleep
-    esp_sleep_enable_timer_wakeup(g_device_config.main_app_delay * 1000000ULL);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    esp_deep_sleep_start();
-
-    vTaskDelete(nullptr);
+    
+    cleanup:
+        printf("Entering deep sleep for %ld seconds\n", g_device_config.main_app_delay);
+        g_logger.deinit(); // Ensure logs are flushed and filesystem is cleanly unmounted before sleep
+        esp_sleep_enable_timer_wakeup(g_device_config.main_app_delay * 1000000ULL);
+        vTaskDelay(pdMS_TO_TICKS(100));
+        esp_deep_sleep_start();
+        vTaskDelete(nullptr);
 }
 
 /**
@@ -458,8 +435,6 @@ void start_app(void *arg)
  */
 extern "C" void app_main(void)
 {
-    cli_init();
-
     reset_reason = esp_reset_reason();
     wakeup_causes = esp_sleep_get_wakeup_causes();
 
