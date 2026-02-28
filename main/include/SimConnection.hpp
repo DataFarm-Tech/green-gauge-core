@@ -43,25 +43,49 @@ public:
 
     /**
      * @brief Disconnects from the SIM network.
+     * Performs necessary cleanup and shutdown procedures.
      */
     void disconnect() override;
 
     /**
-     * @brief Sends packet
+     * @brief Sends a packet over the SIM connection.
+     *
+     * @param cbor_buffer Pointer to the CBOR-encoded data buffer.
+     * @param cbor_buffer_len Length of the CBOR-encoded data buffer.
+     * @param pkt_config Packet configuration.
+     * @return true if the packet was successfully sent, false otherwise.
      */
     bool sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktEntry_t pkt_config) override;
 
+    /**
+     * @brief Starts a telnet session over the SIM connection.
+     * @return true if the session was successfully started, false otherwise.
+     */
     bool startTelnetSession() override;
 
 private:
     SimStatus sim_stat = SimStatus::DISCONNECTED;  // Default value
     static constexpr size_t RETRIES = 10;
     static constexpr size_t REG_RETRIES = 60;
+    
     /**
      * @brief Closes COAP Session
      */
     void deactivatePDP();
+
+    /**
+     * @brief Closes the UDP socket used for data transmission.
+     * Sends the appropriate AT command to the modem to close the socket and releases any associated resources.
+     * This method is called during disconnect and error recovery procedures to ensure a clean shutdown of the network connection.
+     */
     void closeUDPSocket();
+    
+    /**
+     * @brief Initializes the SIM modem and establishes a data connection.
+     * Performs the necessary AT command sequence to define and activate the PDP context, check for IP assignment, and open a UDP socket for communication. This method is called during the connection process and may be retried if any step fails.
+     * @return true if initialization and connection were successful, false otherwise.
+     */
+    bool estDataSession();
 
     ATCommandHndlr hndlr;
     TelnetSession telnet_session;

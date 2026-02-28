@@ -118,9 +118,9 @@ bool load_create_config()
     if (eeprom.loadConfig(g_device_config))
     {
 
-        printf("Loaded config from NVS. Node ID: %s, Activated: %s\n",
-                      g_device_config.manf_info.nodeId.value,
-                      g_device_config.has_activated ? "Yes" : "No");
+        // printf("Loaded config from NVS. Node ID: %s, Activated: %s
+        //               g_device_config.manf_info.nodeId.value,
+        //               g_device_config.has_activated ? "Yes" : "No");
 
         return true;
     }
@@ -375,7 +375,7 @@ void start_app(void *arg)
 
     printf("Device connected to network\n");
 
-    read_gps(); // Get GPS coordinates early for activation if needed
+    read_gps();
 
     if (g_device_config.gps_coord.empty()) {
         printf("No GPS coordinates available to send in update packet\n");
@@ -416,6 +416,7 @@ void start_app(void *arg)
     {
         printf("Connection check passed, starting collect_reading()\n");
         collect_reading();
+        goto cleanup;
     }
     else
     {
@@ -424,6 +425,8 @@ void start_app(void *arg)
     }
 
     reboot:
+        printf("Reboooting\n");
+        g_logger.deinit();
         esp_restart();
 
     

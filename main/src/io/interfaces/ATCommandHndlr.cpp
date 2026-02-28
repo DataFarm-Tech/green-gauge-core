@@ -9,6 +9,42 @@ extern "C" {
 
 SemaphoreHandle_t ATCommandHndlr::s_cmd_mutex = nullptr;
 
+static void sanitizePrintable(const char* src, char* dst, size_t dst_len)
+{
+    if (dst == nullptr || dst_len == 0)
+    {
+        return;
+    }
+
+    if (src == nullptr)
+    {
+        dst[0] = '\0';
+        return;
+    }
+
+    size_t i = 0;
+    for (; src[i] != '\0' && i < (dst_len - 1); ++i)
+    {
+        const unsigned char ch = static_cast<unsigned char>(src[i]);
+        dst[i] = (ch >= 32U && ch <= 126U) ? static_cast<char>(ch) : '.';
+    }
+    dst[i] = '\0';
+}
+
+static void printSanitizedRx(const char* line)
+{
+    char sanitized[256] = {0};
+    sanitizePrintable(line, sanitized, sizeof(sanitized));
+    printf("RX: %s\n", sanitized);
+}
+
+static void printSanitizedMsg(const char* prefix, const char* line)
+{
+    char sanitized[256] = {0};
+    sanitizePrintable(line, sanitized, sizeof(sanitized));
+    printf("%s%s\n", (prefix != nullptr) ? prefix : "", sanitized);
+}
+
 bool ATCommandHndlr::ensureCmdMutex() {
     if (s_cmd_mutex != nullptr) {
         return true;
@@ -120,11 +156,11 @@ bool ATCommandHndlr::sendAndCapture(const ATCommand_t& atCmd, char* out_buf, siz
             }
 
             if (state.line_len > 0) {
-                printf("RX: %s\n", state.line_buffer);
+                printSanitizedRx(state.line_buffer);
 
                 // Check for CME or generic ERROR
                 if (strcmp(state.line_buffer, "ERROR") == 0 || strstr(state.line_buffer, "+CME ERROR") != nullptr) {
-                    printf("AT response error (capture): %s\n", state.line_buffer);
+                    printSanitizedMsg("AT response error (capture): ", state.line_buffer);
                     unlockCmd();
                     return false;
                 }
@@ -209,10 +245,10 @@ bool ATCommandHndlr::openIPSocket(const char* protocol,
             }
 
             if (line_len > 0) {
-                printf("RX: %s\n", line_buf);
+                printSanitizedRx(line_buf);
 
                 if (strcmp(line_buf, "ERROR") == 0 || strstr(line_buf, "+CME ERROR") != nullptr) {
-                    printf("AT response error while opening socket: %s\n", line_buf);
+                    printSanitizedMsg("AT response error while opening socket: ", line_buf);
                     unlockCmd();
                     return false;
                 }
@@ -435,12 +471,12 @@ bool ATCommandHndlr::waitForPrompt(int timeout_ms) {
 
                 if (line_len > 0) {
                     if (strcmp(line_buf, "ERROR") == 0 || strstr(line_buf, "+CME ERROR") != nullptr) {
-                        printf("Prompt wait failed due to modem error: %s\n", line_buf);
+                        printSanitizedMsg("Prompt wait failed due to modem error: ", line_buf);
                         return false;
                     }
 
                     if (strstr(line_buf, "+QIURC: \"closed\"") != nullptr) {
-                        printf("Prompt wait aborted: %s\n", line_buf);
+                        printSanitizedMsg("Prompt wait aborted: ", line_buf);
                         return false;
                     }
                 }
@@ -490,7 +526,7 @@ bool ATCommandHndlr::sendPayloadAndWaitResponse(const uint8_t* payload, size_t p
             }
 
             if (state.line_len > 0) {
-                printf("RX: %s\n", state.line_buffer);
+                printSanitizedRx(state.line_buffer);
 
                 // Check for SEND OK (UDP/TCP socket send confirmation)
                 if (strcmp(state.line_buffer, "SEND OK") == 0) {
@@ -590,7 +626,8 @@ bool ATCommandHndlr::handleCompleteLine(ResponseState& state, const ATCommand_t&
 
     // Check for ERROR response (both "ERROR" and "+CME ERROR")
     if (strcmp(state.line_buffer, "ERROR") == 0 || strstr(state.line_buffer, "+CME ERROR") != nullptr) {
-        printf("AT response error: %s (command: %s)\n", state.line_buffer, atCmd.cmd);
+        printSanitizedMsg("AT response error: ", state.line_buffer);
+        printf("AT response error command: %s\n", atCmd.cmd);
         state.success = false;
         state.line_len = 0;
         return true;  // Done processing
