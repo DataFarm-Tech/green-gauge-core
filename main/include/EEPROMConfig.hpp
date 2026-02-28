@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "Types.hpp"
 #include "NPK.hpp"
+#include <string>
 
 #define MANF_MAX_LEN 32
 
@@ -36,6 +37,7 @@ typedef struct {
 
 typedef struct {
     bool has_activated;
+    std::string gps_coord;
     uint32_t main_app_delay;
     uint64_t session_count;
     uint8_t secretKey[32];

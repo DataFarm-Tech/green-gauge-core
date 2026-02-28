@@ -41,6 +41,7 @@ extern "C"
  */
 DeviceConfig g_device_config = {
     .has_activated = false,
+    .gps_coord = "",
     .main_app_delay = 30,
     .session_count = 0,
     .secretKey = "",
@@ -177,32 +178,28 @@ void hw_features(void)
     net_select(hw_ver);
 }
 
-std::string read_gps()
+void read_gps()
 {
-    std::string parsed;
-
     // GPS Cold Start (first fix) can take 30-60 seconds. Keep this short to avoid blocking
     // the main cycle too long; retry logic in GPS handler still handles slower acquisitions.
     printf("Waiting for GPS fix (Cold Start may take 30-60 seconds)...\n");
     vTaskDelay(pdMS_TO_TICKS(30000));
 
-    if (m_gps.getCoordinates(parsed))
+    if (m_gps.getCoordinates(g_device_config.gps_coord))
     {
-        printf("GPS location retrieved: %s\n", parsed.c_str());
-        return parsed;
+        printf("GPS location retrieved: %s\n", g_device_config.gps_coord.c_str());
     }
     else
     {
-        std::string default_coords = "0.0,0.0"; // Define your default
-        printf("Failed to retrieve GPS location, using default coordinates: %s\n", default_coords.c_str());
-        return default_coords;
+        
+        g_device_config.gps_coord = "0.0,0.0"; // Define your default
+        printf("Failed to retrieve GPS location, using default coordinates: %s\n", g_device_config.gps_coord.c_str());
     }
 }
 
 void handle_gps_update() {
-    std::string gps = read_gps();
 
-    GpsUpdatePkt gpsupdatePkt(PktType::GpsUpdate, std::string(g_device_config.manf_info.nodeId.value), std::string(GPS_URI), gps);
+    GpsUpdatePkt gpsupdatePkt(PktType::GpsUpdate, std::string(g_device_config.manf_info.nodeId.value), std::string(GPS_URI), g_device_config.gps_coord);
 
     const uint8_t * pkt_1 = gpsupdatePkt.toBuffer();
     const size_t buffer_len = gpsupdatePkt.getBufferLength();
@@ -225,11 +222,10 @@ void handle_gps_update() {
  */
 void handle_activation()
 {
-    std::string gps = read_gps();
 
     Key::computeKey(g_device_config.secretKey, Key::HMAC_SIZE);
     ActivatePkt activatePkt(PktType::Activate, std::string(g_device_config.manf_info.nodeId.value),
-                            std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value), gps);
+                            std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value), g_device_config.gps_coord);
 
     const uint8_t *pkt_1 = activatePkt.toBuffer();
     const size_t buffer_len = activatePkt.getBufferLength();
@@ -374,10 +370,17 @@ void start_app(void *arg)
     if (!g_comm->connect())
     {
         printf("Unable to connect to network\n");
-        esp_restart();
+        goto reboot;
     }
 
     printf("Device connected to network\n");
+
+    read_gps(); // Get GPS coordinates early for activation if needed
+
+    if (g_device_config.gps_coord.empty()) {
+        printf("No GPS coordinates available to send in update packet\n");
+        goto cleanup;
+    }
 
     // Handle activation only once
     if (!g_device_config.has_activated) {
@@ -419,6 +422,9 @@ void start_app(void *arg)
         printf("Connection check failed before collect_reading(), skipping collection this cycle\n");
         goto cleanup;
     }
+
+    reboot:
+        esp_restart();
 
     
     cleanup:
