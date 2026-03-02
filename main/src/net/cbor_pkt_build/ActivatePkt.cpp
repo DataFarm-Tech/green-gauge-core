@@ -5,21 +5,20 @@
 #include "GPS.hpp"
 #include "EEPROMConfig.hpp"
 
-
+#define IS_U8_ARR_EMPTY(arr, len) (memcmp((arr), (uint8_t[len]){0}, (len)) == 0)
 
 const uint8_t * ActivatePkt::toBuffer()
 {
     CborEncoder encoder, mapEncoder;
     cbor_encoder_init(&encoder, buffer, GEN_BUFFER_SIZE, 0);
-    // Root map with 3 elements: node_id, gps, key
     if (cbor_encoder_create_map(&encoder, &mapEncoder, 5) != CborNoError)
     {
         ESP_LOGI("OK", "Failed to create root map");
         return nullptr;
     }
 
-    if (strlen((const char*)g_device_config.secretKey) == 0) {
-        ESP_LOGI("OK", "Secret key is empty, cannot encode ActivatePkt");
+    if (IS_U8_ARR_EMPTY(g_device_config.secretKey, sizeof(g_device_config.secretKey))) {
+        printf("No secret key available for activation packet\n");
         return nullptr;
     }
 
@@ -47,7 +46,6 @@ const uint8_t * ActivatePkt::toBuffer()
     bufferLength = cbor_encoder_get_buffer_size(&encoder, buffer);
     if (bufferLength > GEN_BUFFER_SIZE)
     {
-        // ESP_LOGE(TAG.c_str(), "CBOR buffer overflow: %d bytes (max %d)", (int)bufferLength, GEN_BUFFER_SIZE);
         ESP_LOGI("OK", "CBOR OVERFLOW Failed to create root map");
         return nullptr;
     }

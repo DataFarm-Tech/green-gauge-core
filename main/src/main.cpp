@@ -117,11 +117,9 @@ bool load_create_config()
 {
     if (eeprom.loadConfig(g_device_config))
     {
-
-        // printf("Loaded config from NVS. Node ID: %s, Activated: %s
-        //               g_device_config.manf_info.nodeId.value,
-        //               g_device_config.has_activated ? "Yes" : "No");
-
+        printf("Loaded config from NVS. Node ID: %s, Activated: %s", 
+            g_device_config.manf_info.nodeId.value,
+            g_device_config.has_activated ? "Yes" : "No");
         return true;
     }
 
@@ -222,8 +220,6 @@ void handle_gps_update() {
  */
 void handle_activation()
 {
-
-    Key::computeKey(g_device_config.secretKey, Key::HMAC_SIZE);
     ActivatePkt activatePkt(PktType::Activate, std::string(g_device_config.manf_info.nodeId.value),
                             std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value), g_device_config.gps_coord);
 
@@ -454,6 +450,8 @@ extern "C" void app_main(void)
     // Step 2: Load or create configuration
     if (!load_create_config())
         return;
+    
+    Key::computeKey(g_device_config.secretKey, Key::HMAC_SIZE);
 
     // Step 3: Launch provisioning + operational tasks in background
     xTaskCreate(start_app, "start_app", 8192, nullptr, 5, nullptr);
