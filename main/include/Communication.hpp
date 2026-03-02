@@ -62,6 +62,8 @@ public:
      */
     void disconnect();
 
+    bool startTelnetSession();
+
 
     bool sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktEntry_t pkt_config);
 

@@ -28,6 +28,7 @@ private:
     static constexpr const char* GPS_KEY = "gps";
     static constexpr const char* SECRET_KEY_KEY = "secretkey";
     static constexpr const char* KEY_KEY = "key";
+    static constexpr const char* FW_VER_KEY = "fw_ver";
 
 public:
     ActivatePkt(PktType _pkt_type, std::string _node_id, std::string _uri, std::string _secret_key, std::string _gps_coord)

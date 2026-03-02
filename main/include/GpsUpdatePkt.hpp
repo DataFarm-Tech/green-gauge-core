@@ -27,6 +27,7 @@ private:
     static constexpr const char* GPS_KEY = "gps";
     static constexpr const char* SECRET_KEY_KEY = "secretkey";
     static constexpr const char* KEY_KEY = "key";
+    static constexpr const char* FW_VER_KEY = "fw_ver";
 
 
 public:

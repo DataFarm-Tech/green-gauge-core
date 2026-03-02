@@ -34,6 +34,11 @@ void Communication::disconnect()
     connection->disconnect();
 }
 
+bool Communication::startTelnetSession()
+{
+    return connection->startTelnetSession();
+}
+
 bool Communication::sendPacket(const uint8_t * pkt, const size_t pkt_len, PktEntry_t pkt_config)
 {
     return connection->sendPacket(pkt, pkt_len, pkt_config);

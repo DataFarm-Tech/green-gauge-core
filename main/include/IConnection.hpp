@@ -46,6 +46,10 @@ public:
      */
     virtual void disconnect() = 0;
 
+    virtual bool startTelnetSession() {
+        return true;
+    }
+
     virtual bool sendPacket(const uint8_t * cbor_buffer, 
                             const size_t cbor_buffer_len, 
                             const PktEntry_t pkt_config) = 0;

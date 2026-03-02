@@ -7,6 +7,7 @@ idf_component_register(
         "src/net/adapters/Communication.cpp"
         "src/net/adapters/EthernetConnection.cpp"
         "src/net/adapters/SimConnection.cpp"
+        "src/net/adapters/TelnetSession.cpp"
         "src/net/adapters/WiFiConnection.cpp"
         "src/net/cbor_pkt_build/ActivatePkt.cpp"
         "src/net/cbor_pkt_build/ReadingPkt.cpp"
@@ -61,12 +62,14 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
 
 # Default values (can be overridden from command line)
 set(OTA_EN 1 CACHE STRING "Enable OTA")
+set(TELNET_CLI_EN 1 CACHE STRING "Enable Telnet CLI")
 set(DEEP_SLEEP_EN 1 CACHE STRING "Enable Deep Sleep")
 set(PROJECT_VER "unknown" CACHE STRING "Firmware version")
 
 # Apply compile definitions
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
     OTA_EN=${OTA_EN}
+    TELNET_CLI_EN=${TELNET_CLI_EN}
     DEEP_SLEEP_EN=${DEEP_SLEEP_EN}
     PROJECT_VER="${PROJECT_VER}"
 )

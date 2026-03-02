@@ -9,7 +9,7 @@ sim_card_sn,data,string,XXX
 secret_key,data,string,mySecretKey123
 p_code,data,string,CN001-SN001
 has_activated,data,u8,0
-main_app_delay,data,u32,120
+main_app_delay,data,u32,21600
 session_count,data,u64,0
 hmac_key,data,hex2bin,12A456B78C91DEF34567891ABCDEF012345678901ABCDEF012345678901ABCDEF0
 cal_n_offset,data,string,0.0

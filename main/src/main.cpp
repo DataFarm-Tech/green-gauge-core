@@ -25,7 +25,6 @@ extern "C"
 #include "EEPROMConfig.hpp"
 #include "UARTDriver.hpp"
 // #include "CLI.hpp"
-#include "cli.hpp"
 #include "OTAUpdater.hpp"
 #include "Logger.hpp"
 #include "NPK.hpp"
@@ -33,7 +32,6 @@ extern "C"
 #include "ActivatePkt.hpp"
 #include "ReadingPkt.hpp"
 #include <memory>
-#include "cli.hpp"
 #include "GpsUpdatePkt.hpp"
 #include "Key.hpp"
 #include "CoapPktAssm.hpp"
@@ -43,6 +41,7 @@ extern "C"
  */
 DeviceConfig g_device_config = {
     .has_activated = false,
+    .gps_coord = "",
     .main_app_delay = 30,
     .session_count = 0,
     .secretKey = "",
@@ -118,11 +117,9 @@ bool load_create_config()
 {
     if (eeprom.loadConfig(g_device_config))
     {
-
-        printf("Loaded config from NVS. Node ID: %s, Activated: %s\n",
-                      g_device_config.manf_info.nodeId.value,
-                      g_device_config.has_activated ? "Yes" : "No");
-
+        printf("Loaded config from NVS. Node ID: %s, Activated: %s", 
+            g_device_config.manf_info.nodeId.value,
+            g_device_config.has_activated ? "Yes" : "No");
         return true;
     }
 
@@ -179,32 +176,28 @@ void hw_features(void)
     net_select(hw_ver);
 }
 
-std::string read_gps()
+void read_gps()
 {
-    std::string parsed;
-
     // GPS Cold Start (first fix) can take 30-60 seconds. Keep this short to avoid blocking
     // the main cycle too long; retry logic in GPS handler still handles slower acquisitions.
     printf("Waiting for GPS fix (Cold Start may take 30-60 seconds)...\n");
-    vTaskDelay(pdMS_TO_TICKS(5000));
+    vTaskDelay(pdMS_TO_TICKS(30000));
 
-    if (m_gps.getCoordinates(parsed))
+    if (m_gps.getCoordinates(g_device_config.gps_coord))
     {
-        printf("GPS location retrieved: %s\n", parsed.c_str());
-        return parsed;
+        printf("GPS location retrieved: %s\n", g_device_config.gps_coord.c_str());
     }
     else
     {
-        std::string default_coords = "0.0,0.0"; // Define your default
-        printf("Failed to retrieve GPS location, using default coordinates: %s\n", default_coords.c_str());
-        return default_coords;
+        
+        g_device_config.gps_coord = "0.0,0.0"; // Define your default
+        printf("Failed to retrieve GPS location, using default coordinates: %s\n", g_device_config.gps_coord.c_str());
     }
 }
 
 void handle_gps_update() {
-    std::string gps = read_gps();
 
-    GpsUpdatePkt gpsupdatePkt(PktType::GpsUpdate, std::string(g_device_config.manf_info.nodeId.value), std::string(GPS_URI), gps);
+    GpsUpdatePkt gpsupdatePkt(PktType::GpsUpdate, std::string(g_device_config.manf_info.nodeId.value), std::string(GPS_URI), g_device_config.gps_coord);
 
     const uint8_t * pkt_1 = gpsupdatePkt.toBuffer();
     const size_t buffer_len = gpsupdatePkt.getBufferLength();
@@ -227,11 +220,8 @@ void handle_gps_update() {
  */
 void handle_activation()
 {
-    std::string gps = read_gps();
-
-    Key::computeKey(g_device_config.secretKey, Key::HMAC_SIZE);
     ActivatePkt activatePkt(PktType::Activate, std::string(g_device_config.manf_info.nodeId.value),
-                            std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value), gps);
+                            std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value), g_device_config.gps_coord);
 
     const uint8_t *pkt_1 = activatePkt.toBuffer();
     const size_t buffer_len = activatePkt.getBufferLength();
@@ -297,22 +287,6 @@ void checkAndPerformOTA()
 }
 #endif
 
-
-void offline_backup(const uint8_t *cbor_buffer, const size_t cbor_buffer_len) {
-    uint8_t queued = g_logger.getPendingPktCount();
-    
-    if (queued >= 20) {
-        printf("Pending packet limit reached (%d), dropping measurement type \n", queued);
-    }
-    else
-    {
-        if (g_logger.writePendingPkt(cbor_buffer, cbor_buffer_len, queued) != ESP_OK)
-        {
-            printf("Failed to queue measurement type to file\n");
-        }
-    }
-}
-
 void collect_reading()
 {
     uint16_t reading[NPK_COLLECT_SIZE];
@@ -357,7 +331,6 @@ void collect_reading()
         else
         {
             printf("Failed to send measurement type %d, queuing to file\n", static_cast<int>(m_entry.type));
-            offline_backup(cbor_buffer, cbor_buffer_len);
         }
     }
 
@@ -381,30 +354,44 @@ void collect_reading()
  */
 void start_app(void *arg)
 {
+    bool connected_for_collection = false;
+
     if (!g_comm)
     {
         printf("Communication not initialized\n");
-        vTaskDelete(nullptr);
-        return;
+        goto cleanup;
     }
 
     // Initial connection
     if (!g_comm->connect())
     {
         printf("Unable to connect to network\n");
-        vTaskDelete(nullptr);
-        return;
+        goto reboot;
     }
 
     printf("Device connected to network\n");
+
+    read_gps();
+
+    if (g_device_config.gps_coord.empty()) {
+        printf("No GPS coordinates available to send in update packet\n");
+        goto cleanup;
+    }
 
     // Handle activation only once
     if (!g_device_config.has_activated) {
         handle_activation();
     }
     else {
-        handle_gps_update();    
+        handle_gps_update();
     }
+
+#if TELNET_CLI_EN == 1
+    if (!g_comm->startTelnetSession())
+    {
+        printf("Warning: failed to start telnet session\n");
+    }
+#endif
 
 #if OTA_EN == 1
     // OTA check only on power-on
@@ -420,37 +407,32 @@ void start_app(void *arg)
     }
 #endif
 
-    const bool connected_for_collection = g_comm->isConnected();
+    connected_for_collection = g_comm->isConnected();
     if (connected_for_collection)
     {
         printf("Connection check passed, starting collect_reading()\n");
         collect_reading();
-        // g_logger.flushPendingPkts([](const uint8_t* data, size_t len) -> bool {
-        //     return g_comm->sendPacket(data, len, reading_entry);
-        // });
+        goto cleanup;
     }
     else
     {
         printf("Connection check failed before collect_reading(), skipping collection this cycle\n");
+        goto cleanup;
     }
 
-    // // Flush any previously queued packets before collecting new ones
-    // if (g_comm->isConnected()) {
-    //     g_logger.flushPendingPkts([](const uint8_t* data, size_t len) -> bool {
-    //         return g_comm->sendPacket(data, len, reading_entry);
-    //     });
-    // }
+    reboot:
+        printf("Reboooting\n");
+        g_logger.deinit();
+        esp_restart();
 
-    // collect_reading();
-
-    printf("Entering deep sleep for %ld seconds\n", g_device_config.main_app_delay);
-
-    g_logger.deinit(); // Ensure logs are flushed and filesystem is cleanly unmounted before sleep
-    esp_sleep_enable_timer_wakeup(g_device_config.main_app_delay * 1000000ULL);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    esp_deep_sleep_start();
-
-    vTaskDelete(nullptr);
+    
+    cleanup:
+        printf("Entering deep sleep for %ld seconds\n", g_device_config.main_app_delay);
+        g_logger.deinit(); // Ensure logs are flushed and filesystem is cleanly unmounted before sleep
+        esp_sleep_enable_timer_wakeup(g_device_config.main_app_delay * 1000000ULL);
+        vTaskDelay(pdMS_TO_TICKS(100));
+        esp_deep_sleep_start();
+        vTaskDelete(nullptr);
 }
 
 /**
@@ -458,8 +440,6 @@ void start_app(void *arg)
  */
 extern "C" void app_main(void)
 {
-    cli_init();
-
     reset_reason = esp_reset_reason();
     wakeup_causes = esp_sleep_get_wakeup_causes();
 
@@ -470,6 +450,8 @@ extern "C" void app_main(void)
     // Step 2: Load or create configuration
     if (!load_create_config())
         return;
+    
+    Key::computeKey(g_device_config.secretKey, Key::HMAC_SIZE);
 
     // Step 3: Launch provisioning + operational tasks in background
     xTaskCreate(start_app, "start_app", 8192, nullptr, 5, nullptr);
