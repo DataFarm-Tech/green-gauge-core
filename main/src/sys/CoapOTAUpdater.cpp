@@ -5,7 +5,9 @@ extern "C" {
 }
 
 #include <cstdio>
+#include <cstring>
 #include "CoapPktAssm.hpp"
+#include "EEPROMConfig.hpp"
 
 CoapOTAUpdater::CoapOTAUpdater(Communication& communication, const char* current_firmware_version)
     : comm(communication),
@@ -48,6 +50,23 @@ bool CoapOTAUpdater::isFirmwareAvailable()
 
 bool CoapOTAUpdater::executeUpdate()
 {
+    std::string firmware_version_to_store = available_version;
+    if (firmware_version_to_store.empty())
+    {
+        if (!comm.sendPacket(nullptr, 0, firmwareversion_entry, firmware_version_to_store))
+        {
+            printf("Failed to read firmware version before OTA write\n");
+            return false;
+        }
+        trimTrailingWhitespace(firmware_version_to_store);
+    }
+
+    if (firmware_version_to_store.empty())
+    {
+        printf("Firmware version to store is empty\n");
+        return false;
+    }
+
     const esp_partition_t *update_partition = esp_ota_get_next_update_partition(nullptr);
     if (!update_partition)
     {
@@ -114,6 +133,20 @@ bool CoapOTAUpdater::executeUpdate()
         printf("esp_ota_set_boot_partition failed: %s\n", esp_err_to_name(err));
         return false;
     }
+
+    std::strncpy(g_device_config.manf_info.fw_ver.value,
+                 firmware_version_to_store.c_str(),
+                 MANF_MAX_LEN - 1);
+    g_device_config.manf_info.fw_ver.value[MANF_MAX_LEN - 1] = '\0';
+
+    if (!eeprom.saveConfig(g_device_config))
+    {
+        printf("Failed to persist firmware version to EEPROM\n");
+        return false;
+    }
+
+    available_version = firmware_version_to_store;
+    current_version = firmware_version_to_store;
 
     printf("Firmware streamed and written successfully (%zu bytes)\n", total_written);
     return true;
