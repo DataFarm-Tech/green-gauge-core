@@ -24,6 +24,7 @@
 #define COAP_CODE_CLASS_SERVER_ERR  5
 
 // CoAP Code Details
+#define COAP_CODE_DETAIL_GET        1
 #define COAP_CODE_DETAIL_POST       2
 #define COAP_CODE_DETAIL_PUT        3
 #define COAP_CODE_DETAIL_CREATED    1
@@ -82,12 +83,15 @@ enum PktType
 {
 	Activate,
 	Reading,
+	FirmwareVersion,
+	FirmwareDownload,
 	GpsUpdate
 };
 
 enum CoapMethod 
 {
 	POST,
+	GET,
 	PUT
 };
 
@@ -109,8 +113,8 @@ public:
 	
 	/**
 	 * @brief Get the URI path string based on the packet type
-	 * @param pkt_type The type of the packet (Activate or Reading)
-	 * @return The corresponding URI path string (e.g., "activate" or "reading
+	 * @param pkt_type The type of the packet (Activate, Reading, FirmwareVersion, or GpsUpdate)
+	 * @return The corresponding URI path string (e.g., "activate", "reading", "firmware-version", or "gps-update")
 	 */
 	static std::string getUriPath(PktType pkt_type);
 
@@ -208,3 +212,5 @@ private:
 extern PktEntry_t activate_entry;
 extern PktEntry_t reading_entry;
 extern PktEntry_t gpsupdate_entry;
+extern PktEntry_t firmwareversion_entry;
+extern PktEntry_t firmwaredownload_entry;

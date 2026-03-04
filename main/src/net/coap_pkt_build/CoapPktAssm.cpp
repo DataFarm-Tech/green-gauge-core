@@ -3,10 +3,11 @@
 #include <cstring>
 #include "Logger.hpp"
 
+PktEntry_t firmwareversion_entry = {PktType::FirmwareVersion, CoapMethod::GET};
 PktEntry_t activate_entry = {PktType::Activate, CoapMethod::POST};
 PktEntry_t reading_entry = {PktType::Reading, CoapMethod::POST};
 PktEntry_t gpsupdate_entry = {PktType::GpsUpdate, CoapMethod::PUT};
-
+PktEntry_t firmwaredownload_entry = {PktType::FirmwareDownload, CoapMethod::GET};
 
 size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], const uint8_t *buffer, const size_t buffer_len, PktEntry_t pkt_config) 
 {
@@ -15,7 +16,7 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], const uint8_t *buffer
 	uint16_t msg_id = 0;
 	std::string uri_path;
 
-	if (!buffer || buffer_len == 0)
+	if (buffer_len > 0 && !buffer)
     {
 		printf("Invalid packet parameters\n");
         return 0;
@@ -34,6 +35,9 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], const uint8_t *buffer
 		break;
 	case CoapMethod::POST:
 		code_detail = COAP_CODE_DETAIL_POST;
+		break;
+	case CoapMethod::GET:
+		code_detail = COAP_CODE_DETAIL_GET;
 		break;
 	default:
 		break;
@@ -61,11 +65,14 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], const uint8_t *buffer
 	// Content-Format option (CBOR)
 	offset += setContentFormatOption(&coap_buffer[offset], COAP_CONTENT_FORMAT_CBOR, COAP_DELTA_CONTENT_FORMAT);
 	
-	// Payload marker
-	offset += setPayloadMarker(&coap_buffer[offset]);
-	
-	// CBOR payload
-	offset += setPayload(&coap_buffer[offset], buffer, buffer_len);
+	if (buffer_len > 0)
+	{
+		// Payload marker
+		offset += setPayloadMarker(&coap_buffer[offset]);
+
+		// CBOR payload
+		offset += setPayload(&coap_buffer[offset], buffer, buffer_len);
+	}
 	
 	return offset;
 }
@@ -146,7 +153,10 @@ size_t CoapPktAssm::setPayloadMarker(uint8_t *buffer)
 
 size_t CoapPktAssm::setPayload(uint8_t *buffer, const uint8_t *payload, size_t payload_len)
 {
-	memcpy(buffer, payload, payload_len);
+	if (payload_len > 0)
+	{
+		memcpy(buffer, payload, payload_len);
+	}
 	return payload_len;
 }
 
@@ -184,6 +194,10 @@ std::string CoapPktAssm::getUriPath(PktType pkt_type)
 		return "reading";
 	case PktType::GpsUpdate:
 		return "gps-update";
+	case PktType::FirmwareVersion:
+		return "firmware-version";
+	case PktType::FirmwareDownload:
+		return "firmware-bin";
 	default:
 		return "";
 	}
