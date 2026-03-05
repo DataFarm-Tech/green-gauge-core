@@ -35,14 +35,6 @@ public:
     bool executeUpdate();
 
 private:
-    /**
-     * @brief Trims trailing whitespace characters from a string.
-     * This is used to clean up the firmware version string received from the server, which may
-     * include newline or carriage return characters that can interfere with version comparison.
-     * @param value The string to be trimmed in place.
-     */
-    static void trimTrailingWhitespace(std::string& value);
-
     Communication& comm;
     std::string current_version;
     std::string available_version;

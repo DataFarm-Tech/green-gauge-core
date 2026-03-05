@@ -363,6 +363,10 @@ void start_app(void *arg)
                 printf("OTA download/write failed\n");
             }
         }
+        else
+        {
+            printf("OTA check skipped: no update available or timeout/no response\n");
+        }
     }
 #endif
 

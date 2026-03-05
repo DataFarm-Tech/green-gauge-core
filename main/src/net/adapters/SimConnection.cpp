@@ -44,6 +44,30 @@ static size_t extractCoapPayloadChunk(const char *src, size_t src_len, std::stri
     return out.size();
 }
 
+static int getResponseWindowMs(const PktEntry_t &pkt_config)
+{
+    switch (pkt_config.pkt_type)
+    {
+    case PktType::FirmwareVersion:
+        return 12000;
+    case PktType::FirmwareDownload:
+        return 90000;
+    default:
+        return 15000;
+    }
+}
+
+static int getSocketReadTimeoutMs(const PktEntry_t &pkt_config)
+{
+    switch (pkt_config.pkt_type)
+    {
+    case PktType::FirmwareDownload:
+        return 2000;
+    default:
+        return 1200;
+    }
+}
+
 /**
  * @brief CFUNCMD reset command
  * This command performs a full modem reset, which is necessary to recover from certain error states and ensure a clean start. The modem will reboot and reinitialize after this command, so it should be used with caution.
@@ -667,17 +691,19 @@ bool SimConnection::sendPacketStream(const uint8_t * cbor_buffer,
     size_t rx_read = 0;
     int empty_reads = 0;
     bool got_any_payload = false;
-    static constexpr int MAX_READ_CYCLES = 5000;
     static constexpr int EMPTY_READS_TO_FINISH = 5;
+    const int response_window_ms = getResponseWindowMs(pkt_config);
+    const int read_timeout_ms = getSocketReadTimeoutMs(pkt_config);
+    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(response_window_ms);
 
-    for (int attempt = 1; attempt <= MAX_READ_CYCLES; ++attempt)
+    auto has_time_remaining = [deadline]() -> bool {
+        return static_cast<int32_t>(deadline - xTaskGetTickCount()) > 0;
+    };
+
+    while (has_time_remaining())
     {
-        if (!hndlr.readSocketData(0, rx_buffer, sizeof(rx_buffer), &rx_read, 1200, sizeof(rx_buffer) - 1))
+        if (!hndlr.readSocketData(0, rx_buffer, sizeof(rx_buffer), &rx_read, read_timeout_ms, sizeof(rx_buffer) - 1))
         {
-            if (!got_any_payload && (attempt % 50 == 0))
-            {
-                printf("Waiting for modem socket response (attempt %d/%d)\n", attempt, MAX_READ_CYCLES);
-            }
             vTaskDelay(pdMS_TO_TICKS(150));
             continue;
         }
@@ -718,7 +744,7 @@ bool SimConnection::sendPacketStream(const uint8_t * cbor_buffer,
         return true;
     }
 
-    printf("No response payload received after packet send\n");
+    printf("Timed out waiting for response payload (%d ms)\n", response_window_ms);
     return false;
 }
 

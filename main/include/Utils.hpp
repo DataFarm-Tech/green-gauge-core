@@ -3,10 +3,14 @@
 #include <string>
 #include <sstream>
 #include <stdexcept>
+#include <cstdint>
+#include <stdint.h>
 
 class Utils
 {
 public:
-	static uint16_t hexStringToInt(const std::string &hexStr);
-	static std::string bytesToHexString(uint8_t high, uint8_t low);
+	static unsigned short hexStringToInt(const std::string &hexStr);
+	static std::string bytesToHexString(unsigned char high, unsigned char low);
+	static void trimTrailingWhitespace(std::string &value);
+	static std::string parseGPSLine(const std::string &line);
 };
