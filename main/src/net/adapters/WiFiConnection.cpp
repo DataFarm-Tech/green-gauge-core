@@ -95,7 +95,10 @@ void WifiConnection::disconnect()
     esp_wifi_deinit();
 }
 
-bool WifiConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktEntry_t pkt_config) {
+bool WifiConnection::sendPacket(const uint8_t * cbor_buffer,
+                                const size_t cbor_buffer_len,
+                                const PktEntry_t pkt_config,
+                                std::string* response) {
     /**
      * Build CBOR Packet with pkt from NPK readings
      * Send packet using SOCKET
@@ -110,6 +113,11 @@ bool WifiConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_b
     {
         printf("Invalid packet parameters\n");
         return false;
+    }
+
+    if (response)
+    {
+        response->clear();
     }
 
     coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, cbor_buffer, cbor_buffer_len, pkt_config);

@@ -67,6 +67,16 @@ public:
 
     bool sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktEntry_t pkt_config);
 
+    bool sendPacket(const uint8_t * cbor_buffer,
+                    const size_t cbor_buffer_len,
+                    const PktEntry_t pkt_config,
+                    std::string &response);
+
+    bool sendPacketStream(const uint8_t * cbor_buffer,
+                          const size_t cbor_buffer_len,
+                          const PktEntry_t pkt_config,
+                          const PacketChunkCallback& onChunk);
+
 private:
     std::unique_ptr<IConnection> connection;  ///< Smart pointer to the active connection implementation.
 };

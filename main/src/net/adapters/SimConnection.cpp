@@ -7,11 +7,65 @@
 #include "CoapPktAssm.hpp"
 #include "EEPROMConfig.hpp"
 #include <cstdio>
+#include <cstring>
 
 extern "C"
 {
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+}
+
+static size_t extractCoapPayloadChunk(const char *src, size_t src_len, std::string &out)
+{
+    out.clear();
+
+    if (!src || src_len == 0)
+    {
+        return 0;
+    }
+
+    size_t payload_start = src_len;
+    for (size_t i = 0; i < src_len; ++i)
+    {
+        if (static_cast<uint8_t>(src[i]) == COAP_PAYLOAD_MARKER)
+        {
+            payload_start = i + 1;
+            break;
+        }
+    }
+
+    if (payload_start >= src_len)
+    {
+        return 0;
+    }
+
+    out.assign(src + payload_start, src_len - payload_start);
+
+    return out.size();
+}
+
+static int getResponseWindowMs(const PktEntry_t &pkt_config)
+{
+    switch (pkt_config.pkt_type)
+    {
+    case PktType::FirmwareVersion:
+        return 12000;
+    case PktType::FirmwareDownload:
+        return 90000;
+    default:
+        return 15000;
+    }
+}
+
+static int getSocketReadTimeoutMs(const PktEntry_t &pkt_config)
+{
+    switch (pkt_config.pkt_type)
+    {
+    case PktType::FirmwareDownload:
+        return 2000;
+    default:
+        return 1200;
+    }
 }
 
 /**
@@ -454,7 +508,10 @@ void SimConnection::disconnect()
     printf("SIM disconnected\n");
 }
 
-bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktEntry_t pkt_config)
+bool SimConnection::sendPacket(const uint8_t * cbor_buffer,
+                               const size_t cbor_buffer_len,
+                               const PktEntry_t pkt_config,
+                               std::string* response)
 {
     /**
      * Storing the complete COAP packet to be sent.
@@ -467,10 +524,28 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
     size_t coap_buffer_len = 0;
     char send_cmd[64];
 
-    if (!cbor_buffer || cbor_buffer_len == 0)
+    if (cbor_buffer_len > 0 && !cbor_buffer)
     {
         printf("Invalid packet parameters\n");
         return false;
+    }
+
+    if (response)
+    {
+        response->clear();
+        return sendPacketStream(
+            cbor_buffer,
+            cbor_buffer_len,
+            pkt_config,
+            [response](const uint8_t* chunk, size_t chunk_len) -> bool {
+                if (!chunk || chunk_len == 0)
+                {
+                    return true;
+                }
+
+                response->append(reinterpret_cast<const char*>(chunk), chunk_len);
+                return true;
+            });
     }
 
     auto ensure_connected = [this]() -> bool {
@@ -532,8 +607,145 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
     vTaskDelay(pdMS_TO_TICKS(1000));
 
     printf("CoAP packet sent successfully via UDP\n");
-
     return true;
+}
+
+bool SimConnection::sendPacketStream(const uint8_t * cbor_buffer,
+                                     const size_t cbor_buffer_len,
+                                     const PktEntry_t pkt_config,
+                                     const PacketChunkCallback& onChunk)
+{
+    uint8_t coap_buffer[GEN_BUFFER_SIZE + 64];
+    size_t coap_buffer_len = 0;
+    char send_cmd[64];
+
+    if (cbor_buffer_len > 0 && !cbor_buffer)
+    {
+        printf("Invalid packet parameters\n");
+        return false;
+    }
+
+    auto ensure_connected = [this]() -> bool {
+        if (sim_stat == SimStatus::CONNECTED) {
+            return true;
+        }
+
+        printf("SIM not connected, attempting reconnect before send\n");
+        return connect();
+    };
+
+    if (!ensure_connected())
+    {
+        printf("Cannot send packet: reconnect failed\n");
+        return false;
+    }
+
+    coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, cbor_buffer, cbor_buffer_len, pkt_config);
+
+    if (coap_buffer_len == 0) {
+        return false;
+    }
+
+    auto send_udp_packet = [&]() -> bool {
+        snprintf(send_cmd, sizeof(send_cmd), "AT+QISEND=0,%zu", coap_buffer_len);
+
+        ATCommand_t udp_send = {
+            send_cmd,
+            ">",
+            5000,
+            MsgType::DATA,
+            coap_buffer,
+            coap_buffer_len};
+
+        return hndlr.send(udp_send);
+    };
+
+    if (!send_udp_packet())
+    {
+        printf("Failed to send UDP packet, resetting SIM data link\n");
+        disconnect();
+
+        if (!ensure_connected())
+        {
+            printf("SIM reconnect failed after send failure\n");
+            return false;
+        }
+
+        if (!send_udp_packet())
+        {
+            printf("Failed to send UDP packet after reconnect\n");
+            disconnect();
+            return false;
+        }
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    if (!onChunk)
+    {
+        printf("CoAP packet sent successfully via UDP\n");
+        return true;
+    }
+
+    char rx_buffer[GEN_BUFFER_SIZE + 64] = {0};
+    size_t rx_read = 0;
+    int empty_reads = 0;
+    bool got_any_payload = false;
+    static constexpr int EMPTY_READS_TO_FINISH = 5;
+    const int response_window_ms = getResponseWindowMs(pkt_config);
+    const int read_timeout_ms = getSocketReadTimeoutMs(pkt_config);
+    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(response_window_ms);
+
+    auto has_time_remaining = [deadline]() -> bool {
+        return static_cast<int32_t>(deadline - xTaskGetTickCount()) > 0;
+    };
+
+    while (has_time_remaining())
+    {
+        if (!hndlr.readSocketData(0, rx_buffer, sizeof(rx_buffer), &rx_read, read_timeout_ms, sizeof(rx_buffer) - 1))
+        {
+            vTaskDelay(pdMS_TO_TICKS(150));
+            continue;
+        }
+
+        if (rx_read == 0)
+        {
+            empty_reads++;
+            if (got_any_payload && empty_reads >= EMPTY_READS_TO_FINISH)
+            {
+                printf("CoAP packet sent successfully via UDP\n");
+                return true;
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(120));
+            continue;
+        }
+
+        empty_reads = 0;
+
+        std::string payload_chunk;
+        if (extractCoapPayloadChunk(rx_buffer, rx_read, payload_chunk) > 0)
+        {
+            if (!onChunk(reinterpret_cast<const uint8_t*>(payload_chunk.data()), payload_chunk.size()))
+            {
+                printf("Streaming callback aborted firmware receive\n");
+                return false;
+            }
+
+            got_any_payload = true;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(80));
+    }
+
+    if (got_any_payload)
+    {
+        printf("CoAP packet sent successfully via UDP\n");
+        return true;
+    }
+
+    printf("Timed out waiting for response payload (%d ms)\n", response_window_ms);
+    return false;
 }
 
 bool SimConnection::startTelnetSession()

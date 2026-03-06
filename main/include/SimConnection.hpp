@@ -4,6 +4,7 @@
 #include "ATCommandHndlr.hpp"
 #include "CoapPktAssm.hpp"
 #include "TelnetSession.hpp"
+
 /**
  * @enum SimStatus
  * @brief Represents the current status of the SIM connection.
@@ -55,7 +56,15 @@ public:
      * @param pkt_config Packet configuration.
      * @return true if the packet was successfully sent, false otherwise.
      */
-    bool sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktEntry_t pkt_config) override;
+    bool sendPacket(const uint8_t * cbor_buffer,
+                    const size_t cbor_buffer_len,
+                    const PktEntry_t pkt_config,
+                    std::string* response = nullptr) override;
+
+    bool sendPacketStream(const uint8_t * cbor_buffer,
+                          const size_t cbor_buffer_len,
+                          const PktEntry_t pkt_config,
+                          const PacketChunkCallback& onChunk) override;
 
     /**
      * @brief Starts a telnet session over the SIM connection.

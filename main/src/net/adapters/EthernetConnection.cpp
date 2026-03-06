@@ -34,8 +34,18 @@ void EthernetConnection::disconnect()
 }
 
 
-bool EthernetConnection::sendPacket(const uint8_t * pkt, const size_t pkt_len, const PktEntry_t pkt_config) {
+bool EthernetConnection::sendPacket(const uint8_t * pkt,
+                                    const size_t pkt_len,
+                                    const PktEntry_t pkt_config,
+                                    std::string* response) {
     //do thing
+    (void)pkt;
+    (void)pkt_len;
+    (void)pkt_config;
+    if (response)
+    {
+        response->clear();
+    }
     printf("DOING\n");
     return false;
 }

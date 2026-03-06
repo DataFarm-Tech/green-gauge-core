@@ -19,13 +19,9 @@ extern "C"
 #include <string.h>
 #include "esp_log.h"
 #include "Config.hpp"
-#include "esp_ota_ops.h"
-#include "esp_http_client.h"
-#include "esp_https_ota.h"
 #include "EEPROMConfig.hpp"
 #include "UARTDriver.hpp"
-// #include "CLI.hpp"
-#include "OTAUpdater.hpp"
+#include "CoapOTAUpdater.hpp"
 #include "Logger.hpp"
 #include "NPK.hpp"
 #include "HwTypes.hpp"
@@ -263,30 +259,6 @@ void handle_activation()
     return;
 }
 
-#if OTA_EN == 1
-/**
- * @brief Check reset reason and perform OTA update if appropriate.
- */
-void checkAndPerformOTA()
-{
-    OTAUpdater ota;
-    const char *url = "http://45.79.118.187:8080/release/latest/cn1.bin";
-
-    printf("Power-on detected, checking for OTA update\n");
-
-    if (ota.update(url))
-    {
-        printf("OTA successful, rebooting...\n");
-        vTaskDelay(pdMS_TO_TICKS(2000));
-        esp_restart();
-    }
-    else
-    {
-        printf("OTA failed or no update needed\n");
-    }
-}
-#endif
-
 void collect_reading()
 {
     uint16_t reading[NPK_COLLECT_SIZE];
@@ -371,6 +343,33 @@ void start_app(void *arg)
 
     printf("Device connected to network\n");
 
+#if OTA_EN == 1
+    // OTA check only on power-on
+    if (g_comm->isConnected())
+    {
+        CoapOTAUpdater ota(*g_comm, g_device_config.manf_info.fw_ver.value);
+
+        if (ota.isFirmwareAvailable()) {
+            printf("Firmware update detected, starting OTA process\n");
+
+            if (ota.executeUpdate())
+            {
+                printf("OTA image ready, rebooting into updated firmware\n");
+                vTaskDelay(pdMS_TO_TICKS(1500));
+                esp_restart();
+            }
+            else
+            {
+                printf("OTA download/write failed\n");
+            }
+        }
+        else
+        {
+            printf("OTA check skipped: no update available or timeout/no response\n");
+        }
+    }
+#endif
+
     read_gps();
 
     if (g_device_config.gps_coord.empty()) {
@@ -390,20 +389,6 @@ void start_app(void *arg)
     if (!g_comm->startTelnetSession())
     {
         printf("Warning: failed to start telnet session\n");
-    }
-#endif
-
-#if OTA_EN == 1
-    // OTA check only on power-on
-    if (g_comm->isConnected())
-    {
-        bool should_run_ota = !(wakeup_causes & ESP_SLEEP_WAKEUP_TIMER) && reset_reason == ESP_RST_POWERON;
-
-        if (should_run_ota)
-        {
-            printf("Power-on or hard reset\n");
-            checkAndPerformOTA();
-        }
     }
 #endif
 

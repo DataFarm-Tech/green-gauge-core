@@ -40,5 +40,8 @@ public:
      */
     void disconnect() override;
 
-    bool sendPacket(const uint8_t * cbor_buffer, const size_t pkt_len, const PktEntry_t pkt_config) override;
+    bool sendPacket(const uint8_t * cbor_buffer,
+                    const size_t pkt_len,
+                    const PktEntry_t pkt_config,
+                    std::string* response = nullptr) override;
 };
