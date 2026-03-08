@@ -23,16 +23,18 @@ class ActivatePkt : public IPacket
 private:
     std::string secretKeyUser;
     std::string GPSCoord;
+    std::string HwVer;
     
     static constexpr const char* NODE_ID_KEY = "node_id";
     static constexpr const char* GPS_KEY = "gps";
     static constexpr const char* SECRET_KEY_KEY = "secretkey";
     static constexpr const char* KEY_KEY = "key";
     static constexpr const char* FW_VER_KEY = "fw_ver";
+    static constexpr const char* HW_VER_KEY = "hw_ver";
 
 public:
-    ActivatePkt(PktType _pkt_type, std::string _node_id, std::string _uri, std::string _secret_key, std::string _gps_coord)
-        : IPacket(_pkt_type, _node_id, _uri), secretKeyUser(_secret_key), GPSCoord(_gps_coord)
+    ActivatePkt(PktType _pkt_type, std::string _node_id, std::string _uri, std::string _secret_key, std::string _gps_coord, std::string _hw_ver)
+        : IPacket(_pkt_type, _node_id, _uri), secretKeyUser(_secret_key), GPSCoord(_gps_coord), HwVer(_hw_ver)
     {
     }
 

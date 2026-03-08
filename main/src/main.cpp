@@ -185,7 +185,6 @@ void read_gps()
     }
     else
     {
-        
         g_device_config.gps_coord = "0.0,0.0"; // Define your default
         printf("Failed to retrieve GPS location, using default coordinates: %s\n", g_device_config.gps_coord.c_str());
     }
@@ -217,7 +216,7 @@ void handle_gps_update() {
 void handle_activation()
 {
     ActivatePkt activatePkt(PktType::Activate, std::string(g_device_config.manf_info.nodeId.value),
-                            std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value), g_device_config.gps_coord);
+                            std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value), g_device_config.gps_coord, g_device_config.manf_info.hw_ver.value);
 
     const uint8_t *pkt_1 = activatePkt.toBuffer();
     const size_t buffer_len = activatePkt.getBufferLength();
@@ -352,16 +351,16 @@ void start_app(void *arg)
         if (ota.isFirmwareAvailable()) {
             printf("Firmware update detected, starting OTA process\n");
 
-            if (ota.executeUpdate())
-            {
-                printf("OTA image ready, rebooting into updated firmware\n");
-                vTaskDelay(pdMS_TO_TICKS(1500));
-                esp_restart();
-            }
-            else
-            {
-                printf("OTA download/write failed\n");
-            }
+            // if (ota.executeUpdate())
+            // {
+            //     printf("OTA image ready, rebooting into updated firmware\n");
+            //     vTaskDelay(pdMS_TO_TICKS(1500));
+            //     esp_restart();
+            // }
+            // else
+            // {
+            //     printf("OTA download/write failed\n");
+            // }
         }
         else
         {
@@ -412,6 +411,10 @@ void start_app(void *arg)
 
     
     cleanup:
+        if (g_comm)
+        {
+            g_comm->disconnect();
+        }
         printf("Entering deep sleep for %ld seconds\n", g_device_config.main_app_delay);
         g_logger.deinit(); // Ensure logs are flushed and filesystem is cleanly unmounted before sleep
         esp_sleep_enable_timer_wakeup(g_device_config.main_app_delay * 1000000ULL);

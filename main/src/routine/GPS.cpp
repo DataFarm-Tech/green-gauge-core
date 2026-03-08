@@ -10,6 +10,38 @@ extern "C"
 #include "freertos/task.h"
 }
 
+/**
+ * @brief QGPS command to enable GPS functionality
+ * This command activates the GPS receiver on the modem. The expected response is "OK" if
+ * the command was successful. Enabling GPS is a prerequisite for acquiring location data, and this command should be sent before attempting to query for GPS coordinates.
+ * Timeout: 2000ms
+ * MsgType: STATUS (used for status and control commands)
+ */
+ATCommand_t cmd_enable = {
+    "AT+QGPS=1",
+    "OK",
+    2000,
+    MsgType::STATUS,
+    nullptr, 
+    0
+};
+
+/**
+ * @brief QGPSLOC command to query GPS coordinates
+ * This command requests the current GPS location from the modem. The expected response includes a line starting
+ * with "+QGPSLOC:" followed by comma-separated values containing the GPS data (e.g., latitude, longitude, altitude, etc.). This command is used to retrieve the current GPS coordinates after the GPS receiver has been enabled and has acquired a fix.
+ * Timeout: 5000ms (GPS queries may take longer due to satellite acquisition time)
+ * MsgType: STATUS (used for status and control commands)
+ */
+ATCommand_t cmd = {
+    "AT+QGPSLOC?",
+    "+QGPSLOC:",
+    5000,
+    MsgType::STATUS,
+    nullptr, 
+    0
+};
+
 GPS::GPS()
 {
 }
@@ -17,11 +49,6 @@ GPS::GPS()
 bool GPS::getCoordinates(std::string &out)
 {
     // First, ensure GPS is enabled before querying
-    ATCommand_t cmd_enable = {"AT+QGPS=1",
-                              "OK",
-                              2000,
-                              MsgType::STATUS,
-                              nullptr, 0};
 
     printf("GPS: Enabling GNSS receiver...\n");
     if (!m_hndlr.send(cmd_enable))
@@ -36,11 +63,6 @@ bool GPS::getCoordinates(std::string &out)
     vTaskDelay(pdMS_TO_TICKS(30000)); // 30 second initial wait for satellite search
 
     char resp[256] = {0};
-    ATCommand_t cmd = {"AT+QGPSLOC?",
-                       "+QGPSLOC:",
-                       5000,
-                       MsgType::STATUS,
-                       nullptr, 0};
 
     // Retry GPS query up to 5 times with 5-second delays between attempts
     // GPS module may take additional time to lock satellites

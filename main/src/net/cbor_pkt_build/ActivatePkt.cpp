@@ -11,7 +11,7 @@ const uint8_t * ActivatePkt::toBuffer()
 {
     CborEncoder encoder, mapEncoder;
     cbor_encoder_init(&encoder, buffer, GEN_BUFFER_SIZE, 0);
-    if (cbor_encoder_create_map(&encoder, &mapEncoder, 5) != CborNoError)
+    if (cbor_encoder_create_map(&encoder, &mapEncoder, 6) != CborNoError)
     {
         ESP_LOGI("OK", "Failed to create root map");
         return nullptr;
@@ -39,6 +39,9 @@ const uint8_t * ActivatePkt::toBuffer()
 
     cbor_encode_text_stringz(&mapEncoder, FW_VER_KEY);
     cbor_encode_text_stringz(&mapEncoder, g_device_config.manf_info.fw_ver.value);
+
+    cbor_encode_text_stringz(&mapEncoder, HW_VER_KEY);
+    cbor_encode_text_stringz(&mapEncoder, HwVer.c_str());
 
     // Close map
     cbor_encoder_close_container(&encoder, &mapEncoder);

@@ -1,6 +1,14 @@
 #pragma once
 
 #include <string>
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "esp_http_client.h"
+#include "esp_ota_ops.h"
+#ifdef __cplusplus
+}
+#endif
 #include "Communication.hpp"
 
 class CoapOTAUpdater {
@@ -35,7 +43,10 @@ public:
     bool executeUpdate();
 
 private:
+    bool streamFirmwareFromHttpsToOta(const std::string& firmware_url, esp_ota_handle_t ota_handle, size_t& total_written);
+
     Communication& comm;
     std::string current_version;
     std::string available_version;
+    esp_http_client_config_t http_config;
 };

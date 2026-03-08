@@ -3,11 +3,11 @@
 #include <cstring>
 #include "Logger.hpp"
 
-PktEntry_t firmwareversion_entry = {PktType::FirmwareVersion, CoapMethod::GET};
-PktEntry_t activate_entry = {PktType::Activate, CoapMethod::POST};
-PktEntry_t reading_entry = {PktType::Reading, CoapMethod::POST};
-PktEntry_t gpsupdate_entry = {PktType::GpsUpdate, CoapMethod::PUT};
-PktEntry_t firmwaredownload_entry = {PktType::FirmwareDownload, CoapMethod::GET};
+PktEntry_t firmwareversion_entry = {PktType::FirmwareVersion, CoapMethod::GET, PKT_RESPONSE_WIN_FW_VERSION_MS, PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS};
+PktEntry_t activate_entry = {PktType::Activate, CoapMethod::POST, PKT_RESPONSE_WIN_DEFAULT_MS, PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS};
+PktEntry_t reading_entry = {PktType::Reading, CoapMethod::POST, PKT_RESPONSE_WIN_DEFAULT_MS, PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS};
+PktEntry_t gpsupdate_entry = {PktType::GpsUpdate, CoapMethod::PUT, PKT_RESPONSE_WIN_DEFAULT_MS, PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS};
+PktEntry_t firmwaredownload_entry = {PktType::FirmwareDownload, CoapMethod::GET, PKT_RESPONSE_WIN_FW_DOWNLOAD_MS, PKT_SOCKET_READ_TIMEOUT_FW_DOWNLOAD_MS};
 
 size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], const uint8_t *buffer, const size_t buffer_len, PktEntry_t pkt_config) 
 {

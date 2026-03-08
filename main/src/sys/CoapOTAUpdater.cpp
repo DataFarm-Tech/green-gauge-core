@@ -1,6 +1,7 @@
 #include "CoapOTAUpdater.hpp"
 
 extern "C" {
+#include "esp_http_client.h"
 #include "esp_ota_ops.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -15,9 +16,94 @@ extern "C" {
 
 CoapOTAUpdater::CoapOTAUpdater(Communication& communication, const char* current_firmware_version)
     : comm(communication),
-      current_version(current_firmware_version ? current_firmware_version : "")
+            current_version(current_firmware_version ? current_firmware_version : "")
 {
+        std::memset(&http_config, 0, sizeof(http_config));
+        http_config.timeout_ms = 60000;
+        http_config.transport_type = HTTP_TRANSPORT_OVER_SSL;
+        http_config.buffer_size = 2048;
+        http_config.buffer_size_tx = 1024;
 }
+
+bool CoapOTAUpdater::streamFirmwareFromHttpsToOta(const std::string& firmware_url, esp_ota_handle_t ota_handle, size_t& total_written)
+{
+    total_written = 0;
+
+    http_config.url = firmware_url.c_str();
+
+    esp_http_client_handle_t client = esp_http_client_init(&http_config);
+    if (!client)
+    {
+        printf("Failed to initialize HTTP client for firmware download\n");
+        return false;
+    }
+
+    auto cleanup_client = [&client]() {
+        esp_http_client_close(client);
+        esp_http_client_cleanup(client);
+    };
+
+    bool success = false;
+    esp_err_t err = esp_http_client_open(client, 0);
+    if (err != ESP_OK)
+    {
+        printf("esp_http_client_open failed: %s\n", esp_err_to_name(err));
+        cleanup_client();
+        return false;
+    }
+
+    const int64_t status_code = esp_http_client_fetch_headers(client);
+    if (status_code < 0)
+    {
+        printf("Failed to fetch firmware download headers\n");
+        cleanup_client();
+        return false;
+    }
+
+    const int http_status = esp_http_client_get_status_code(client);
+    if (http_status != 200)
+    {
+        printf("Firmware HTTPS download failed with status %d\n", http_status);
+        cleanup_client();
+        return false;
+    }
+
+    char http_buffer[2048];
+    while (true)
+    {
+        const int bytes_read = esp_http_client_read(client, http_buffer, sizeof(http_buffer));
+        if (bytes_read < 0)
+        {
+            printf("esp_http_client_read failed\n");
+            cleanup_client();
+            return false;
+        }
+
+        if (bytes_read == 0)
+        {
+            if (esp_http_client_is_complete_data_received(client))
+            {
+                success = true;
+            }
+            break;
+        }
+
+        err = esp_ota_write(ota_handle, http_buffer, static_cast<size_t>(bytes_read));
+        if (err != ESP_OK)
+        {
+            printf("esp_ota_write failed during HTTPS stream: %s\n", esp_err_to_name(err));
+            cleanup_client();
+            return false;
+        }
+
+        total_written += static_cast<size_t>(bytes_read);
+    }
+
+    cleanup_client();
+
+    return success;
+}
+
 
 bool CoapOTAUpdater::isFirmwareAvailable()
 {
@@ -81,7 +167,8 @@ bool CoapOTAUpdater::executeUpdate()
     const esp_partition_t *update_partition = esp_ota_get_next_update_partition(nullptr);
     esp_ota_handle_t ota_handle = 0;
     std::string firmware_cbor;
-    std::string firmware_binary;
+    std::string firmware_url;
+    size_t total_written = 0;
     
     if (!update_partition)
     {
@@ -128,34 +215,39 @@ bool CoapOTAUpdater::executeUpdate()
     if (!comm.sendPacket(nullptr, 0, firmwaredownload_entry, firmware_cbor))
     {
         esp_ota_abort(ota_handle);
-        printf("Firmware download failed\n");
+        printf("Firmware URL request failed\n");
         return false;
     }
 
     firmware_transform.incoming = firmware_cbor;
-    if (!CborDecoder::decodeBytes(firmware_transform))
+    if (!CborDecoder::decodeText(firmware_transform))
     {
         esp_ota_abort(ota_handle);
-        printf("Failed to decode firmware binary CBOR\n");
+        printf("Failed to decode firmware URL CBOR\n");
         return false;
     }
 
-    firmware_binary = firmware_transform.outgoing;
+    firmware_url = firmware_transform.outgoing;
+    Utils::trimTrailingWhitespace(firmware_url);
 
-    const size_t total_written = firmware_binary.size();
+    if (firmware_url.empty())
+    {
+        esp_ota_abort(ota_handle);
+        printf("Firmware URL is empty\n");
+        return false;
+    }
+
+    if (!streamFirmwareFromHttpsToOta(firmware_url, ota_handle, total_written))
+    {
+        esp_ota_abort(ota_handle);
+        printf("Firmware HTTPS streaming failed\n");
+        return false;
+    }
 
     if (total_written == 0)
     {
         esp_ota_abort(ota_handle);
         printf("Firmware payload is empty\n");
-        return false;
-    }
-
-    err = esp_ota_write(ota_handle, firmware_binary.data(), firmware_binary.size());
-    if (err != ESP_OK)
-    {
-        printf("esp_ota_write failed: %s\n", esp_err_to_name(err));
-        esp_ota_abort(ota_handle);
         return false;
     }
 

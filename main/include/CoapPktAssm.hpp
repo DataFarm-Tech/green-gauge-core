@@ -52,6 +52,13 @@
 #define COAP_OPTION_EXTENDED_LEN    13
 #define COAP_OPTION_MAX_STANDARD    12
 
+// Packet response timing defaults (milliseconds)
+#define PKT_RESPONSE_WIN_DEFAULT_MS            15000
+#define PKT_RESPONSE_WIN_FW_VERSION_MS         12000
+#define PKT_RESPONSE_WIN_FW_DOWNLOAD_MS        90000
+#define PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS     1200
+#define PKT_SOCKET_READ_TIMEOUT_FW_DOWNLOAD_MS 2000
+
 // CoAP Special Values
 #define COAP_PAYLOAD_MARKER         0xFF
 #define COAP_INITIAL_MSG_ID         0x1234
@@ -98,6 +105,8 @@ enum CoapMethod
 typedef struct {
 	PktType pkt_type;
 	CoapMethod method;
+	int response_win;
+	int socket_read_timeout;
 } PktEntry_t;
 class CoapPktAssm
 {
