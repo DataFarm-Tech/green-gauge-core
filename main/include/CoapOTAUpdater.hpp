@@ -43,6 +43,15 @@ public:
     bool executeUpdate();
 
 private:
+    /**
+     * @brief Helper function to stream firmware from an HTTPS URL directly to the OTA partition.
+     * @param firmware_url The HTTPS URL from which to download the firmware binary.
+     * @param ota_handle The handle to the OTA partition where the firmware should be written.
+     * @param total_written Output parameter that will contain the total number of bytes written to the
+     * OTA partition after the function completes.
+     * @return true if the firmware was successfully downloaded and written to the OTA partition, false otherwise.
+     * This function initializes an HTTP client, performs the download, and writes the firmware in chunks to the OTA partition. It handles all necessary cleanup of the HTTP client and ensures that resources are
+     */
     bool streamFirmwareFromHttpsToOta(const std::string& firmware_url, esp_ota_handle_t ota_handle, size_t& total_written);
 
     Communication& comm;

@@ -6,6 +6,7 @@ fw_ver,data,string,1.0.0
 node_id,data,string,NT0052
 sim_mod_sn,data,string,MPY25IH19000252
 sim_card_sn,data,string,XXX
+chassis_ver,data,string,0.0.1
 secret_key,data,string,mySecretKey123
 p_code,data,string,CN001-SN001
 has_activated,data,u8,0

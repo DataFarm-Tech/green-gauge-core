@@ -33,6 +33,7 @@ typedef struct {
     MANF_entry_t p_code;
     MANF_entry_t sim_mod_sn;
     MANF_entry_t sim_card_sn;
+    MANF_entry_t chassis_ver;
 } MANF_info_t;
 
 typedef struct {

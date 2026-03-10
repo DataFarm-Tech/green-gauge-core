@@ -125,6 +125,8 @@ bool EEPROMConfig::loadConfig(DeviceConfig& config) {
     
     readString("sim_card_sn", config.manf_info.sim_card_sn.value, MANF_MAX_LEN);
 
+    readString("chassis_ver", config.manf_info.chassis_ver.value, MANF_MAX_LEN);
+
     readBlob("hmac_key", config.secretKey, sizeof(config.secretKey));
     
     // Load activation status
@@ -182,6 +184,8 @@ bool EEPROMConfig::saveConfig(const DeviceConfig& config) {
 
     writeString("sim_mod_sn", config.manf_info.sim_mod_sn.value);
     writeString("sim_card_sn", config.manf_info.sim_card_sn.value);
+
+    writeString("chassis_ver", config.manf_info.chassis_ver.value);
     
     // Save activation status
     writeBool("has_activated", config.has_activated);

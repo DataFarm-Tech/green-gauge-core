@@ -49,7 +49,9 @@ DeviceConfig g_device_config = {
         .secretkey = {.value = ""},
         .p_code = {.value = ""},
         .sim_mod_sn = {.value = ""},
-        .sim_card_sn = {.value = ""}},
+        .sim_card_sn = {.value = ""},
+        .chassis_ver = {.value = ""}
+    },
     .calib = {.calib_list = {{.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Nitrogen}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Phosphorus}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Potassium}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Moisture}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::PH}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Temperature}}, .last_cal_ts = 0}};
 
 uint32_t wakeup_causes = 0;
@@ -176,8 +178,9 @@ void read_gps()
 {
     // GPS Cold Start (first fix) can take 30-60 seconds. Keep this short to avoid blocking
     // the main cycle too long; retry logic in GPS handler still handles slower acquisitions.
+    const int gps_cold_start_delay_ms = 30000;
     printf("Waiting for GPS fix (Cold Start may take 30-60 seconds)...\n");
-    vTaskDelay(pdMS_TO_TICKS(30000));
+    vTaskDelay(pdMS_TO_TICKS(gps_cold_start_delay_ms));
 
     if (m_gps.getCoordinates(g_device_config.gps_coord))
     {
@@ -216,7 +219,9 @@ void handle_gps_update() {
 void handle_activation()
 {
     ActivatePkt activatePkt(PktType::Activate, std::string(g_device_config.manf_info.nodeId.value),
-                            std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value), g_device_config.gps_coord, g_device_config.manf_info.hw_ver.value);
+                            std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value), g_device_config.gps_coord, g_device_config.manf_info.hw_ver.value,
+                            g_device_config.manf_info.sim_mod_sn.value, g_device_config.manf_info.sim_card_sn.value,
+                            g_device_config.manf_info.chassis_ver.value);
 
     const uint8_t *pkt_1 = activatePkt.toBuffer();
     const size_t buffer_len = activatePkt.getBufferLength();
@@ -230,6 +235,10 @@ void handle_activation()
 
     printf("Sending activation packet for node: %s\n", g_device_config.manf_info.nodeId.value);
 
+    /**
+     * Key is needed for activation and is computed here before the first packet build and send. This ensures that the secretKey value from the config is used to generate the correct HMAC for activation.
+     */
+    Key::computeKey(g_device_config.secretKey, Key::HMAC_SIZE);
 
     if (!pkt_1 || buffer_len == 0)
     {
@@ -351,16 +360,16 @@ void start_app(void *arg)
         if (ota.isFirmwareAvailable()) {
             printf("Firmware update detected, starting OTA process\n");
 
-            // if (ota.executeUpdate())
-            // {
-            //     printf("OTA image ready, rebooting into updated firmware\n");
-            //     vTaskDelay(pdMS_TO_TICKS(1500));
-            //     esp_restart();
-            // }
-            // else
-            // {
-            //     printf("OTA download/write failed\n");
-            // }
+            if (ota.executeUpdate())
+            {
+                printf("OTA image ready, rebooting into updated firmware\n");
+                vTaskDelay(pdMS_TO_TICKS(1500));
+                esp_restart();
+            }
+            else
+            {
+                printf("OTA download/write failed\n");
+            }
         }
         else
         {
@@ -438,8 +447,6 @@ extern "C" void app_main(void)
     // Step 2: Load or create configuration
     if (!load_create_config())
         return;
-    
-    Key::computeKey(g_device_config.secretKey, Key::HMAC_SIZE);
 
     // Step 3: Launch provisioning + operational tasks in background
     xTaskCreate(start_app, "start_app", 8192, nullptr, 5, nullptr);

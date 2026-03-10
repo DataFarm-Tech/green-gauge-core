@@ -180,6 +180,7 @@ bool CoapOTAUpdater::executeUpdate()
     {
         std::string firmware_version_cbor;
         CborStringTransform version_transform;
+        
         if (!comm.sendPacket(nullptr, 0, firmwareversion_entry, firmware_version_cbor))
         {
             printf("Failed to read firmware version before OTA write\n");

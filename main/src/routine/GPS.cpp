@@ -49,6 +49,8 @@ GPS::GPS()
 bool GPS::getCoordinates(std::string &out)
 {
     // First, ensure GPS is enabled before querying
+    char resp[256] = {0};
+    const int max_retries = 5;
 
     printf("GPS: Enabling GNSS receiver...\n");
     if (!m_hndlr.send(cmd_enable))
@@ -62,11 +64,8 @@ bool GPS::getCoordinates(std::string &out)
     printf("GPS: Waiting for satellite acquisition (this may take 30-60 seconds)...\n");
     vTaskDelay(pdMS_TO_TICKS(30000)); // 30 second initial wait for satellite search
 
-    char resp[256] = {0};
-
     // Retry GPS query up to 5 times with 5-second delays between attempts
     // GPS module may take additional time to lock satellites
-    const int max_retries = 5;
     for (int attempt = 1; attempt <= max_retries; attempt++)
     {
         memset(resp, 0, sizeof(resp));
