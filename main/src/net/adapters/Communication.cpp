@@ -34,7 +34,29 @@ void Communication::disconnect()
     connection->disconnect();
 }
 
-bool Communication::sendPacket(const uint8_t * pkt, const size_t pkt_len, PktType pkt_type, const CoapMethod meth)
+bool Communication::startTelnetSession()
 {
-    return connection->sendPacket(pkt, pkt_len, pkt_type, meth);
+    return connection->startTelnetSession();
+}
+
+bool Communication::sendPacket(const uint8_t * pkt, const size_t pkt_len, PktEntry_t pkt_config)
+{
+    return connection->sendPacket(pkt, pkt_len, pkt_config, nullptr);
+}
+
+bool Communication::sendPacket(const uint8_t * pkt,
+                               const size_t pkt_len,
+                               const PktEntry_t pkt_config,
+                               std::string &response)
+{
+    response.clear();
+    return connection->sendPacket(pkt, pkt_len, pkt_config, &response);
+}
+
+bool Communication::sendPacketStream(const uint8_t * pkt,
+                                     const size_t pkt_len,
+                                     const PktEntry_t pkt_config,
+                                     const PacketChunkCallback& onChunk)
+{
+    return connection->sendPacketStream(pkt, pkt_len, pkt_config, onChunk);
 }

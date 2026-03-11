@@ -19,29 +19,28 @@ extern "C"
 #include <string.h>
 #include "esp_log.h"
 #include "Config.hpp"
-#include "esp_ota_ops.h"
-#include "esp_http_client.h"
-#include "esp_https_ota.h"
 #include "EEPROMConfig.hpp"
 #include "UARTDriver.hpp"
-// #include "CLI.hpp"
-#include "cli.hpp"
-#include "OTAUpdater.hpp"
+#include "CoapOTAUpdater.hpp"
 #include "Logger.hpp"
 #include "NPK.hpp"
 #include "HwTypes.hpp"
 #include "ActivatePkt.hpp"
 #include "ReadingPkt.hpp"
 #include <memory>
-#include "cli.hpp"
 #include "GpsUpdatePkt.hpp"
+#include "Key.hpp"
+#include "CoapPktAssm.hpp"
 
 /**
  * @brief Global device configuration stored in EEPROM.
  */
 DeviceConfig g_device_config = {
     .has_activated = false,
+    .gps_coord = "",
     .main_app_delay = 30,
+    .session_count = 0,
+    .secretKey = "",
     .manf_info = {
         .hw_ver = {.value = ""},
         .hw_var = {.value = ""},
@@ -49,7 +48,10 @@ DeviceConfig g_device_config = {
         .nodeId = {.value = ""},
         .secretkey = {.value = ""},
         .p_code = {.value = ""},
-        .sim_sn = {.value = ""}},
+        .sim_mod_sn = {.value = ""},
+        .sim_card_sn = {.value = ""},
+        .chassis_ver = {.value = ""}
+    },
     .calib = {.calib_list = {{.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Nitrogen}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Phosphorus}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Potassium}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Moisture}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::PH}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Temperature}}, .last_cal_ts = 0}};
 
 uint32_t wakeup_causes = 0;
@@ -65,11 +67,11 @@ GPS m_gps;
 void init_hw()
 {
     g_logger.init();
-    g_logger.info("System booting...");
+    printf("Init Logger\n");
 
     if (!eeprom.begin())
     {
-        g_logger.error("Failed to open EEPROM config");
+        printf("Failed to initialize EEPROMConfig\n");
         esp_restart();
     }
 
@@ -113,14 +115,13 @@ bool load_create_config()
 {
     if (eeprom.loadConfig(g_device_config))
     {
-        g_logger.info("Loaded config from NVS. Node ID: %s, Activated: %s",
-                      g_device_config.manf_info.nodeId.value,
-                      g_device_config.has_activated ? "Yes" : "No");
-
+        printf("Loaded config from NVS. Node ID: %s, Activated: %s", 
+            g_device_config.manf_info.nodeId.value,
+            g_device_config.has_activated ? "Yes" : "No");
         return true;
     }
 
-    g_logger.error("Failed to load config from NVS - device may not be provisioned");
+    printf("Failed to load config from NVS - device may not be provisioned\n");
     return false;
 }
 
@@ -173,39 +174,41 @@ void hw_features(void)
     net_select(hw_ver);
 }
 
-std::string read_gps()
+void read_gps()
 {
-    std::string parsed;
+    // GPS Cold Start (first fix) can take 30-60 seconds. Keep this short to avoid blocking
+    // the main cycle too long; retry logic in GPS handler still handles slower acquisitions.
+    const int gps_cold_start_delay_ms = 30000;
+    printf("Waiting for GPS fix (Cold Start may take 30-60 seconds)...\n");
+    vTaskDelay(pdMS_TO_TICKS(gps_cold_start_delay_ms));
 
-    // GPS Cold Start (first fix) can take 30-60 seconds. Allow adequate time for acquisition.
-    // Initial 15s delay gives modem time to begin satellite search after AT+QGPS=1 command
-    g_logger.info("Waiting for GPS fix (Cold Start may take 30-60 seconds)...");
-    vTaskDelay(pdMS_TO_TICKS(15000));
-
-    if (m_gps.getCoordinates(parsed))
+    if (m_gps.getCoordinates(g_device_config.gps_coord))
     {
-        g_logger.info("GPS location retrieved: %s", parsed.c_str());
-        return parsed;
+        printf("GPS location retrieved: %s\n", g_device_config.gps_coord.c_str());
     }
     else
     {
-        std::string default_coords = "0.0,0.0"; // Define your default
-        g_logger.info("GPS location not available, using default coordinates: %s", default_coords.c_str());
-        return default_coords;
+        g_device_config.gps_coord = "0.0,0.0"; // Define your default
+        printf("Failed to retrieve GPS location, using default coordinates: %s\n", g_device_config.gps_coord.c_str());
     }
 }
 
 void handle_gps_update() {
-    std::string gps = read_gps();
 
-    GpsUpdatePkt gpsupdatePkt(PktType::GpsUpdate, std::string(g_device_config.manf_info.nodeId.value), std::string(GPS_URI), gps);
+    GpsUpdatePkt gpsupdatePkt(PktType::GpsUpdate, std::string(g_device_config.manf_info.nodeId.value), std::string(GPS_URI), g_device_config.gps_coord);
 
     const uint8_t * pkt_1 = gpsupdatePkt.toBuffer();
     const size_t buffer_len = gpsupdatePkt.getBufferLength();
 
-    if (!g_comm->sendPacket(pkt_1, buffer_len, PktType::GpsUpdate, CoapMethod::PUT))
+    if (!pkt_1 || buffer_len == 0)
     {
-        g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
+        printf("Failed to build GPS update packet for node: %s\n", g_device_config.manf_info.nodeId.value);
+        return;
+    }
+
+    if (!g_comm->sendPacket(pkt_1, buffer_len, gpsupdate_entry))
+    {
+        printf("Sending activation packet failed for node: %s\n", g_device_config.manf_info.nodeId.value);
         return;
     }
 }
@@ -215,65 +218,54 @@ void handle_gps_update() {
  */
 void handle_activation()
 {
-    std::string gps = read_gps();
-
     ActivatePkt activatePkt(PktType::Activate, std::string(g_device_config.manf_info.nodeId.value),
-                            std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value), gps);
+                            std::string(ACT_URI), std::string(g_device_config.manf_info.secretkey.value), g_device_config.gps_coord, g_device_config.manf_info.hw_ver.value,
+                            g_device_config.manf_info.sim_mod_sn.value, g_device_config.manf_info.sim_card_sn.value,
+                            g_device_config.manf_info.chassis_ver.value);
 
     const uint8_t *pkt_1 = activatePkt.toBuffer();
     const size_t buffer_len = activatePkt.getBufferLength();
 
     if (g_device_config.has_activated)
     {
-        g_logger.info("Device already activated (node: %s)", g_device_config.manf_info.nodeId.value);
+        printf("Device already activated (node: %s)\n", g_device_config.manf_info.nodeId.value);
         return;
     }
 
-    g_logger.info("Sending activation packet for node: %s", g_device_config.manf_info.nodeId.value);
 
-    if (!g_comm->sendPacket(pkt_1, buffer_len, PktType::Activate, CoapMethod::POST))
+    printf("Sending activation packet for node: %s\n", g_device_config.manf_info.nodeId.value);
+
+    /**
+     * Key is needed for activation and is computed here before the first packet build and send. This ensures that the secretKey value from the config is used to generate the correct HMAC for activation.
+     */
+    Key::computeKey(g_device_config.secretKey, Key::HMAC_SIZE);
+
+    if (!pkt_1 || buffer_len == 0)
     {
-        g_logger.error("Sending activation packet failed for node: %s", g_device_config.manf_info.nodeId.value);
+        printf("Failed to build activation packet for node: %s\n", g_device_config.manf_info.nodeId.value);
+        return;
+    }
+
+    if (!g_comm->sendPacket(pkt_1, buffer_len, activate_entry))
+    {
+        printf("Sending activation packet failed for node: %s\n", g_device_config.manf_info.nodeId.value);
         return;
     }
 
     g_device_config.has_activated = true;
 
+
     if (eeprom.saveConfig(g_device_config))
     {
-        g_logger.info("Activation complete, config saved to EEPROM");
+        printf("Activation complete, config saved to EEPROM\n");
     }
     else
     {
-        g_logger.error("Failed to save activation status to EEPROM");
+        printf("Failed to save activation status to EEPROM\n");
     }
 
     return;
 }
-
-#if OTA_EN == 1
-/**
- * @brief Check reset reason and perform OTA update if appropriate.
- */
-void checkAndPerformOTA()
-{
-    OTAUpdater ota;
-    const char *url = "http://45.79.118.187:8080/release/latest/cn1.bin";
-
-    g_logger.info("Power-on detected, checking for OTA update");
-
-    if (ota.update(url))
-    {
-        g_logger.info("OTA successful, rebooting...");
-        vTaskDelay(pdMS_TO_TICKS(2000));
-        esp_restart();
-    }
-    else
-    {
-        g_logger.warning("OTA failed or no update needed");
-    }
-}
-#endif
 
 void collect_reading()
 {
@@ -281,93 +273,163 @@ void collect_reading()
 
     for (const NPK::MeasurementEntry &m_entry : NPK::MEASUREMENT_TABLE)
     {
-        memset(reading, 0, NPK_COLLECT_SIZE);
-        
+        memset(reading, 0, sizeof(reading));
+
         if (!NPK::npk_collect(m_entry, reading))
         {
-            g_logger.warning("Failed to collect measurement type %d", 
-                           static_cast<int>(m_entry.type));
-            continue;  // Skip to next measurement
+            printf("Failed to collect measurement type %d\n",
+                   static_cast<int>(m_entry.type));
+            continue;
         }
-        
-        ReadingPkt readingPkt(PktType::Reading, 
-                             std::string(g_device_config.manf_info.nodeId.value), 
-                             std::string(DATA_URI), 
-                             reading, 
-                             m_entry.type);
+
+        if (!(g_device_config.session_count < UINT64_MAX))
+        {
+            printf("Error: session_count would overflow!\n");
+            continue;
+        }
+
+        ReadingPkt readingPkt(PktType::Reading,
+                              std::string(g_device_config.manf_info.nodeId.value),
+                              std::string(DATA_URI),
+                              reading,
+                              m_entry.type,
+                              g_device_config.session_count);
 
         const uint8_t *cbor_buffer = readingPkt.toBuffer();
         const size_t cbor_buffer_len = readingPkt.getBufferLength();
 
-        if (g_comm->sendPacket(cbor_buffer, cbor_buffer_len, PktType::Reading, CoapMethod::POST))
+        if (!cbor_buffer || cbor_buffer_len == 0)
         {
-            g_logger.info("Sent measurement type %d successfully", 
-                         static_cast<int>(m_entry.type));
+            printf("Failed to build measurement packet type %d\n", static_cast<int>(m_entry.type));
+            continue;
+        }
+
+        if (g_comm->sendPacket(cbor_buffer, cbor_buffer_len, reading_entry))
+        {
+            printf("Sent measurement type %d successfully\n", static_cast<int>(m_entry.type));
         }
         else
         {
-            g_logger.warning("Failed to send measurement type %d (will continue)", 
-                           static_cast<int>(m_entry.type));
+            printf("Failed to send measurement type %d, queuing to file\n", static_cast<int>(m_entry.type));
         }
     }
-    
-    g_logger.info("Collection complete");
+
+    g_device_config.session_count++;
+
+    if (eeprom.saveConfig(g_device_config))
+    {
+        printf("Readings complete, session saved to EEPROM\n");
+    }
+    else
+    {
+        printf("Failed to save session to EEPROM\n");
+    }
+
+    printf("Collection complete\n");
 }
+
 
 /**
  * @brief Background task for waiting provisioning, connecting, activating, OTA, and data collection.
  */
 void start_app(void *arg)
 {
+    bool connected_for_collection = false;
+
     if (!g_comm)
     {
-        g_logger.error("Communication not initialized");
-        vTaskDelete(nullptr);
-        return;
+        printf("Communication not initialized\n");
+        goto cleanup;
     }
 
     // Initial connection
     if (!g_comm->connect())
     {
-        g_logger.error("Unable to connect to network");
-        vTaskDelete(nullptr);
-        return;
+        printf("Unable to connect to network\n");
+        goto reboot;
     }
 
-    g_logger.info("Device connected to network");
-
-    // Handle activation only once
-    if (g_comm->isConnected()) {
-        if (!g_device_config.has_activated) {
-            handle_activation();
-        }
-        else {
-            handle_gps_update();    
-        }
-    }
+    printf("Device connected to network\n");
 
 #if OTA_EN == 1
     // OTA check only on power-on
     if (g_comm->isConnected())
     {
-        bool should_run_ota = !(wakeup_causes & ESP_SLEEP_WAKEUP_TIMER) && reset_reason == ESP_RST_POWERON;
+        CoapOTAUpdater ota(*g_comm, g_device_config.manf_info.fw_ver.value);
 
-        if (should_run_ota)
+        if (ota.isFirmwareAvailable()) {
+            printf("Firmware update detected, starting OTA process\n");
+
+            if (ota.executeUpdate())
+            {
+                printf("OTA image ready, rebooting into updated firmware\n");
+                vTaskDelay(pdMS_TO_TICKS(1500));
+                esp_restart();
+            }
+            else
+            {
+                printf("OTA download/write failed\n");
+            }
+        }
+        else
         {
-            g_logger.info("Power-on or hard reset");
-            checkAndPerformOTA();
+            printf("OTA check skipped: no update available or timeout/no response\n");
         }
     }
 #endif
 
-    collect_reading();
+    read_gps();
 
-    g_logger.info("Entering deep sleep for %d seconds", g_device_config.main_app_delay);
-    esp_sleep_enable_timer_wakeup(g_device_config.main_app_delay * 1000000ULL);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    esp_deep_sleep_start();
+    if (g_device_config.gps_coord.empty()) {
+        printf("No GPS coordinates available to send in update packet\n");
+        goto cleanup;
+    }
 
-    vTaskDelete(nullptr);
+    // Handle activation only once
+    if (!g_device_config.has_activated) {
+        handle_activation();
+    }
+    else {
+        handle_gps_update();
+    }
+
+#if TELNET_CLI_EN == 1
+    if (!g_comm->startTelnetSession())
+    {
+        printf("Warning: failed to start telnet session\n");
+    }
+#endif
+
+    connected_for_collection = g_comm->isConnected();
+    if (connected_for_collection)
+    {
+        printf("Connection check passed, starting collect_reading()\n");
+        collect_reading();
+        goto cleanup;
+    }
+    else
+    {
+        printf("Connection check failed before collect_reading(), skipping collection this cycle\n");
+        goto cleanup;
+    }
+
+    reboot:
+        printf("Reboooting\n");
+        g_logger.deinit();
+        esp_restart();
+
+    
+    cleanup:
+        if (g_comm)
+        {
+            g_comm->disconnect();
+        }
+        printf("Entering deep sleep for %ld seconds\n", g_device_config.main_app_delay);
+        g_logger.deinit(); // Ensure logs are flushed and filesystem is cleanly unmounted before sleep
+        esp_sleep_enable_timer_wakeup(g_device_config.main_app_delay * 1000000ULL);
+        vTaskDelay(pdMS_TO_TICKS(100));
+        esp_deep_sleep_start();
+        vTaskDelete(nullptr);
 }
 
 /**
@@ -375,8 +437,6 @@ void start_app(void *arg)
  */
 extern "C" void app_main(void)
 {
-    // cli_init();
-
     reset_reason = esp_reset_reason();
     wakeup_causes = esp_sleep_get_wakeup_causes();
 

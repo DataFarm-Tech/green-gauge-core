@@ -44,13 +44,13 @@
  * 2 bytes long, and we also add 3 to account for the device address, function code, and byte count fields at the start of the response. For example, to access the Nitrogen value which is in the 4th register (offset 4), we calculate the byte position as (4 * 2) + 3 = 11 bytes into the response payload.
  * This allows us to directly access the correct bytes in the response buffer when parsing the sensor data.
  */
-#define MOISTURE_OFFSET 0
-#define TEMPER_OFFSET 1
-// #define CONDUC_OFFSET 2 //NOT USED
-#define PH_OFFSET 3
-#define NITROGEN_OFFSET 4
-#define PHOS_OFFSET 5
-#define POT_OFFSET 6
+
+#define NITROGEN_OFFSET 11
+#define MOISTURE_OFFSET 3
+#define PH_OFFSET 9
+#define PHOS_OFFSET 13
+#define POTASS_OFFSET 15
+#define TEMP_OFFSET 5
 
 /**
  * @brief Measurement types supported by the NPK sensor
@@ -183,60 +183,6 @@ private:
      */
     static float convertRawValue(uint16_t raw_value, MeasurementType type);
 
-    // // Read single humidity value (Register 0x0000)
-    // static constexpr uint8_t READ_HUMIDITY[PACKET_SIZE] = {
-    //     0x01,       // Device Address
-    //     0x03,       // Function Code (Read Holding Registers)
-    //     0x00, 0x00, // Start Address (Humidity)
-    //     0x00, 0x01, // Number of registers to read (1)
-    //     0x84, 0x0A  // CRC16 (Low, High)
-    // };
-
-    // // Read single temperature value (Register 0x0001)
-    // static constexpr uint8_t READ_TEMPERATURE[PACKET_SIZE] = {
-    //     0x01,       // Device Address
-    //     0x03,       // Function Code
-    //     0x00, 0x01, // Start Address (Temperature)
-    //     0x00, 0x01, // Number of registers
-    //     0xD5, 0xCA  // CRC16
-    // };
-
-    // // Read single PH value (Register 0x0003)
-    // static constexpr uint8_t READ_PH[PACKET_SIZE] = {
-    //     0x01,       // Device Address
-    //     0x03,       // Function Code
-    //     0x00, 0x03, // Start Address (PH)
-    //     0x00, 0x01, // Number of registers
-    //     0x74, 0x0A  // CRC16
-    // };
-
-    // // Read single Nitrogen value (Register 0x0004)
-    // static constexpr uint8_t READ_NITROGEN[PACKET_SIZE] = {
-    //     0x01,       // Device Address
-    //     0x03,       // Function Code
-    //     0x00, 0x04, // Start Address (Nitrogen)
-    //     0x00, 0x01, // Number of registers
-    //     0xC5, 0xCB  // CRC16
-    // };
-
-    // // Read single Phosphorus value (Register 0x0005)
-    // static constexpr uint8_t READ_PHOSPHORUS[PACKET_SIZE] = {
-    //     0x01,       // Device Address
-    //     0x03,       // Function Code
-    //     0x00, 0x05, // Start Address (Phosphorus)
-    //     0x00, 0x01, // Number of registers
-    //     0x94, 0x0B  // CRC16
-    // };
-
-    // // Read single Potassium value (Register 0x0006)
-    // static constexpr uint8_t READ_POTASSIUM[PACKET_SIZE] = {
-    //     0x01,       // Device Address
-    //     0x03,       // Function Code
-    //     0x00, 0x06, // Start Address (Potassium)
-    //     0x00, 0x01, // Number of registers
-    //     0x64, 0x0B  // CRC16
-    // };
-
     // Read ALL sensors at once (7 registers: Humidity through Potassium)
     static constexpr uint8_t READ_ALL_SENSORS[PACKET_SIZE] = {
         0x01,       // Device Address
@@ -249,13 +195,12 @@ private:
 public:
     // Measurement table - must be defined AFTER the packet arrays
     static constexpr MeasurementEntry MEASUREMENT_TABLE[] = {
-    {MeasurementType::Nitrogen,    READ_ALL_SENSORS, PACKET_SIZE, 11},  // Register 4: bytes 11-12
-    {MeasurementType::Moisture,    READ_ALL_SENSORS, PACKET_SIZE, 3},   // Register 0: bytes 3-4
-    {MeasurementType::PH,          READ_ALL_SENSORS, PACKET_SIZE, 9},   // Register 3: bytes 9-10
-    {MeasurementType::Phosphorus,  READ_ALL_SENSORS, PACKET_SIZE, 13},  // Register 5: bytes 13-14
-    {MeasurementType::Potassium,   READ_ALL_SENSORS, PACKET_SIZE, 15},  // Register 6: bytes 15-16
-    {MeasurementType::Temperature, READ_ALL_SENSORS, PACKET_SIZE, 5}    // Register 1: bytes 5-6
+    {MeasurementType::Nitrogen,    READ_ALL_SENSORS, PACKET_SIZE, NITROGEN_OFFSET},  // Register 4: bytes 11-12
+    {MeasurementType::Moisture,    READ_ALL_SENSORS, PACKET_SIZE, MOISTURE_OFFSET},   // Register 0: bytes 3-4
+    {MeasurementType::PH,          READ_ALL_SENSORS, PACKET_SIZE, PH_OFFSET},   // Register 3: bytes 9-10
+    {MeasurementType::Phosphorus,  READ_ALL_SENSORS, PACKET_SIZE, PHOS_OFFSET},  // Register 5: bytes 13-14
+    {MeasurementType::Potassium,   READ_ALL_SENSORS, PACKET_SIZE, POTASS_OFFSET},// Register 6: bytes 15-16
+    {MeasurementType::Temperature, READ_ALL_SENSORS, PACKET_SIZE, TEMP_OFFSET}    // Register 1: bytes 5-6
 };
 
-    static constexpr size_t MEASUREMENT_TABLE_SIZE = sizeof(MEASUREMENT_TABLE) / sizeof(MeasurementEntry);
 };

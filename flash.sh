@@ -7,10 +7,10 @@ PROJECT_VER=$(git describe --tags --abbrev=0)
 echo "Current Git tag: $PROJECT_VER"
 
 echo "=== Building firmware ==="
-idf.py build -D CMAKE_VERBOSE_MAKEFILE=ON -DOTA_EN=0 -DDEEP_SLEEP_EN=0 -DPROJECT_VER="$PROJECT_VER"
+idf.py build -D CMAKE_VERBOSE_MAKEFILE=ON -DOTA_EN=0 -DDEEP_SLEEP_EN=0 -DPROJECT_VER="$PROJECT_VER" -DTELNET_CLI_EN=0
 
 # Path to the built firmware
-BIN_FILE="build/firmware-idf.bin"
+BIN_FILE="build/df-firmware.bin"
 RENAMED_FILE="cn1.bin"
 
 if [[ ! -f "$BIN_FILE" ]]; then
@@ -34,11 +34,11 @@ if [[ ! -d "$DEST_DIR" ]]; then
     sudo mkdir -p "$DEST_DIR"
 fi
 
-echo "Renaming firmware to $RENAMED_FILE ..."
-cp "$BIN_FILE" "$RENAMED_FILE"
+##echo "Renaming firmware to $RENAMED_FILE ..."
+##cp "$BIN_FILE" "$RENAMED_FILE"
 
-echo "Copying firmware to $DEST_DIR ..."
-sudo mv "$RENAMED_FILE" "$DEST_DIR/"
+##echo "Copying firmware to $DEST_DIR ..."
+##sudo mv "$RENAMED_FILE" "$DEST_DIR/"
 
-echo "=== Done ==="
-echo "Firmware copied to $DEST_DIR/$RENAMED_FILE"
+##echo "=== Done ==="
+##echo "Firmware copied to $DEST_DIR/$RENAMED_FILE"

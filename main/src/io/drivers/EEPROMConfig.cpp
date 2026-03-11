@@ -56,6 +56,10 @@ bool EEPROMConfig::readU32(const char* key, uint32_t* dest) {
     return (nvs_get_u32(handle, key, dest) == ESP_OK);
 }
 
+bool EEPROMConfig::readU64(const char* key, uint64_t* dest) {
+    return (nvs_get_u64(handle, key, dest) == ESP_OK);
+}
+
 bool EEPROMConfig::readFloat(const char* key, float* dest) {
     char str_value[16];
     if (readString(key, str_value, sizeof(str_value))) {
@@ -87,6 +91,20 @@ bool EEPROMConfig::writeU32(const char* key, uint32_t value) {
     return (nvs_set_u32(handle, key, value) == ESP_OK);
 }
 
+bool EEPROMConfig::writeU64(const char* key, uint64_t value) {
+    return (nvs_set_u64(handle, key, value) == ESP_OK);
+}
+
+
+bool EEPROMConfig::readBlob(const char* key, void* dest, size_t len) {
+    size_t required_size = len;
+    return (nvs_get_blob(handle, key, dest, &required_size) == ESP_OK);
+}
+
+bool EEPROMConfig::writeBlob(const char* key, const void* value, size_t len) {
+    return (nvs_set_blob(handle, key, value, len) == ESP_OK);
+}
+
 bool EEPROMConfig::loadConfig(DeviceConfig& config) {
     if (handle == 0) return false;
 
@@ -103,12 +121,19 @@ bool EEPROMConfig::loadConfig(DeviceConfig& config) {
     
     readString("p_code", config.manf_info.p_code.value, MANF_MAX_LEN);
     
-    readString("sim_sn", config.manf_info.sim_sn.value, MANF_MAX_LEN);
+    readString("sim_mod_sn", config.manf_info.sim_mod_sn.value, MANF_MAX_LEN);
+    
+    readString("sim_card_sn", config.manf_info.sim_card_sn.value, MANF_MAX_LEN);
+
+    readString("chassis_ver", config.manf_info.chassis_ver.value, MANF_MAX_LEN);
+
+    readBlob("hmac_key", config.secretKey, sizeof(config.secretKey));
     
     // Load activation status
     readBool("has_activated", &config.has_activated);
 
     readU32("main_app_delay", &config.main_app_delay);
+    readU64("session_count", &config.session_count);
     
     // Load calibration data
     readFloat("cal_n_offset", &config.calib.calib_list[0].offset);
@@ -157,11 +182,18 @@ bool EEPROMConfig::saveConfig(const DeviceConfig& config) {
     
     writeString("p_code", config.manf_info.p_code.value);
 
-    writeString("sim_sn", config.manf_info.sim_sn.value);
+    writeString("sim_mod_sn", config.manf_info.sim_mod_sn.value);
+    writeString("sim_card_sn", config.manf_info.sim_card_sn.value);
+
+    writeString("chassis_ver", config.manf_info.chassis_ver.value);
     
     // Save activation status
     writeBool("has_activated", config.has_activated);
     writeU32("main_app_delay", config.main_app_delay);
+    writeU64("session_count", config.session_count);
+
+    writeBlob("hmac_key", config.secretKey, sizeof(config.secretKey));
+
     
     // Save calibration data
     writeFloat("cal_n_offset", config.calib.calib_list[0].offset);

@@ -15,5 +15,4 @@ public:
 
 private:
     ATCommandHndlr m_hndlr;
-    std::string parseGPSLine(const std::string &line) const;
 };

@@ -3,10 +3,10 @@
 #include <cstdint>
 
 // constexpr char NODE_ID[] = "nod123";
-constexpr char BATT_URI[] = "coap://45.79.239.100/battery";
-constexpr char DATA_URI[] = "coap://45.79.239.100/reading";
-constexpr char ACT_URI[] = "coap://45.79.239.100/activate";
-constexpr char GPS_URI[] = "coap://45.79.239.100/update-gps";
+constexpr char BATT_URI[] = "coap://45.79.118.187/battery";
+constexpr char DATA_URI[] = "coap://45.79.118.187/reading";
+constexpr char ACT_URI[] = "coap://45.79.118.187/activate";
+constexpr char GPS_URI[] = "coap://45.79.118.187/update-gps";
 
 constexpr char BATT_TAG[] = "BatteryPacket";
 constexpr char DATA_TAG[] = "DataPacket";

@@ -24,6 +24,7 @@
 #define COAP_CODE_CLASS_SERVER_ERR  5
 
 // CoAP Code Details
+#define COAP_CODE_DETAIL_GET        1
 #define COAP_CODE_DETAIL_POST       2
 #define COAP_CODE_DETAIL_PUT        3
 #define COAP_CODE_DETAIL_CREATED    1
@@ -51,6 +52,13 @@
 #define COAP_OPTION_EXTENDED_LEN    13
 #define COAP_OPTION_MAX_STANDARD    12
 
+// Packet response timing defaults (milliseconds)
+#define PKT_RESPONSE_WIN_DEFAULT_MS            15000
+#define PKT_RESPONSE_WIN_FW_VERSION_MS         12000
+#define PKT_RESPONSE_WIN_FW_DOWNLOAD_MS        90000
+#define PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS     1200
+#define PKT_SOCKET_READ_TIMEOUT_FW_DOWNLOAD_MS 2000
+
 // CoAP Special Values
 #define COAP_PAYLOAD_MARKER         0xFF
 #define COAP_INITIAL_MSG_ID         0x1234
@@ -77,19 +85,29 @@
 #define COAP_OPTION_DELTA_SHIFT     4
 
 
+
 enum PktType
 {
 	Activate,
 	Reading,
+	FirmwareVersion,
+	FirmwareDownload,
 	GpsUpdate
 };
 
 enum CoapMethod 
 {
 	POST,
+	GET,
 	PUT
 };
 
+typedef struct {
+	PktType pkt_type;
+	CoapMethod method;
+	int response_win;
+	int socket_read_timeout;
+} PktEntry_t;
 class CoapPktAssm
 {
 public:
@@ -100,15 +118,12 @@ public:
 	 * @param buffer
 	 * @param buffler_len
 	 */
-	static size_t buildCoapBuffer( uint8_t coap_buffer[], 
-								   PktType pkt_type, 
-								   const uint8_t * buffer, 
-								   const size_t buffer_len, CoapMethod meth);
+	static size_t buildCoapBuffer(uint8_t coap_buffer[], const uint8_t *buffer, const size_t buffer_len, PktEntry_t pkt_config);
 	
 	/**
 	 * @brief Get the URI path string based on the packet type
-	 * @param pkt_type The type of the packet (Activate or Reading)
-	 * @return The corresponding URI path string (e.g., "activate" or "reading
+	 * @param pkt_type The type of the packet (Activate, Reading, FirmwareVersion, or GpsUpdate)
+	 * @return The corresponding URI path string (e.g., "activate", "reading", "firmware-version", or "gps-update")
 	 */
 	static std::string getUriPath(PktType pkt_type);
 
@@ -201,3 +216,10 @@ private:
 	 */
 	static uint16_t getNextMessageId();
 };
+
+
+extern PktEntry_t activate_entry;
+extern PktEntry_t reading_entry;
+extern PktEntry_t gpsupdate_entry;
+extern PktEntry_t firmwareversion_entry;
+extern PktEntry_t firmwaredownload_entry;

@@ -2,6 +2,11 @@
 
 #include <unistd.h>
 
+extern "C" {
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+}
+
 /**
  * @enum MsgType
  * @brief Represents a type of AT command
@@ -58,6 +63,61 @@ public:
      * @return true if an expected response line was captured, false otherwise
      */
     bool sendAndCapture(const ATCommand_t& atCmd, char* out_buf, size_t out_len);
+
+    /**
+     * @brief Opens an IP socket (TCP/UDP) using the modem.
+     *
+     * Sends `AT+QIOPEN` and validates the asynchronous `+QIOPEN: <id>,<err>` result.
+     *
+     * @param protocol Protocol string accepted by modem, e.g. "TCP" or "UDP"
+     * @param host Remote host/IP
+     * @param port Remote port
+     * @param context_id PDP context id (default 1)
+     * @param connect_id Socket id (default 0)
+     * @param timeout_ms Timeout waiting for +QIOPEN URC
+     * @return true if socket opened successfully (`err == 0`), false otherwise
+     */
+    bool openIPSocket(const char* protocol,
+                      const char* host,
+                      uint16_t port,
+                      uint8_t context_id = 1,
+                      uint8_t connect_id = 0,
+                      int timeout_ms = 15000);
+
+    /**
+     * @brief Convenience wrapper for opening a TCP socket.
+     */
+    bool openTCPSocket(const char* host,
+                       uint16_t port,
+                       uint8_t context_id = 1,
+                       uint8_t connect_id = 0,
+                       int timeout_ms = 15000);
+
+    /**
+     * @brief Sends raw bytes through an already-open modem socket.
+     */
+    bool sendSocketData(uint8_t connect_id,
+                        const uint8_t* payload,
+                        size_t payload_len,
+                        int timeout_ms = 5000);
+
+    /**
+     * @brief Reads pending bytes from an already-open modem socket using AT+QIRD.
+     *
+     * @param connect_id Socket id
+     * @param out_buf Destination buffer
+     * @param out_len Destination buffer length
+     * @param out_read Receives number of bytes copied to out_buf
+     * @param timeout_ms Read timeout
+     * @param max_read Max bytes requested from modem in one QIRD
+     * @return true if command completed (including zero bytes read), false on error/timeout
+     */
+    bool readSocketData(uint8_t connect_id,
+                        char* out_buf,
+                        size_t out_len,
+                        size_t* out_read,
+                        int timeout_ms = 3000,
+                        size_t max_read = 256);
 
     /**
      * @brief Table of all AT commands for the FSM.
@@ -120,4 +180,10 @@ private:
      * @return true if data sent and acknowledged, false otherwise
      */
     bool sendPayloadAndWaitResponse(const uint8_t* payload, size_t payload_len);
+
+    bool ensureCmdMutex();
+    bool lockCmd();
+    void unlockCmd();
+
+    static SemaphoreHandle_t s_cmd_mutex;
 };

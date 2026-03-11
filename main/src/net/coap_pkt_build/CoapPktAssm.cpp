@@ -3,27 +3,41 @@
 #include <cstring>
 #include "Logger.hpp"
 
-size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], 
-							PktType pkt_type, 
-							const uint8_t *buffer, 
-							const size_t buffer_len, CoapMethod meth)
-{
-	g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", buffer_len);
+PktEntry_t firmwareversion_entry = {PktType::FirmwareVersion, CoapMethod::GET, PKT_RESPONSE_WIN_FW_VERSION_MS, PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS};
+PktEntry_t activate_entry = {PktType::Activate, CoapMethod::POST, PKT_RESPONSE_WIN_DEFAULT_MS, PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS};
+PktEntry_t reading_entry = {PktType::Reading, CoapMethod::POST, PKT_RESPONSE_WIN_DEFAULT_MS, PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS};
+PktEntry_t gpsupdate_entry = {PktType::GpsUpdate, CoapMethod::PUT, PKT_RESPONSE_WIN_DEFAULT_MS, PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS};
+PktEntry_t firmwaredownload_entry = {PktType::FirmwareDownload, CoapMethod::GET, PKT_RESPONSE_WIN_FW_DOWNLOAD_MS, PKT_SOCKET_READ_TIMEOUT_FW_DOWNLOAD_MS};
 
+size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[], const uint8_t *buffer, const size_t buffer_len, PktEntry_t pkt_config) 
+{
 	size_t offset = 0;
 	uint8_t code_detail = 0;
+	uint16_t msg_id = 0;
+	std::string uri_path;
+
+	if (buffer_len > 0 && !buffer)
+    {
+		printf("Invalid packet parameters\n");
+        return 0;
+    }
 	
+	printf("Building CoAP packet from CBOR payload (%zu bytes)\n", buffer_len);
+
 	// CoAP Header
 	offset += setHeader(&coap_buffer[offset], COAP_VERSION, COAP_TYPE_CON, COAP_DEFAULT_TOKEN_LEN);
 	
 	// Method Code: POST (0.02) or PUT (0.03)
-	switch (meth)
+	switch (pkt_config.method)
 	{
 	case CoapMethod::PUT:
 		code_detail = COAP_CODE_DETAIL_PUT;
 		break;
 	case CoapMethod::POST:
 		code_detail = COAP_CODE_DETAIL_POST;
+		break;
+	case CoapMethod::GET:
+		code_detail = COAP_CODE_DETAIL_GET;
 		break;
 	default:
 		break;
@@ -32,7 +46,7 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[],
 	offset += setCode(&coap_buffer[offset], COAP_CODE_CLASS_REQUEST, code_detail);
 	
 	// Message ID
-	uint16_t msg_id = getNextMessageId();
+	msg_id = getNextMessageId();
 	offset += setMessageId(&coap_buffer[offset], msg_id);
 	
 	// Token (4 bytes)
@@ -45,19 +59,20 @@ size_t CoapPktAssm::buildCoapBuffer(uint8_t coap_buffer[],
 	offset += setToken(&coap_buffer[offset], token, COAP_DEFAULT_TOKEN_LEN);
 	
 	// Uri-Path option
-	std::string uri_path = getUriPath(pkt_type);
+	uri_path = getUriPath(pkt_config.pkt_type);
 	offset += setUriPathOption(&coap_buffer[offset], uri_path, COAP_DELTA_URI_PATH);
 	
 	// Content-Format option (CBOR)
 	offset += setContentFormatOption(&coap_buffer[offset], COAP_CONTENT_FORMAT_CBOR, COAP_DELTA_CONTENT_FORMAT);
 	
-	// Payload marker
-	offset += setPayloadMarker(&coap_buffer[offset]);
-	
-	// CBOR payload
-	offset += setPayload(&coap_buffer[offset], buffer, buffer_len);
-	
-	g_logger.info("CoAP packet built: %zu bytes total\n", offset);
+	if (buffer_len > 0)
+	{
+		// Payload marker
+		offset += setPayloadMarker(&coap_buffer[offset]);
+
+		// CBOR payload
+		offset += setPayload(&coap_buffer[offset], buffer, buffer_len);
+	}
 	
 	return offset;
 }
@@ -91,7 +106,7 @@ size_t CoapPktAssm::setToken(uint8_t *buffer, const uint8_t *token, uint8_t toke
 {
 	if (token_len > COAP_MAX_TOKEN_LEN)
 	{
-		g_logger.error("Token length exceeds maximum of %d bytes\n", COAP_MAX_TOKEN_LEN);
+		printf("Token length exceeds maximum of %d bytes\n", COAP_MAX_TOKEN_LEN);
 		return 0;
 	}
 	
@@ -106,7 +121,7 @@ size_t CoapPktAssm::setUriPathOption(uint8_t *buffer, const std::string &uri_pat
 	if (uri_len > COAP_OPTION_MAX_STANDARD)
 	{
 		// Extended length encoding needed
-		g_logger.warning("Uri-Path length > %d, using extended encoding\n", COAP_OPTION_MAX_STANDARD);
+		printf("Uri-Path length > %d, using extended encoding\n", COAP_OPTION_MAX_STANDARD);
 		buffer[0] = ((delta & COAP_OPTION_DELTA_MASK) << COAP_OPTION_DELTA_SHIFT) | COAP_OPTION_EXTENDED_LEN;
 		buffer[1] = static_cast<uint8_t>(uri_len - COAP_OPTION_EXTENDED_LEN);
 		memcpy(&buffer[2], uri_path.c_str(), uri_len);
@@ -138,7 +153,10 @@ size_t CoapPktAssm::setPayloadMarker(uint8_t *buffer)
 
 size_t CoapPktAssm::setPayload(uint8_t *buffer, const uint8_t *payload, size_t payload_len)
 {
-	memcpy(buffer, payload, payload_len);
+	if (payload_len > 0)
+	{
+		memcpy(buffer, payload, payload_len);
+	}
 	return payload_len;
 }
 
@@ -176,6 +194,10 @@ std::string CoapPktAssm::getUriPath(PktType pkt_type)
 		return "reading";
 	case PktType::GpsUpdate:
 		return "gps-update";
+	case PktType::FirmwareVersion:
+		return "firmware-version";
+	case PktType::FirmwareDownload:
+		return "firmware-bin";
 	default:
 		return "";
 	}

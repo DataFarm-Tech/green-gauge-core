@@ -15,8 +15,6 @@ NPK::NPK()
 
 void NPK::sendModbusRequest(const uint8_t *packet, size_t packet_size)
 {
-    // uart_flush(UART_NUM_2); // Flush any existing data
-
     for (size_t i = 0; i < packet_size; i++)
     {
         rs485_uart.writeByte(packet[i]);
@@ -26,7 +24,6 @@ void NPK::sendModbusRequest(const uint8_t *packet, size_t packet_size)
 
 size_t NPK::readModbusResponse(uint8_t *rx_buffer, size_t buffer_size, uint32_t timeout_ms)
 {
-    // buffer_size = 7;
     size_t len = 0;
     uint32_t start_time = xTaskGetTickCount();
     uint32_t timeout_ticks = pdMS_TO_TICKS(timeout_ms);
@@ -80,8 +77,9 @@ bool NPK::validateResponse(const uint8_t *rx_buffer, size_t length)
     uint16_t calculated_crc, received_crc = 0;
 
     if (rx_buffer[0] != DEV_ADDR || rx_buffer[1] != FUNC_CODE) {
-        g_logger.warning("Invalid response header: addr=0x%02X func=0x%02X",
-                         rx_buffer[0], rx_buffer[1]);
+
+        printf("Invalid response header: addr=0x%02X func=0x%02X\n",
+               rx_buffer[0], rx_buffer[1]);
         return false;
     }
 
@@ -91,7 +89,7 @@ bool NPK::validateResponse(const uint8_t *rx_buffer, size_t length)
 
     if (length != expected_len)
     {
-        g_logger.warning("Expected %zu bytes, got %zu", expected_len, length);
+        printf("Invalid response length: expected %zu, got %zu\n", expected_len, length);
         return false;
     }
 
@@ -101,7 +99,7 @@ bool NPK::validateResponse(const uint8_t *rx_buffer, size_t length)
 
     if (received_crc != calculated_crc)
     {
-        g_logger.warning("CRC mismatch: received=0x%04X calculated=0x%04X",
+        printf("CRC mismatch: received=0x%04X calculated=0x%04X\n",
                          received_crc, calculated_crc);
         return false;
     }
@@ -123,7 +121,7 @@ bool NPK::npk_collect(const MeasurementEntry &m_entry, uint16_t reading[NPK_COLL
     size_t len = 0;
     uint16_t raw_value = 0;
 
-    g_logger.info("Starting collection of %d readings for measurement type %d (offset %zu)",
+    printf("Starting collection of %d readings for measurement type %d (offset %zu)\n",
                   NPK_COLLECT_SIZE, static_cast<int>(m_entry.type), m_entry.offset);
 
     for (size_t sample = 0; sample < NPK_COLLECT_SIZE; sample++)
@@ -135,7 +133,7 @@ bool NPK::npk_collect(const MeasurementEntry &m_entry, uint16_t reading[NPK_COLL
         len = readModbusResponse(rx_buffer, RX_BUFFER_SIZE, 500);
 
         // Print full response
-        g_logger.info("Received %zu bytes: [%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X]",
+        printf("Received %zu bytes: [%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X]\n",
             len,
             rx_buffer[0], rx_buffer[1], rx_buffer[2], rx_buffer[3],
             rx_buffer[4], rx_buffer[5], rx_buffer[6], rx_buffer[7],
@@ -147,32 +145,32 @@ bool NPK::npk_collect(const MeasurementEntry &m_entry, uint16_t reading[NPK_COLL
         
         if (len != EXPECTED_LENGTH)
         {
-            g_logger.warning("Expected %zu bytes, got %zu", EXPECTED_LENGTH, len);
+            printf("Invalid response length: expected %zu, got %zu\n", EXPECTED_LENGTH, len);
             return false;
         }
 
         if (!validateResponse(rx_buffer, len))
         {
-            g_logger.warning("Validation failed on sample %zu", sample);
+            printf("Validation failed on sample %zu\n", sample);
             return false;
         }
 
         // Debug: show what bytes we're reading
-        g_logger.info("Reading bytes at offset %zu: [%02X %02X]", 
-                      m_entry.offset,
-                      rx_buffer[m_entry.offset], 
-                      rx_buffer[m_entry.offset + 1]);
+        printf("Reading bytes at offset %zu: [%02X %02X]\n", 
+               m_entry.offset,
+               rx_buffer[m_entry.offset], 
+               rx_buffer[m_entry.offset + 1]);
 
         raw_value = parseRegisterValue(rx_buffer, m_entry.offset);
 
-        g_logger.info("Sample %zu: Raw value = %u", sample, raw_value);
+        printf("Sample %zu: Raw value = %u\n", sample, raw_value);
         
         reading[sample] = raw_value;
         
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 
-    g_logger.info("Completed collection of %d readings for measurement type %d",
+    printf("Completed collection of %d readings for measurement type %d\n",
                   NPK_COLLECT_SIZE, static_cast<int>(m_entry.type));
 
     return true;
@@ -180,5 +178,5 @@ bool NPK::npk_collect(const MeasurementEntry &m_entry, uint16_t reading[NPK_COLL
 
 void NPK::npk_calib()
 {
-    g_logger.info("Calibration routine not implemented yet");
+    printf("Calibration routine not implemented yet\n");
 }

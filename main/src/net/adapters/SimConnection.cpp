@@ -6,6 +6,8 @@
 #include "Logger.hpp"
 #include "CoapPktAssm.hpp"
 #include "EEPROMConfig.hpp"
+#include <cstdio>
+#include <cstring>
 
 extern "C"
 {
@@ -13,247 +15,446 @@ extern "C"
 #include "freertos/task.h"
 }
 
+static size_t extractCoapPayloadChunk(const char *src, size_t src_len, std::string &out)
+{
+    out.clear();
+
+    if (!src || src_len == 0)
+    {
+        return 0;
+    }
+
+    size_t payload_start = src_len;
+    for (size_t i = 0; i < src_len; ++i)
+    {
+        if (static_cast<uint8_t>(src[i]) == COAP_PAYLOAD_MARKER)
+        {
+            payload_start = i + 1;
+            break;
+        }
+    }
+
+    if (payload_start >= src_len)
+    {
+        return 0;
+    }
+
+    out.assign(src + payload_start, src_len - payload_start);
+
+    return out.size();
+}
+
+/**
+ * @brief CFUNCMD reset command
+ * This command performs a full modem reset, which is necessary to recover from certain error states and ensure a clean start. The modem will reboot and reinitialize after this command, so it should be used with caution.
+ * Expected response: "OK" after the modem restarts and is ready to accept commands again.
+ * Timeout: 5000ms (to allow for modem reboot time)
+ * MsgType: INIT (used during initial connection setup)
+ */
+ATCommand_t cfun_reset = {
+    "AT+CFUN=1,1",
+    "OK",
+    5000,
+    MsgType::INIT,
+    nullptr,
+    0
+};
+
+/**
+ * @brief CEREG command to check network registration status
+ * This command queries the modem for its current network registration status. The expected response includes "+C
+ * EREG: <n>,<stat>" where <stat> indicates the registration status (e.g., 1 for registered, 5 for registered with roaming). This command is used to determine if the modem has successfully connected to the cellular network.
+ * Timeout: 3000ms
+ * MsgType: NETREG (used during network registration phase)
+ */
+ATCommand_t cereg_cmd = {
+    "AT+CEREG?",
+    "+CEREG:",
+    3000,
+    MsgType::NETREG,
+    nullptr,
+    0
+};
+
+/**
+ * @brief QICSGP command to define PDP context
+ * This command sets up the PDP context for the cellular connection, specifying the APN and other parameters. The expected response is "OK" if the context was defined successfully. This is a critical
+ * step in preparing the modem for network communication, as it configures how the modem will connect to the cellular data network.
+ * Timeout: 2000ms
+ * MsgType: DATA (used during data connection setup)
+ */
+ATCommand_t define_pdp = {
+    "AT+QICSGP=1,1,\"telstra.internet\",\"\",\"\",1",
+    "OK",
+    2000,
+    MsgType::DATA,
+    nullptr,
+    0
+};
+
+/**
+ * @brief QIMUX command to enable multi-socket mode
+ * This command configures the modem to allow multiple simultaneous socket connections. The expected response is "OK" if the command was successful. Enabling multi-socket mode is important for applications that require
+ * multiple concurrent network connections (e.g., one for telemetry data and another for remote management). This command should be sent before attempting to open any sockets.
+ * Timeout: 3000ms
+ * MsgType: DATA (used during data connection setup)
+ */
+ATCommand_t enable_multi_socket = {
+    "AT+QIMUX=1",
+    "OK",
+    3000,
+    MsgType::DATA,
+    nullptr,
+    0
+};
+
+/**
+ * @brief QIACT command to activate PDP context
+ * This command activates the previously defined PDP context, allowing the modem to establish a data connection with the cellular network. The expected response is "OK" if the PDP context was activated successfully. Activ
+ * ating the PDP context is a crucial step in the connection process, as it enables the modem to obtain an IP address and start sending/receiving data over the cellular network. This command may need to be retried if the modem is not yet ready to activate the context.
+ * Timeout: 10000ms (activation can take some time, especially on initial attempts)
+ * MsgType: DATA (used during data connection setup)
+ */
+ATCommand_t activate_pdp = {
+    "AT+QIACT=1",
+    "OK",
+    10000,
+    MsgType::DATA,
+    nullptr,
+    0
+};
+
+/**
+ * @brief QIACT command to check PDP context status
+ * This command queries the modem for the status of the PDP context, including whether it is active and the assigned IP address. The expected response includes "+QIACT: 1,1"
+ * indicating that the context is active. This command is used to verify that the PDP context was successfully activated and that the modem is ready for network communication.
+ * Timeout: 3000ms
+ * MsgType: DATA (used during data connection setup)
+ */
+ATCommand_t check_ip = {
+    "AT+QIACT?",
+    "+QIACT:",
+    3000,
+    MsgType::DATA,
+    nullptr,
+    0
+};
+
+/**
+ * @brief QIOPEN command to open a UDP socket
+ * This command instructs the modem to open a UDP socket connection to a specified remote host and port. The expected response is "OK" followed by an asynchronous "+QIOPEN: <
+ * id>,<err>" response indicating whether the socket was opened successfully (err=0) or if there was an error. This command is essential for establishing a communication channel over which data packets can be sent and received.
+ * Timeout: 5000ms (to allow for socket opening process)
+ * MsgType: DATA (used during data connection setup)
+ */
+ATCommand_t open_socket = {
+    "AT+QIOPEN=1,0,\"UDP\",\"45.79.118.187\",5683,0,0",
+    "OK",
+    5000,
+    MsgType::DATA,
+    nullptr,
+    0
+};
+
+/**
+ * @brief QIDEACT command to deactivate PDP context
+ * This command deactivates the active PDP context, effectively disconnecting the modem from the cellular network. The expected response is "OK" if the context was deactivated successfully. This command is
+ * used for cleanup and error recovery purposes, allowing the modem to reset its network state before retrying activation or shutting down.
+ * Timeout: 5000ms
+ * MsgType: SHUTDOWN (used during connection shutdown and error recovery)
+ */
+ATCommand_t deactivate_pdp = {
+    "AT+QIDEACT=1",
+    "OK",
+    5000,
+    MsgType::SHUTDOWN,
+    nullptr,
+    0
+};
+
+/**
+ * @brief QICLOSE command to close the UDP socket
+ * This command instructs the modem to close the previously opened UDP socket. The expected response is "OK" if the socket was closed successfully. This command is used during cleanup and shutdown procedures to ensure that all network resources are properly released.
+ * Timeout: 5000ms
+ * MsgType: SHUTDOWN (used during connection shutdown and error recovery)
+ */
+ATCommand_t close_cmd = {
+    "AT+QICLOSE=0",
+    "OK",
+    5000,
+    MsgType::SHUTDOWN,
+    nullptr,
+    0
+};
+
+bool SimConnection::estDataSession() 
+{
+    bool pdp_active = false;
+
+    if (!hndlr.send(define_pdp))
+    {
+        printf("Failed to define PDP context\n");
+        return false;
+    }
+
+    if (!hndlr.send(enable_multi_socket))
+    {
+        printf("Failed to enable multi-socket mode (QIMUX=1)\n");
+        return false;
+    }
+
+    for (int attempt = 1; attempt <= 3; ++attempt)
+    {
+        if (hndlr.send(activate_pdp))
+        {
+            pdp_active = true;
+            break;
+        }
+
+        printf("PDP activate failed (attempt %d/3)\n", attempt);
+
+        // Reset context and retry after a short backoff.
+        deactivatePDP();
+        vTaskDelay(pdMS_TO_TICKS(3000));
+    }
+
+    if (!pdp_active)
+    {
+        printf("Failed to activate PDP context after retries\n");
+        return false;
+    }
+
+    // After PDP activation success
+    vTaskDelay(pdMS_TO_TICKS(4000));   // REQUIRED for EC25 stability
+
+    if (!hndlr.send(check_ip)) {
+        printf("PDP context not fully active\n");
+        return false;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(5000));   // REQUIRED for EC25 stability
+
+    if (!hndlr.send(open_socket))
+    {
+        printf("Failed to open UDP socket\n");
+        deactivatePDP();
+        return false;
+    }
+
+    return true;
+}
+
 bool SimConnection::connect()
 {
-    g_logger.info("Starting Quectel Connection\n");
-
-    g_logger.info(g_device_config.manf_info.sim_sn.value);
-
-    ATCommand_t cfun_reset = {
-        "AT+CFUN=1,1",
-        "OK",
-        5000,
-        MsgType::INIT,
-        nullptr,
-        0
-    };
+    uint8_t retry_counter = 0;
+    uint8_t retry_limit = static_cast<uint8_t>(RETRIES);
+    const char *retry_phase = "initialization";
+    
+    #if 0
+    printf("Starting Quectel Connection\n");
+    printf("%s\n", g_device_config.manf_info.sim_mod_sn.value);
+    printf("%s\n", g_device_config.manf_info.sim_card_sn.value);
+    #endif
 
     hndlr.send(cfun_reset);
     vTaskDelay(pdMS_TO_TICKS(8000));  // EC25 reboot time
-
-    
-
-    uint8_t retry_counter = 0;
 
     while (sim_stat != SimStatus::CONNECTED)
     {
         switch (sim_stat)
         {
         case SimStatus::DISCONNECTED:
-            g_logger.info("DISCONNECTED SIM STAT\n");
-            
-
             sim_stat = SimStatus::INIT;
             break;
 
         case SimStatus::INIT:
-    g_logger.info("INIT SIM STAT\n");
-    {
-        bool init_success = true;
-        for (auto &cmd : hndlr.at_command_table)
         {
-            if (cmd.msg_type != MsgType::INIT)
-                continue;
-            if (!hndlr.send(cmd))
+            retry_limit = static_cast<uint8_t>(RETRIES);
+            retry_phase = "modem initialization";
+            bool init_success = true;
+            for (auto &cmd : hndlr.at_command_table)
             {
-                init_success = false;
-                break;
-            }
-            // ADD: Small delay between INIT commands
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
-
-        if (init_success)
-        {
-            retry_counter = 0;
-            // ADD: Allow modem to settle after INIT before checking status
-            g_logger.info("INIT complete, waiting for modem to settle...\n");
-            vTaskDelay(pdMS_TO_TICKS(3000)); // 3 second settling time
-            sim_stat = SimStatus::NOTREADY;
-        }
-        else
-        {
-            retry_counter++;
-            if (retry_counter >= RETRIES)
-            {
-                sim_stat = SimStatus::ERROR;
-            }
-            else
-            {
-                vTaskDelay(pdMS_TO_TICKS(5000)); // Increase retry delay for INIT
-            }
-        }
-    }
-    break;
-
-        case SimStatus::NOTREADY:
-    g_logger.info("NOTREADY SIM STAT\n");
-    {
-        bool status_ok = false;
-        for (auto &cmd : hndlr.at_command_table)
-        {
-            if (cmd.msg_type != MsgType::STATUS)
-                continue;
-            if (hndlr.send(cmd))
-            {
-                status_ok = true;
-                break;
-            }
-        }
-
-        if (status_ok)
-        {
-            retry_counter = 0;
-            sim_stat = SimStatus::REGISTERING;
-        }
-        else
-        {
-            retry_counter++;
-            if (retry_counter >= RETRIES)
-            {
-                sim_stat = SimStatus::ERROR;
-            }
-            else
-            {
-                // Increase delay for STATUS retries (SIM might still be initializing)
-                g_logger.info("STATUS check failed, retry %d/%d\n", retry_counter, RETRIES);
-                vTaskDelay(pdMS_TO_TICKS(5000)); // Increased from 2000
-            }
-        }
-    }
-    break;
-
-        case SimStatus::REGISTERING:
-            g_logger.info("REGISTERING SIM STAT\n");
-            {
-                bool registered = false;
-                for (auto &cmd : hndlr.at_command_table)
+                if (cmd.msg_type != MsgType::INIT) continue;
+                if (!hndlr.send(cmd))
                 {
-                    if (cmd.msg_type != MsgType::NETREG)
-                        continue;
-                    if (hndlr.send(cmd))
-                    {
-                        registered = true;
-                        break;
-                    }
+                    init_success = false;
+                    break;
                 }
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
 
-                if (registered)
+            if (init_success)
+            {
+                retry_counter = 0;
+                printf("INIT complete, waiting for modem to settle...\n");
+                vTaskDelay(pdMS_TO_TICKS(3000)); // 3 second settling time
+                sim_stat = SimStatus::NOTREADY;
+            }
+            else
+            {
+                retry_counter++;
+                if (retry_counter >= retry_limit)
                 {
-                    retry_counter = 0;
-                    sim_stat = SimStatus::CONNECTED;
-                    // printf("CONNECTED SIM STAT\n");
-                    // g_logger.info("CONNECTED SIM STAT\n");
-                    g_logger.info("Device connected to network\n");
+                    sim_stat = SimStatus::ERROR;
                 }
                 else
                 {
-                    retry_counter++;
-                    if (retry_counter >= RETRIES)
+                    vTaskDelay(pdMS_TO_TICKS(5000)); // Increase retry delay for INIT
+                }
+            }
+        }
+        break;
+
+        case SimStatus::NOTREADY:
+        {
+            retry_limit = static_cast<uint8_t>(RETRIES);
+            retry_phase = "SIM ready check";
+            bool status_ok = false;
+            for (auto &cmd : hndlr.at_command_table)
+            {
+                if (cmd.msg_type != MsgType::STATUS) continue;
+                if (hndlr.send(cmd))
+                {
+                    status_ok = true;
+                    break;
+                }
+            }
+
+            if (status_ok)
+            {
+                retry_counter = 0;
+                sim_stat = SimStatus::REGISTERING;
+            }
+            else
+            {
+                retry_counter++;
+                if (retry_counter >= retry_limit)
+                {
+                    sim_stat = SimStatus::ERROR;
+                }
+                else
+                {
+                    printf("STATUS check failed, retry %d/%d\n", retry_counter, retry_limit);
+                    vTaskDelay(pdMS_TO_TICKS(5000));
+                }
+            }
+        }
+        break;
+
+        case SimStatus::REGISTERING:
+        {
+            retry_limit = static_cast<uint8_t>(REG_RETRIES);
+            retry_phase = "network registration";
+            bool registered = false;
+
+            char cereg_resp[128] = {0};
+            if (hndlr.sendAndCapture(cereg_cmd, cereg_resp, sizeof(cereg_resp)))
+            {
+                int n = -1;
+                int stat = -1;
+
+                if (sscanf(cereg_resp, "+CEREG: %d,%d", &n, &stat) == 2)
+                {
+                    if (stat == 1 || stat == 5)
                     {
-                        sim_stat = SimStatus::ERROR;
+                        registered = true;
                     }
                     else
                     {
-                        vTaskDelay(pdMS_TO_TICKS(2000));
+                        printf("CEREG not registered yet (stat=%d)\n", stat);
                     }
                 }
+                else
+                {
+                    printf("Unable to parse CEREG response: %s\n", cereg_resp);
+                }
             }
-            break;
+            else
+            {
+                printf("Failed to query CEREG state\n");
+            }
+
+            if (registered)
+            {
+                retry_counter = 0;
+                sim_stat = SimStatus::CONNECTED;
+                printf("Device connected to network\n");
+            }
+            else
+            {
+                retry_counter++;
+                if (retry_counter >= retry_limit)
+                {
+                    sim_stat = SimStatus::ERROR;
+                }
+                else
+                {
+                    printf("CEREG not ready, retry %d/%d\n", retry_counter, retry_limit);
+                    vTaskDelay(pdMS_TO_TICKS(3000));
+                }
+            }
+        }
+        break;
 
         case SimStatus::ERROR:
             printf("ERROR SIM STAT - Max retries exceeded\n");
-            g_logger.error("Failed to connect to network after %d retries\n", RETRIES);
+            printf("Failed during %s after %d/%d retries\n", retry_phase, retry_counter, retry_limit);
             return false;
 
         case SimStatus::CONNECTED:
             // Should not reach here due to while condition, but included for completeness
-            g_logger.info("CONNECTED SIM STAT\n");
+            printf("CONNECTED SIM STAT\n");
             break;
         }
     }
 
-    // Step 1: Define PDP context
-    ATCommand_t define_pdp = {
-        "AT+QICSGP=1,1,\"telstra.internet\",\"\",\"\",1",
-        "OK",
-        2000,
-        MsgType::DATA,
-        nullptr,
-        0};
-
-    if (!hndlr.send(define_pdp))
+    if (!estDataSession())
     {
-        g_logger.error("Failed to define PDP context\n");
         return false;
     }
-
-    // Step 2: Activate PDP context
-    ATCommand_t activate_pdp = {
-        "AT+QIACT=1",
-        "OK",
-        10000,
-        MsgType::DATA,
-        nullptr,
-        0};
-
-    if (!hndlr.send(activate_pdp))
-    {
-        g_logger.error("Failed to activate PDP context\n");
-        return false;
-    }
-
-    // Step 3: Open UDP socket for CoAP
-    ATCommand_t open_socket = {
-        "AT+QIOPEN=1,0,\"UDP\",\"45.79.239.100\",5683,0,0",
-        "OK",
-        5000,
-        MsgType::DATA,
-        nullptr,
-        0};
-
-    if (!hndlr.send(open_socket))
-    {
-        g_logger.error("Failed to open UDP socket\n");
-        deactivatePDP();
-        return false;
-    }
-
-    // Wait for QIOPEN URC
-    vTaskDelay(pdMS_TO_TICKS(2000));
-
 
     return true;
 }
 
 bool SimConnection::isConnected()
 {
-
     if (sim_stat != SimStatus::CONNECTED)
-    {
         return false;
-    }
 
+    bool ran_hard_status_check = false;
     for (auto &cmd : hndlr.at_command_table)
     {
         if (cmd.msg_type != MsgType::STATUS)
             continue;
 
-        if (hndlr.send(cmd))
+        const bool is_ping_check = (cmd.cmd != nullptr) && (strstr(cmd.cmd, "AT+QPING") != nullptr);
+
+        if (!hndlr.send(cmd))
         {
-            return true;
+            if (is_ping_check)
+            {
+                // ICMP may be blocked by carrier/APN; do not mark link down solely on ping failure.
+                printf("STATUS warning: ping check failed, keeping session as connected\n");
+                continue;
+            }
+
+            return false;
         }
 
-        sim_stat = SimStatus::ERROR;
-        return false;
+        if (!is_ping_check)
+        {
+            ran_hard_status_check = true;
+        }
     }
 
-    return false;
+    return ran_hard_status_check;
 }
 
 void SimConnection::disconnect()
 {
-    g_logger.info("Disconnecting from network...\n");
+    printf("Disconnecting SIM connection\n");
+
+    telnet_session.stop();
 
     // Close UDP socket first
     closeUDPSocket();
@@ -269,21 +470,24 @@ void SimConnection::disconnect()
 
         if (hndlr.send(cmd))
         {
-            g_logger.info("Shutdown command successful\n");
+            printf("Shutdown command successful\n");
         }
         else
         {
-            g_logger.warning("Shutdown command failed\n");
+            printf("Shutdown command failed\n");
         }
     }
 
     // Update state
     sim_stat = SimStatus::DISCONNECTED;
 
-    g_logger.info("SIM disconnected\n");
+    printf("SIM disconnected\n");
 }
 
-bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_buffer_len, const PktType pkt_type, const CoapMethod meth)
+bool SimConnection::sendPacket(const uint8_t * cbor_buffer,
+                               const size_t cbor_buffer_len,
+                               const PktEntry_t pkt_config,
+                               std::string* response)
 {
     /**
      * Storing the complete COAP packet to be sent.
@@ -292,88 +496,265 @@ bool SimConnection::sendPacket(const uint8_t * cbor_buffer, const size_t cbor_bu
      * ReadingArray -> CBOR data
      * CBOR placed into COAP pkt
      */
-    uint8_t coap_buffer[512];
-
-    if (!cbor_buffer || cbor_buffer_len == 0)
-    {
-        g_logger.error("Invalid packet parameters\n");
-        return false;
-    }
-
-    if (sim_stat != SimStatus::CONNECTED)
-    {
-        g_logger.error("Cannot send packet: not connected\n");
-        return false;
-    }
-
-    g_logger.info("Building CoAP packet from CBOR payload (%zu bytes)\n", cbor_buffer_len);
-
-    size_t coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, pkt_type, cbor_buffer, cbor_buffer_len, meth);
-
-    g_logger.info("CoAP packet built: %zu bytes total\n", coap_buffer_len);
-
-    // Step 4: Send CoAP packet as UDP data
+    uint8_t coap_buffer[GEN_BUFFER_SIZE + 64];
+    size_t coap_buffer_len = 0;
     char send_cmd[64];
-    snprintf(send_cmd, sizeof(send_cmd), "AT+QISEND=0,%zu", coap_buffer_len);
 
-    ATCommand_t udp_send = {
-        send_cmd,
-        ">",
-        5000,
-        MsgType::DATA,
-        coap_buffer,
-        coap_buffer_len};
-
-    if (!hndlr.send(udp_send))
+    if (cbor_buffer_len > 0 && !cbor_buffer)
     {
-        g_logger.error("Failed to send UDP packet\n");
-        closeUDPSocket();
-        deactivatePDP();
+        printf("Invalid packet parameters\n");
         return false;
+    }
+
+    if (response)
+    {
+        response->clear();
+        return sendPacketStream(
+            cbor_buffer,
+            cbor_buffer_len,
+            pkt_config,
+            [response](const uint8_t* chunk, size_t chunk_len) -> bool {
+                if (!chunk || chunk_len == 0)
+                {
+                    return true;
+                }
+
+                response->append(reinterpret_cast<const char*>(chunk), chunk_len);
+                return true;
+            });
+    }
+
+    auto ensure_connected = [this]() -> bool {
+        if (sim_stat == SimStatus::CONNECTED) {
+            return true;
+        }
+
+        printf("SIM not connected, attempting reconnect before send\n");
+        return connect();
+    };
+
+    if (!ensure_connected())
+    {
+        printf("Cannot send packet: reconnect failed\n");
+        return false;
+    }
+
+    coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, cbor_buffer, cbor_buffer_len, pkt_config);
+
+    if (coap_buffer_len == 0) {
+        return false;
+    }
+    
+
+    auto send_udp_packet = [&]() -> bool {
+        snprintf(send_cmd, sizeof(send_cmd), "AT+QISEND=0,%zu", coap_buffer_len);
+
+        ATCommand_t udp_send = {
+            send_cmd,
+            ">",
+            5000,
+            MsgType::DATA,
+            coap_buffer,
+            coap_buffer_len};
+
+        return hndlr.send(udp_send);
+    };
+
+    if (!send_udp_packet())
+    {
+        printf("Failed to send UDP packet, resetting SIM data link\n");
+        disconnect();
+
+        if (!ensure_connected())
+        {
+            printf("SIM reconnect failed after send failure\n");
+            return false;
+        }
+
+        if (!send_udp_packet())
+        {
+            printf("Failed to send UDP packet after reconnect\n");
+            disconnect();
+            return false;
+        }
     }
 
     // Wait for SEND OK
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    g_logger.info("CoAP packet sent successfully via UDP\n");
-
+    printf("CoAP packet sent successfully via UDP\n");
     return true;
+}
+
+bool SimConnection::sendPacketStream(const uint8_t * cbor_buffer,
+                                     const size_t cbor_buffer_len,
+                                     const PktEntry_t pkt_config,
+                                     const PacketChunkCallback& onChunk)
+{
+    uint8_t coap_buffer[GEN_BUFFER_SIZE + 64];
+    size_t coap_buffer_len = 0;
+    char send_cmd[64];
+
+    if (cbor_buffer_len > 0 && !cbor_buffer)
+    {
+        printf("Invalid packet parameters\n");
+        return false;
+    }
+
+    auto ensure_connected = [this]() -> bool {
+        if (sim_stat == SimStatus::CONNECTED) {
+            return true;
+        }
+
+        printf("SIM not connected, attempting reconnect before send\n");
+        return connect();
+    };
+
+    if (!ensure_connected())
+    {
+        printf("Cannot send packet: reconnect failed\n");
+        return false;
+    }
+
+    coap_buffer_len = CoapPktAssm::buildCoapBuffer(coap_buffer, cbor_buffer, cbor_buffer_len, pkt_config);
+
+    if (coap_buffer_len == 0) {
+        return false;
+    }
+
+    auto send_udp_packet = [&]() -> bool {
+        snprintf(send_cmd, sizeof(send_cmd), "AT+QISEND=0,%zu", coap_buffer_len);
+
+        ATCommand_t udp_send = {
+            send_cmd,
+            ">",
+            5000,
+            MsgType::DATA,
+            coap_buffer,
+            coap_buffer_len};
+
+        return hndlr.send(udp_send);
+    };
+
+    if (!send_udp_packet())
+    {
+        printf("Failed to send UDP packet, resetting SIM data link\n");
+        disconnect();
+
+        if (!ensure_connected())
+        {
+            printf("SIM reconnect failed after send failure\n");
+            return false;
+        }
+
+        if (!send_udp_packet())
+        {
+            printf("Failed to send UDP packet after reconnect\n");
+            disconnect();
+            return false;
+        }
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    if (!onChunk)
+    {
+        printf("CoAP packet sent successfully via UDP\n");
+        return true;
+    }
+
+    char rx_buffer[GEN_BUFFER_SIZE + 64] = {0};
+    size_t rx_read = 0;
+    int empty_reads = 0;
+    bool got_any_payload = false;
+    static constexpr int EMPTY_READS_TO_FINISH = 5;
+    const int response_window_ms = (pkt_config.response_win > 0)
+                                       ? pkt_config.response_win
+                                       : PKT_RESPONSE_WIN_DEFAULT_MS;
+    const int read_timeout_ms = (pkt_config.socket_read_timeout > 0)
+                                    ? pkt_config.socket_read_timeout
+                                    : PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS;
+    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(response_window_ms);
+
+    auto has_time_remaining = [deadline]() -> bool {
+        return static_cast<int32_t>(deadline - xTaskGetTickCount()) > 0;
+    };
+
+    while (has_time_remaining())
+    {
+        if (!hndlr.readSocketData(0, rx_buffer, sizeof(rx_buffer), &rx_read, read_timeout_ms, sizeof(rx_buffer) - 1))
+        {
+            vTaskDelay(pdMS_TO_TICKS(150));
+            continue;
+        }
+
+        if (rx_read == 0)
+        {
+            empty_reads++;
+            if (got_any_payload && empty_reads >= EMPTY_READS_TO_FINISH)
+            {
+                printf("CoAP packet sent successfully via UDP\n");
+                return true;
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(120));
+            continue;
+        }
+
+        empty_reads = 0;
+
+        std::string payload_chunk;
+        if (extractCoapPayloadChunk(rx_buffer, rx_read, payload_chunk) > 0)
+        {
+            if (!onChunk(reinterpret_cast<const uint8_t*>(payload_chunk.data()), payload_chunk.size()))
+            {
+                printf("Streaming callback aborted firmware receive\n");
+                return false;
+            }
+
+            got_any_payload = true;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(80));
+    }
+
+    if (got_any_payload)
+    {
+        printf("CoAP packet sent successfully via UDP\n");
+        return true;
+    }
+
+    printf("Timed out waiting for response payload (%d ms)\n", response_window_ms);
+    return false;
+}
+
+bool SimConnection::startTelnetSession()
+{
+    if (sim_stat != SimStatus::CONNECTED)
+    {
+        return false;
+    }
+
+    if (telnet_session.isRunning())
+    {
+        return true;
+    }
+
+    return telnet_session.start(hndlr);
 }
 
 void SimConnection::closeUDPSocket()
 {
-    ATCommand_t close_cmd = {
-        "AT+QICLOSE=0",
-        "OK",
-        5000,
-        MsgType::SHUTDOWN,
-        nullptr,
-        0};
-
     if (!hndlr.send(close_cmd))
     {
-        g_logger.warning("Failed to close UDP socket\n");
+        printf("Failed to close UDP socket\n");
     }
-}
-
-void SimConnection::closeCoAPSession()
-{
-    // Keep for compatibility, but use closeUDPSocket instead
-    closeUDPSocket();
 }
 
 void SimConnection::deactivatePDP()
 {
-    ATCommand_t deactivate_pdp = {
-        "AT+QIDEACT=1",
-        "OK",
-        5000,
-        MsgType::SHUTDOWN,
-        nullptr,
-        0};
-
     if (!hndlr.send(deactivate_pdp))
     {
-        g_logger.warning("Failed to deactivate PDP context\n");
+        printf("Failed to deactivate PDP context\n");
     }
 }
