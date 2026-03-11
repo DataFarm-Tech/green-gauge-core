@@ -44,30 +44,6 @@ static size_t extractCoapPayloadChunk(const char *src, size_t src_len, std::stri
     return out.size();
 }
 
-static int getResponseWindowMs(const PktEntry_t &pkt_config)
-{
-    switch (pkt_config.pkt_type)
-    {
-    case PktType::FirmwareVersion:
-        return 12000;
-    case PktType::FirmwareDownload:
-        return 90000;
-    default:
-        return 15000;
-    }
-}
-
-static int getSocketReadTimeoutMs(const PktEntry_t &pkt_config)
-{
-    switch (pkt_config.pkt_type)
-    {
-    case PktType::FirmwareDownload:
-        return 2000;
-    default:
-        return 1200;
-    }
-}
-
 /**
  * @brief CFUNCMD reset command
  * This command performs a full modem reset, which is necessary to recover from certain error states and ensure a clean start. The modem will reboot and reinitialize after this command, so it should be used with caution.
@@ -692,8 +668,12 @@ bool SimConnection::sendPacketStream(const uint8_t * cbor_buffer,
     int empty_reads = 0;
     bool got_any_payload = false;
     static constexpr int EMPTY_READS_TO_FINISH = 5;
-    const int response_window_ms = getResponseWindowMs(pkt_config);
-    const int read_timeout_ms = getSocketReadTimeoutMs(pkt_config);
+    const int response_window_ms = (pkt_config.response_win > 0)
+                                       ? pkt_config.response_win
+                                       : PKT_RESPONSE_WIN_DEFAULT_MS;
+    const int read_timeout_ms = (pkt_config.socket_read_timeout > 0)
+                                    ? pkt_config.socket_read_timeout
+                                    : PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS;
     const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(response_window_ms);
 
     auto has_time_remaining = [deadline]() -> bool {

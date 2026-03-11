@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-PORT="${PORT:-/dev/ttyACM1}"
+PORT="${PORT:-/dev/ttyACM0}"
 BAUD="${BAUD:-115200}"
 NVS_BIN="${NVS_BIN:-manf-info/NT0052/NT0052.bin}"
 
