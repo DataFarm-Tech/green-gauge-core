@@ -30,3 +30,17 @@ jobs:
           name: esp32s3-build
           path: build/
           retention-days: 30
+
+      - name: Install Backblaze B2 SDK
+        shell: bash
+        run: |
+          python -m pip install --no-cache-dir b2sdk
+
+      - name: Upload firmware and version to Backblaze
+        shell: bash
+        env:
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          B2_BUCKET: ${{ secrets.B2_BUCKET }}
+        run: |
+          python .github/scripts/upload_backblaze.py
