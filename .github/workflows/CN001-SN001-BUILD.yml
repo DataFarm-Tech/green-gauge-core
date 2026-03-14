@@ -34,6 +34,8 @@ jobs:
       - name: Install Backblaze B2 SDK
         shell: bash
         run: |
+          export IDF_TARGET=esp32s3
+          . /opt/esp/idf/export.sh
           python -m pip install --no-cache-dir b2sdk
 
       - name: Upload firmware and version to Backblaze
@@ -43,4 +45,6 @@ jobs:
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
           B2_BUCKET: ${{ secrets.B2_BUCKET }}
         run: |
+          export IDF_TARGET=esp32s3
+          . /opt/esp/idf/export.sh
           python .github/scripts/upload_backblaze.py
