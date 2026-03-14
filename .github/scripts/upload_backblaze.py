@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import sys
 import tempfile
@@ -47,6 +48,14 @@ def resolve_app_binary(build_dir: Path) -> Path:
     return app_path
 
 
+def sha256_file(file_path: Path) -> str:
+    digest = hashlib.sha256()
+    with file_path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def try_archive_existing_file(bucket: Any, file_name: str, archive_prefix: str, temp_dir: Path) -> None:
     source_path = temp_dir / file_name
     source_path.parent.mkdir(parents=True, exist_ok=True)
@@ -81,11 +90,12 @@ def main() -> None:
     repo_root = Path.cwd()
     build_dir = repo_root / "build"
     app_binary = resolve_app_binary(build_dir)
+    app_hash = sha256_file(app_binary)
 
     archive_prefix = f"archive/{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
 
     version_file = repo_root / "version.txt"
-    version_file.write_text(f"{VERSION}\n", encoding="utf-8")
+    version_file.write_text(f"{VERSION}\nsha256={app_hash}\n", encoding="utf-8")
 
     info = InMemoryAccountInfo()
     b2_api = B2Api(info)
@@ -104,7 +114,7 @@ def main() -> None:
         content_type="text/plain",
     )
 
-    print(f"Uploaded firmware.bin from {app_binary} and version.txt ({VERSION})")
+    print(f"Uploaded firmware.bin from {app_binary} and version.txt ({VERSION}, sha256={app_hash})")
 
 
 if __name__ == "__main__":
