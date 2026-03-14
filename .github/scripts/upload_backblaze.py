@@ -54,6 +54,7 @@ def try_archive_existing_file(bucket: Any, file_name: str, archive_prefix: str, 
     try:
         downloaded_file = bucket.download_file_by_name(file_name)
         downloaded_file.save_to(str(source_path))
+        file_version = downloaded_file.download_version
     except Exception as exc:
         message = str(exc).lower()
         if "not present" in message or "not found" in message:
@@ -63,7 +64,8 @@ def try_archive_existing_file(bucket: Any, file_name: str, archive_prefix: str, 
 
     archived_name = f"{archive_prefix}/{file_name}"
     bucket.upload_local_file(local_file=str(source_path), file_name=archived_name)
-    print(f"Archived {file_name} to {archived_name}")
+    bucket.delete_file_version(file_version.id_, file_name)
+    print(f"Moved {file_name} to {archived_name}")
 
 
 def main() -> None:
