@@ -52,9 +52,8 @@ def try_archive_existing_file(bucket: Any, file_name: str, archive_prefix: str, 
     source_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        from b2sdk.v2 import DownloadDestLocalFile  # pyright: ignore[reportMissingImports]
-
-        bucket.download_file_by_name(file_name, DownloadDestLocalFile(str(source_path)))
+        downloaded_file = bucket.download_file_by_name(file_name)
+        downloaded_file.save_to(str(source_path))
     except Exception as exc:
         message = str(exc).lower()
         if "not present" in message or "not found" in message:
