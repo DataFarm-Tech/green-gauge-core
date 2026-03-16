@@ -45,6 +45,41 @@ static void printSanitizedMsg(const char* prefix, const char* line)
     printf("%s%s\n", (prefix != nullptr) ? prefix : "", sanitized);
 }
 
+static bool parseSocketIdFromSendCmd(const char* cmd, int* out_socket_id)
+{
+    if (out_socket_id == nullptr || cmd == nullptr)
+    {
+        return false;
+    }
+
+    unsigned socket_id = 0;
+    if (sscanf(cmd, "AT+QISEND=%u,", &socket_id) == 1 ||
+        sscanf(cmd, "AT+QSSLSEND=%u,", &socket_id) == 1)
+    {
+        *out_socket_id = static_cast<int>(socket_id);
+        return true;
+    }
+
+    return false;
+}
+
+static bool parseClosedSocketUrc(const char* line, int* out_socket_id)
+{
+    if (line == nullptr || out_socket_id == nullptr)
+    {
+        return false;
+    }
+
+    int socket_id = -1;
+    if (sscanf(line, "+QIURC: \"closed\",%d", &socket_id) == 1)
+    {
+        *out_socket_id = socket_id;
+        return true;
+    }
+
+    return false;
+}
+
 bool ATCommandHndlr::ensureCmdMutex() {
     if (s_cmd_mutex != nullptr) {
         return true;
@@ -92,10 +127,13 @@ bool ATCommandHndlr::send(const ATCommand_t& atCmd) {
     // g_logger.info("TX: %s\n", atCmd.cmd);
     m_modem_uart.writef("%s\r\n", atCmd.cmd);
 
+    int send_socket_id = -1;
+    (void)parseSocketIdFromSendCmd(atCmd.cmd, &send_socket_id);
+
     // Check if this command includes a payload
     if (atCmd.payload != nullptr && atCmd.payload_len > 0) {
         // Some commands (e.g., QHTTPURL) use "CONNECT" readiness instead of '>' prompt.
-        auto waitForPayloadReady = [this](const char* expect, int timeout_ms) -> bool {
+        auto waitForPayloadReady = [this, send_socket_id](const char* expect, int timeout_ms) -> bool {
             const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
             char line_buf[128] = {0};
             size_t line_len = 0;
@@ -125,6 +163,16 @@ bool ATCommandHndlr::send(const ATCommand_t& atCmd) {
                             return false;
                         }
 
+                        int closed_socket_id = -1;
+                        if (parseClosedSocketUrc(line_buf, &closed_socket_id)) {
+                            if (send_socket_id >= 0 && closed_socket_id != send_socket_id) {
+                                printSanitizedMsg("Ignoring unrelated socket close URC during prompt wait: ", line_buf);
+                            } else {
+                                printSanitizedMsg("Payload readiness failed due to target socket close: ", line_buf);
+                                return false;
+                            }
+                        }
+
                         if (expect != nullptr && expect[0] != '\0' && strstr(line_buf, expect) != nullptr) {
                             return true;
                         }
@@ -150,7 +198,7 @@ bool ATCommandHndlr::send(const ATCommand_t& atCmd) {
         }
 
         // Send payload and wait for response
-        const bool success = sendPayloadAndWaitResponse(atCmd.payload, atCmd.payload_len);
+        const bool success = sendPayloadAndWaitResponse(atCmd.payload, atCmd.payload_len, send_socket_id);
         unlockCmd();
         return success;
     } else {
@@ -903,8 +951,7 @@ bool ATCommandHndlr::waitForPrompt(int timeout_ms) {
                     }
 
                     if (strstr(line_buf, "+QIURC: \"closed\"") != nullptr) {
-                        printSanitizedMsg("Prompt wait aborted: ", line_buf);
-                        return false;
+                        printSanitizedMsg("Prompt wait saw socket close URC, continuing: ", line_buf);
                     }
                 }
 
@@ -922,7 +969,7 @@ bool ATCommandHndlr::waitForPrompt(int timeout_ms) {
     
     return false;
 }
-bool ATCommandHndlr::sendPayloadAndWaitResponse(const uint8_t* payload, size_t payload_len) {
+bool ATCommandHndlr::sendPayloadAndWaitResponse(const uint8_t* payload, size_t payload_len, int target_socket_id) {
     // Send binary payload
     for (size_t i = 0; i < payload_len; i++) {
         m_modem_uart.writeByte(payload[i]);
@@ -988,10 +1035,15 @@ bool ATCommandHndlr::sendPayloadAndWaitResponse(const uint8_t* payload, size_t p
                     return false;
                 }
 
-                // Check for +QIURC: "closed" (connection closed)
-                if (strstr(state.line_buffer, "+QIURC: \"closed\"") != nullptr) {
-                    printf("Socket closed during send\n");
-                    return false;
+                // Check for +QIURC: "closed",<id>
+                int closed_socket_id = -1;
+                if (parseClosedSocketUrc(state.line_buffer, &closed_socket_id)) {
+                    if (target_socket_id >= 0 && closed_socket_id != target_socket_id) {
+                        printSanitizedMsg("Ignoring unrelated socket close URC during payload confirmation: ", state.line_buffer);
+                    } else {
+                        printf("Target socket closed during send (id=%d)\n", closed_socket_id);
+                        return false;
+                    }
                 }
             }
 

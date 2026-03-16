@@ -202,7 +202,7 @@ private:
      * @param payload_len Length of payload
      * @return true if data sent and acknowledged, false otherwise
      */
-    bool sendPayloadAndWaitResponse(const uint8_t* payload, size_t payload_len);
+    bool sendPayloadAndWaitResponse(const uint8_t* payload, size_t payload_len, int target_socket_id = -1);
 
     /**
      * @brief Ensures the command mutex is available.
