@@ -94,9 +94,57 @@ bool ATCommandHndlr::send(const ATCommand_t& atCmd) {
 
     // Check if this command includes a payload
     if (atCmd.payload != nullptr && atCmd.payload_len > 0) {
-        // Wait for '>' prompt
-        if (!waitForPrompt(atCmd.timeout_ms)) {
-            printf("Failed waiting for '>' prompt after command: %s\n", atCmd.cmd);
+        // Some commands (e.g., QHTTPURL) use "CONNECT" readiness instead of '>' prompt.
+        auto waitForPayloadReady = [this](const char* expect, int timeout_ms) -> bool {
+            const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
+            char line_buf[128] = {0};
+            size_t line_len = 0;
+
+            while (xTaskGetTickCount() < deadline) {
+                uint8_t c = 0;
+                if (!m_modem_uart.readByte(c)) {
+                    vTaskDelay(pdMS_TO_TICKS(1));
+                    continue;
+                }
+
+                if (c == '>') {
+                    return true;
+                }
+
+                if (c == '\n') {
+                    line_buf[line_len] = '\0';
+                    if (line_len > 0 && line_buf[line_len - 1] == '\r') {
+                        line_buf[--line_len] = '\0';
+                    }
+
+                    if (line_len > 0) {
+                        printSanitizedRx(line_buf);
+
+                        if (strcmp(line_buf, "ERROR") == 0 || strstr(line_buf, "+CME ERROR") != nullptr) {
+                            printSanitizedMsg("Payload readiness failed due to modem error: ", line_buf);
+                            return false;
+                        }
+
+                        if (expect != nullptr && expect[0] != '\0' && strstr(line_buf, expect) != nullptr) {
+                            return true;
+                        }
+                    }
+
+                    line_len = 0;
+                } else if (c != '\r') {
+                    if (line_len < sizeof(line_buf) - 1) {
+                        line_buf[line_len++] = static_cast<char>(c);
+                    } else {
+                        line_len = 0;
+                    }
+                }
+            }
+
+            return false;
+        };
+
+        if (!waitForPayloadReady(atCmd.expect, atCmd.timeout_ms)) {
+            printf("Failed waiting for payload readiness after command: %s\n", atCmd.cmd);
             unlockCmd();
             return false;
         }
@@ -304,6 +352,199 @@ bool ATCommandHndlr::openTCPSocket(const char* host,
     return openIPSocket("TCP", host, port, context_id, connect_id, timeout_ms);
 }
 
+bool ATCommandHndlr::openSSLSocket(const char* host,
+                                   uint16_t port,
+                                   uint8_t ssl_context_id,
+                                   uint8_t connect_id,
+                                   int timeout_ms) {
+    if (host == nullptr || host[0] == '\0' || port == 0) {
+        printf("Invalid parameters to openSSLSocket\n");
+        return false;
+    }
+
+    char cfg_cmd[96] = {0};
+    ATCommand_t cfg = {
+        cfg_cmd,
+        "OK",
+        5000,
+        MsgType::DATA,
+        nullptr,
+        0
+    };
+
+    snprintf(cfg_cmd, sizeof(cfg_cmd), "AT+QSSLCFG=\"sslversion\",%u,4", static_cast<unsigned>(ssl_context_id));
+    if (!send(cfg)) {
+        printf("QSSLCFG sslversion failed\n");
+        return false;
+    }
+
+    snprintf(cfg_cmd, sizeof(cfg_cmd), "AT+QSSLCFG=\"seclevel\",%u,0", static_cast<unsigned>(ssl_context_id));
+    if (!send(cfg)) {
+        printf("QSSLCFG seclevel failed\n");
+        return false;
+    }
+
+    snprintf(cfg_cmd, sizeof(cfg_cmd), "AT+QSSLCFG=\"sni\",%u,1", static_cast<unsigned>(ssl_context_id));
+    if (!send(cfg)) {
+        printf("QSSLCFG sni failed\n");
+        return false;
+    }
+
+    // Bind SSL context to PDP context 1 for modems that require explicit context mapping.
+    snprintf(cfg_cmd, sizeof(cfg_cmd), "AT+QSSLCFG=\"contextid\",%u,1", static_cast<unsigned>(ssl_context_id));
+    if (!send(cfg)) {
+        // Not all Quectel firmware builds support this key; continue without it.
+        printf("QSSLCFG contextid unsupported/failed, continuing without explicit context binding\n");
+    }
+
+    static constexpr size_t kOpenFormatCount = 7;
+    for (size_t fmt_idx = 0; fmt_idx < kOpenFormatCount; ++fmt_idx) {
+        char open_cmd[160] = {0};
+        int written = 0;
+
+        if (fmt_idx == 0) {
+            written = snprintf(open_cmd,
+                               sizeof(open_cmd),
+                               "AT+QSSLOPEN=%u,%u,\"%s\",%u,0",
+                               static_cast<unsigned>(ssl_context_id),
+                               static_cast<unsigned>(connect_id),
+                               host,
+                               static_cast<unsigned>(port));
+        } else if (fmt_idx == 1) {
+            written = snprintf(open_cmd,
+                               sizeof(open_cmd),
+                               "AT+QSSLOPEN=%u,%u,\"%s\",%u",
+                               static_cast<unsigned>(ssl_context_id),
+                               static_cast<unsigned>(connect_id),
+                               host,
+                               static_cast<unsigned>(port));
+        } else if (fmt_idx == 2) {
+            written = snprintf(open_cmd,
+                               sizeof(open_cmd),
+                               "AT+QSSLOPEN=%u,\"%s\",%u,%u",
+                               static_cast<unsigned>(connect_id),
+                               host,
+                               static_cast<unsigned>(port),
+                               static_cast<unsigned>(ssl_context_id));
+        } else if (fmt_idx == 3) {
+            written = snprintf(open_cmd,
+                               sizeof(open_cmd),
+                               "AT+QSSLOPEN=%u,\"%s\",%u,0",
+                               static_cast<unsigned>(ssl_context_id),
+                               host,
+                               static_cast<unsigned>(port));
+        } else if (fmt_idx == 4) {
+            written = snprintf(open_cmd,
+                               sizeof(open_cmd),
+                               "AT+QSSLOPEN=%u,\"%s\",%u",
+                               static_cast<unsigned>(ssl_context_id),
+                               host,
+                               static_cast<unsigned>(port));
+        } else if (fmt_idx == 5) {
+            written = snprintf(open_cmd,
+                               sizeof(open_cmd),
+                               "AT+QSSLOPEN=%u,\"%s\",%u",
+                               static_cast<unsigned>(connect_id),
+                               host,
+                               static_cast<unsigned>(port));
+        } else {
+            written = snprintf(open_cmd,
+                               sizeof(open_cmd),
+                               "AT+QSSLOPEN=\"%s\",%u",
+                               host,
+                               static_cast<unsigned>(port));
+        }
+
+        if (written <= 0 || written >= static_cast<int>(sizeof(open_cmd))) {
+            continue;
+        }
+
+        if (!lockCmd()) {
+            return false;
+        }
+
+        m_modem_uart.writef("%s\r\n", open_cmd);
+
+        char line_buf[256] = {0};
+        size_t line_len = 0;
+        bool got_open_result = false;
+        bool syntax_error = false;
+        int target_err_code = -1;
+
+        const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
+        while (xTaskGetTickCount() < deadline) {
+            uint8_t c = 0;
+            if (!m_modem_uart.readByte(c)) {
+                vTaskDelay(pdMS_TO_TICKS(1));
+                continue;
+            }
+
+            if (c == '\n') {
+                line_buf[line_len] = '\0';
+                if (line_len > 0 && line_buf[line_len - 1] == '\r') {
+                    line_buf[--line_len] = '\0';
+                }
+
+                if (line_len > 0) {
+                    printSanitizedRx(line_buf);
+
+                    if (strcmp(line_buf, "ERROR") == 0 || strstr(line_buf, "+CME ERROR") != nullptr) {
+                        syntax_error = true;
+                        break;
+                    }
+
+                    if (strncmp(line_buf, "+QSSLOPEN:", 10) == 0) {
+                        int resp_connect_id = -1;
+                        int err_code = -1;
+                        if (sscanf(line_buf, "+QSSLOPEN: %d,%d", &resp_connect_id, &err_code) == 2) {
+                            if (resp_connect_id == static_cast<int>(connect_id)) {
+                                got_open_result = true;
+                                target_err_code = err_code;
+                                break;
+                            }
+                        } else if (sscanf(line_buf, "+QSSLOPEN: %d", &err_code) == 1) {
+                            // Some modem variants return only an error code.
+                            got_open_result = true;
+                            target_err_code = err_code;
+                            break;
+                        }
+                    }
+                }
+
+                line_len = 0;
+            } else if (c != '\r') {
+                if (line_len < sizeof(line_buf) - 1) {
+                    line_buf[line_len++] = static_cast<char>(c);
+                } else {
+                    line_len = 0;
+                }
+            }
+        }
+
+        unlockCmd();
+
+        if (got_open_result) {
+            if (target_err_code != 0) {
+                printf("QSSLOPEN failed with modem error code: %d\n", target_err_code);
+                return false;
+            }
+
+            printf("SSL socket opened successfully (id=%u)\n", static_cast<unsigned>(connect_id));
+            return true;
+        }
+
+        if (syntax_error) {
+            printf("QSSLOPEN format variant %u rejected, trying next\n", static_cast<unsigned>(fmt_idx + 1));
+            continue;
+        }
+
+        printf("QSSLOPEN timeout with format variant %u\n", static_cast<unsigned>(fmt_idx + 1));
+    }
+
+    printf("AT response error while opening SSL socket: all QSSLOPEN variants failed\n");
+    return false;
+}
+
 bool ATCommandHndlr::sendSocketData(uint8_t connect_id,
                                     const uint8_t* payload,
                                     size_t payload_len,
@@ -448,6 +689,192 @@ bool ATCommandHndlr::readSocketData(uint8_t connect_id,
 
     unlockCmd();
     return got_ok;
+}
+
+bool ATCommandHndlr::httpGetStream(const std::string& url,
+                                   const ModemChunkCallback& onChunk,
+                                   int timeout_seconds) {
+    if (url.empty() || !onChunk) {
+        return false;
+    }
+
+    char cmd_buf[96] = {0};
+    ATCommand_t cmd = {
+        cmd_buf,
+        "OK",
+        8000,
+        MsgType::DATA,
+        nullptr,
+        0
+    };
+
+    snprintf(cmd_buf, sizeof(cmd_buf), "AT+QHTTPCFG=\"contextid\",1");
+    if (!send(cmd)) {
+        printf("QHTTPCFG contextid failed\n");
+        return false;
+    }
+
+    snprintf(cmd_buf, sizeof(cmd_buf), "AT+QHTTPCFG=\"sslctxid\",1");
+    if (!send(cmd)) {
+        // Not all firmware supports sslctxid here.
+        printf("QHTTPCFG sslctxid unsupported, continuing\n");
+    }
+
+    char url_cmd[64] = {0};
+    snprintf(url_cmd, sizeof(url_cmd), "AT+QHTTPURL=%u,30", static_cast<unsigned>(url.size()));
+    ATCommand_t url_load = {
+        url_cmd,
+        "CONNECT",
+        10000,
+        MsgType::DATA,
+        reinterpret_cast<const uint8_t*>(url.data()),
+        url.size()
+    };
+
+    if (!send(url_load)) {
+        printf("QHTTPURL failed\n");
+        return false;
+    }
+
+    char get_resp[128] = {0};
+    ATCommand_t http_get = {
+        "AT+QHTTPGET=80",
+        "+QHTTPGET:",
+        timeout_seconds * 1000,
+        MsgType::DATA,
+        nullptr,
+        0
+    };
+
+    if (!sendAndCapture(http_get, get_resp, sizeof(get_resp))) {
+        printf("QHTTPGET failed\n");
+        return false;
+    }
+
+    int get_result = -1;
+    int status_code = -1;
+    int content_len = -1;
+    if (sscanf(get_resp, "+QHTTPGET: %d,%d,%d", &get_result, &status_code, &content_len) < 2) {
+        printf("Unable to parse QHTTPGET response: %s\n", get_resp);
+        return false;
+    }
+
+    if (get_result != 0 || (status_code != 200 && status_code != 206)) {
+        printf("QHTTPGET returned result=%d status=%d\n", get_result, status_code);
+        return false;
+    }
+
+    printf("QHTTPGET success: status=%d, content_len=%d\n", status_code, content_len);
+    printf("Starting QHTTPREAD stream...\n");
+
+    if (!lockCmd()) {
+        return false;
+    }
+
+    m_modem_uart.writef("AT+QHTTPREAD=120\r\n");
+
+    char line_buf[128] = {0};
+    size_t line_len = 0;
+    int expected_len = -1;
+    int remaining = 0;
+    bool got_ok = false;
+    bool in_connect_data_phase = false;
+    uint8_t chunk_buf[512];
+    size_t chunk_len = 0;
+    size_t total_streamed = 0;
+
+    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_seconds * 1000);
+    while (xTaskGetTickCount() < deadline) {
+        uint8_t c = 0;
+        if (!m_modem_uart.readByte(c)) {
+            vTaskDelay(pdMS_TO_TICKS(1));
+            continue;
+        }
+
+        if ((expected_len >= 0 || in_connect_data_phase) && remaining > 0) {
+            chunk_buf[chunk_len++] = c;
+            remaining--;
+
+            if (chunk_len == sizeof(chunk_buf) || remaining == 0) {
+                if (!onChunk(chunk_buf, chunk_len)) {
+                    unlockCmd();
+                    return false;
+                }
+                total_streamed += chunk_len;
+                if ((total_streamed % (32 * 1024)) < chunk_len) {
+                    printf("QHTTPREAD progress: %u bytes\n", static_cast<unsigned>(total_streamed));
+                }
+                chunk_len = 0;
+            }
+
+            if (remaining == 0 && in_connect_data_phase) {
+                in_connect_data_phase = false;
+            }
+
+            continue;
+        }
+
+        if (c == '\n') {
+            line_buf[line_len] = '\0';
+            if (line_len > 0 && line_buf[line_len - 1] == '\r') {
+                line_buf[--line_len] = '\0';
+            }
+
+            if (line_len > 0) {
+                if (strcmp(line_buf, "ERROR") == 0 || strstr(line_buf, "+CME ERROR") != nullptr) {
+                    unlockCmd();
+                    return false;
+                }
+
+                if (strncmp(line_buf, "+QHTTPREAD:", 11) == 0) {
+                    if (sscanf(line_buf, "+QHTTPREAD: %d", &expected_len) == 1 && expected_len >= 0) {
+                        remaining = expected_len;
+                        printf("QHTTPREAD payload announced: %d bytes\n", expected_len);
+                    }
+                }
+
+                if (strcmp(line_buf, "CONNECT") == 0) {
+                    if (content_len > 0) {
+                        expected_len = content_len;
+                        remaining = content_len;
+                        in_connect_data_phase = true;
+                        printf("QHTTPREAD CONNECT mode: expecting %d bytes\n", content_len);
+                    } else {
+                        printf("QHTTPREAD CONNECT received without known content length\n");
+                    }
+                }
+
+                if (strcmp(line_buf, "OK") == 0) {
+                    got_ok = true;
+                    break;
+                }
+            }
+
+            line_len = 0;
+        } else if (c != '\r') {
+            if (line_len < sizeof(line_buf) - 1) {
+                line_buf[line_len++] = static_cast<char>(c);
+            } else {
+                line_len = 0;
+            }
+        }
+    }
+
+    unlockCmd();
+
+    if (!got_ok) {
+        printf("QHTTPREAD timeout or incomplete transfer\n");
+        return false;
+    }
+
+    if (total_streamed == 0) {
+        printf("QHTTPREAD completed but no payload bytes were streamed\n");
+        return false;
+    }
+
+    printf("QHTTPREAD complete: streamed %u bytes\n", static_cast<unsigned>(total_streamed));
+
+    return true;
 }
 
 bool ATCommandHndlr::waitForPrompt(int timeout_ms) {

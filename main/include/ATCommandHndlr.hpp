@@ -1,6 +1,8 @@
 #pragma once
 
 #include <unistd.h>
+#include <functional>
+#include <string>
 
 extern "C" {
 #include "freertos/FreeRTOS.h"
@@ -31,6 +33,8 @@ typedef struct {
     const uint8_t* payload;    // Optional payload data (nullptr if not needed)
     size_t payload_len;        // Length of payload (0 if not needed)
 } ATCommand_t;
+
+using ModemChunkCallback = std::function<bool(const uint8_t*, size_t)>;
 
 /**
  * @class ATCommandHndlr
@@ -94,6 +98,18 @@ public:
                        int timeout_ms = 15000);
 
     /**
+     * @brief Opens a modem-managed SSL/TLS socket using QSSLOPEN.
+     *
+     * Configures TLS context with permissive defaults for OTA fetches and
+     * waits for asynchronous +QSSLOPEN result.
+     */
+    bool openSSLSocket(const char* host,
+                       uint16_t port,
+                       uint8_t ssl_context_id = 1,
+                       uint8_t connect_id = 1,
+                       int timeout_ms = 45000);
+
+    /**
      * @brief Sends raw bytes through an already-open modem socket.
      */
     bool sendSocketData(uint8_t connect_id,
@@ -118,6 +134,13 @@ public:
                         size_t* out_read,
                         int timeout_ms = 3000,
                         size_t max_read = 256);
+
+    /**
+     * @brief Download HTTPS content via modem HTTP stack and stream body bytes.
+     */
+    bool httpGetStream(const std::string& url,
+                       const ModemChunkCallback& onChunk,
+                       int timeout_seconds = 180);
 
     /**
      * @brief Table of all AT commands for the FSM.
@@ -181,8 +204,22 @@ private:
      */
     bool sendPayloadAndWaitResponse(const uint8_t* payload, size_t payload_len);
 
+    /**
+     * @brief Ensures the command mutex is available.
+     * @return true if mutex is available, false otherwise
+     */
     bool ensureCmdMutex();
+    
+    /**
+     * @brief Locks the command mutex to ensure exclusive access to the modem.
+     * @return true if lock acquired, false on failure
+     */
     bool lockCmd();
+
+    /**
+     * @brief Unlocks the command mutex after command processing is complete.
+     * @return true if mutex released successfully, false otherwise
+     */
     void unlockCmd();
 
     static SemaphoreHandle_t s_cmd_mutex;

@@ -29,6 +29,45 @@ bool CoapOTAUpdater::streamFirmwareFromHttpsToOta(const std::string& firmware_ur
 {
     total_written = 0;
 
+    // Preferred path: stream HTTPS bytes via active communication transport (SIM modem on EC25).
+    const bool streamed_over_transport = comm.streamHttpsGet(
+        firmware_url,
+        [ota_handle, &total_written](const uint8_t* chunk, size_t chunk_len) -> bool {
+            if (!chunk || chunk_len == 0)
+            {
+                return true;
+            }
+
+            const esp_err_t write_err = esp_ota_write(ota_handle, chunk, chunk_len);
+            if (write_err != ESP_OK)
+            {
+                printf("esp_ota_write failed during transport stream: %s\n", esp_err_to_name(write_err));
+                return false;
+            }
+
+            total_written += chunk_len;
+            return true;
+        });
+
+    if (streamed_over_transport)
+    {
+        if (total_written == 0)
+        {
+            printf("Transport HTTPS stream completed but returned no payload\n");
+            return false;
+        }
+
+        return true;
+    }
+
+    if (comm.getType() == ConnectionType::SIM)
+    {
+        printf("SIM HTTPS stream failed; skipping esp_http_client fallback\n");
+        return false;
+    }
+
+    printf("Transport HTTPS stream unavailable, falling back to esp_http_client\n");
+
     http_config.url = firmware_url.c_str();
 
     esp_http_client_handle_t client = esp_http_client_init(&http_config);

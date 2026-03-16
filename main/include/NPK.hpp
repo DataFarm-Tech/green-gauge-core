@@ -7,6 +7,7 @@
 #include <array>
 
 #include "Config.hpp"
+#include "MeasurementType.hpp"
 
 /**
  * @brief Modbus RTU packet structure and constants for NPK sensor communication
@@ -51,19 +52,6 @@
 #define PHOS_OFFSET 13
 #define POTASS_OFFSET 15
 #define TEMP_OFFSET 5
-
-/**
- * @brief Measurement types supported by the NPK sensor
- */
-enum class MeasurementType
-{
-    Nitrogen,
-    Phosphorus,
-    Potassium,
-    Moisture,
-    PH,
-    Temperature
-};
 
 // Measurement type name constants
 constexpr const char *NITROGEN = "nitrogen";

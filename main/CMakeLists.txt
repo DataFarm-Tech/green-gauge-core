@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS 
         "src/main.cpp"
+        "src/app/AppRuntime.cpp"
         "src/io/drivers/UARTDriver.cpp"
         "src/io/drivers/EEPROMConfig.cpp"
         "src/io/interfaces/ATCommandHndlr.cpp"

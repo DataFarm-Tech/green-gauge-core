@@ -5,7 +5,6 @@
 #include "freertos/task.h"
 #include <stdint.h>
 
-// Forward declaration
 class UARTDriver;
 
 /**

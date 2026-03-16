@@ -6,42 +6,16 @@
 #include "Logger.hpp"
 #include "CoapPktAssm.hpp"
 #include "EEPROMConfig.hpp"
+#include "Utils.hpp"
+#include <cctype>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 extern "C"
 {
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-}
-
-static size_t extractCoapPayloadChunk(const char *src, size_t src_len, std::string &out)
-{
-    out.clear();
-
-    if (!src || src_len == 0)
-    {
-        return 0;
-    }
-
-    size_t payload_start = src_len;
-    for (size_t i = 0; i < src_len; ++i)
-    {
-        if (static_cast<uint8_t>(src[i]) == COAP_PAYLOAD_MARKER)
-        {
-            payload_start = i + 1;
-            break;
-        }
-    }
-
-    if (payload_start >= src_len)
-    {
-        return 0;
-    }
-
-    out.assign(src + payload_start, src_len - payload_start);
-
-    return out.size();
 }
 
 /**
@@ -186,6 +160,40 @@ ATCommand_t close_cmd = {
     nullptr,
     0
 };
+
+/**
+ * @brief QSSLCLOSE command to close the SSL socket
+ * This command instructs the modem to close an SSL/TLS socket that was previously opened with QSSLOPEN. The expected response is "OK" if the socket was closed successfully.
+ * This command is used during cleanup and shutdown procedures to ensure that all network resources are properly released, especially in cases where an SSL/TLS connection was established for secure communication.
+ * Timeout: 7000ms (SSL/TLS sockets may require additional time to close gracefully
+ * MsgType: SHUTDOWN (used during connection shutdown and error recovery)
+ */
+ATCommand_t close_ssl_socket = {
+        "AT+QSSLCLOSE=1",
+        "OK",
+        7000,
+        MsgType::DATA,
+        nullptr,
+        0
+};
+
+/**
+ * @brief QICLOSE command to close the UDP socket (alternative for SSL connections)
+ * This command is used as an alternative to close_cmd for cases where the connection was established using
+ * QSSLOPEN, which may require using QICLOSE with the SSL socket ID instead of QSSLCLOSE. The expected response is "OK" if the socket was closed successfully. This command provides flexibility in handling different types of connections during shutdown procedures.
+ * Timeout: 5000ms
+ * MsgType: SHUTDOWN (used during connection shutdown and error recovery)
+ */
+ATCommand_t close_tls_socket = {
+    "AT+QICLOSE=1",
+    "OK",
+    5000,
+    MsgType::DATA,
+    nullptr,
+    0
+};
+
+
 
 bool SimConnection::estDataSession() 
 {
@@ -704,7 +712,7 @@ bool SimConnection::sendPacketStream(const uint8_t * cbor_buffer,
         empty_reads = 0;
 
         std::string payload_chunk;
-        if (extractCoapPayloadChunk(rx_buffer, rx_read, payload_chunk) > 0)
+        if (Utils::extractCoapPayloadChunk(rx_buffer, rx_read, payload_chunk) > 0)
         {
             if (!onChunk(reinterpret_cast<const uint8_t*>(payload_chunk.data()), payload_chunk.size()))
             {
@@ -726,6 +734,290 @@ bool SimConnection::sendPacketStream(const uint8_t * cbor_buffer,
 
     printf("Timed out waiting for response payload (%d ms)\n", response_window_ms);
     return false;
+}
+
+bool SimConnection::streamHttpsGet(const std::string& url, const PacketChunkCallback& onChunk)
+{
+    if (!onChunk)
+    {
+        return false;
+    }
+
+    auto ensure_connected = [this]() -> bool {
+        if (sim_stat == SimStatus::CONNECTED)
+        {
+            return true;
+        }
+
+        printf("SIM not connected, attempting reconnect before HTTPS stream\n");
+        return connect();
+    };
+
+    if (!ensure_connected())
+    {
+        return false;
+    }
+
+    // Prefer modem HTTP stack for HTTPS downloads on this modem/firmware family.
+    if (hndlr.httpGetStream(url, onChunk, 180))
+    {
+        return true;
+    }
+
+    printf("Primary modem HTTP stack download failed, trying legacy SSL socket path\n");
+
+    std::string host;
+    std::string path;
+    uint16_t port = 443;
+    if (!Utils::parseHttpsUrl(url, host, port, path))
+    {
+        printf("Invalid HTTPS URL for SIM stream: %s\n", url.c_str());
+        return false;
+    }
+
+    auto close_https_socket = [this]() {
+        (void)hndlr.send(close_ssl_socket);
+        (void)hndlr.send(close_tls_socket);
+    };
+
+    // Best effort cleanup in case socket id 1 was left open by a previous attempt.
+    close_https_socket();
+
+    if (!hndlr.openSSLSocket(host.c_str(), port, 1, 1, 45000))
+    {
+        printf("Failed to open SSL socket to %s:%u\n", host.c_str(), static_cast<unsigned>(port));
+        return false;
+    }
+
+    std::string request = Utils::buildHttpsGetRequest(host, path);
+
+    if (!hndlr.sendSocketData(1,
+                              reinterpret_cast<const uint8_t*>(request.data()),
+                              request.size(),
+                              10000))
+    {
+        printf("Failed to send HTTPS GET request\n");
+        close_https_socket();
+        return false;
+    }
+
+    bool headers_done = false;
+    bool chunked = false;
+    bool got_body = false;
+    bool chunked_done = false;
+    size_t expected_chunk_bytes = 0;
+    int64_t content_length = -1;
+    int64_t body_received = 0;
+    std::string pending;
+    int idle_reads = 0;
+    const int max_idle_reads = 20;
+
+    auto emit_payload = [&onChunk, &got_body, &body_received](const char* data, size_t len) -> bool {
+        if (len == 0)
+        {
+            return true;
+        }
+
+        if (!onChunk(reinterpret_cast<const uint8_t*>(data), len))
+        {
+            return false;
+        }
+
+        got_body = true;
+        body_received += static_cast<int64_t>(len);
+        return true;
+    };
+
+    auto process_chunked_payload = [&]() -> bool {
+        while (true)
+        {
+            if (chunked_done)
+            {
+                return true;
+            }
+
+            if (expected_chunk_bytes == 0)
+            {
+                const size_t line_end = pending.find("\r\n");
+                if (line_end == std::string::npos)
+                {
+                    return true;
+                }
+
+                std::string size_text = pending.substr(0, line_end);
+                const size_t ext_pos = size_text.find(';');
+                if (ext_pos != std::string::npos)
+                {
+                    size_text = size_text.substr(0, ext_pos);
+                }
+
+                char* end_ptr = nullptr;
+                const unsigned long parsed = std::strtoul(size_text.c_str(), &end_ptr, 16);
+                if (end_ptr == nullptr || *end_ptr != '\0')
+                {
+                    printf("Invalid chunk size in HTTPS response\n");
+                    return false;
+                }
+
+                pending.erase(0, line_end + 2);
+                expected_chunk_bytes = static_cast<size_t>(parsed);
+
+                if (expected_chunk_bytes == 0)
+                {
+                    chunked_done = true;
+                    return true;
+                }
+            }
+
+            if (pending.size() < expected_chunk_bytes + 2)
+            {
+                return true;
+            }
+
+            if (!emit_payload(pending.data(), expected_chunk_bytes))
+            {
+                return false;
+            }
+
+            pending.erase(0, expected_chunk_bytes + 2);
+            expected_chunk_bytes = 0;
+        }
+    };
+
+    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(300000);
+    while (static_cast<int32_t>(deadline - xTaskGetTickCount()) > 0)
+    {
+        char rx_buffer[1024] = {0};
+        size_t rx_read = 0;
+
+        if (!hndlr.readSocketData(1, rx_buffer, sizeof(rx_buffer), &rx_read, 2000, sizeof(rx_buffer) - 1))
+        {
+            idle_reads++;
+            if (got_body && idle_reads >= max_idle_reads)
+            {
+                break;
+            }
+            vTaskDelay(pdMS_TO_TICKS(100));
+            continue;
+        }
+
+        if (rx_read == 0)
+        {
+            idle_reads++;
+            if ((chunked_done || (content_length >= 0 && body_received >= content_length)) ||
+                (got_body && idle_reads >= max_idle_reads))
+            {
+                break;
+            }
+            vTaskDelay(pdMS_TO_TICKS(100));
+            continue;
+        }
+
+        idle_reads = 0;
+        pending.append(rx_buffer, rx_read);
+
+        if (!headers_done)
+        {
+            const size_t header_end = pending.find("\r\n\r\n");
+            if (header_end == std::string::npos)
+            {
+                continue;
+            }
+
+            const std::string headers = pending.substr(0, header_end);
+            headers_done = true;
+
+            const size_t status_line_end = headers.find("\r\n");
+            const std::string status_line = (status_line_end == std::string::npos)
+                                                ? headers
+                                                : headers.substr(0, status_line_end);
+            if (status_line.find(" 200 ") == std::string::npos &&
+                status_line.find(" 206 ") == std::string::npos)
+            {
+                printf("HTTPS GET failed, status line: %s\n", status_line.c_str());
+                close_https_socket();
+                return false;
+            }
+
+            const std::string headers_lower = Utils::toLowerAscii(headers);
+            const std::string chunked_key = "transfer-encoding: chunked";
+            chunked = headers_lower.find(chunked_key) != std::string::npos;
+
+            const std::string length_key = "content-length:";
+            const size_t length_pos = headers_lower.find(length_key);
+            if (length_pos != std::string::npos)
+            {
+                size_t value_start = length_pos + length_key.size();
+                while (value_start < headers_lower.size() &&
+                       std::isspace(static_cast<unsigned char>(headers_lower[value_start])))
+                {
+                    value_start++;
+                }
+
+                size_t value_end = value_start;
+                while (value_end < headers_lower.size() && std::isdigit(static_cast<unsigned char>(headers_lower[value_end])))
+                {
+                    value_end++;
+                }
+
+                if (value_end > value_start)
+                {
+                    content_length = static_cast<int64_t>(std::strtoll(headers_lower.substr(value_start, value_end - value_start).c_str(), nullptr, 10));
+                }
+            }
+
+            pending.erase(0, header_end + 4);
+        }
+
+        if (chunked)
+        {
+            if (!process_chunked_payload())
+            {
+                close_https_socket();
+                return false;
+            }
+
+            if (chunked_done)
+            {
+                break;
+            }
+        }
+        else
+        {
+            if (!pending.empty())
+            {
+                if (!emit_payload(pending.data(), pending.size()))
+                {
+                    close_https_socket();
+                    return false;
+                }
+                pending.clear();
+            }
+
+            if (content_length >= 0 && body_received >= content_length)
+            {
+                break;
+            }
+        }
+    }
+
+    close_https_socket();
+
+    if (chunked && !chunked_done)
+    {
+        printf("HTTPS chunked transfer did not complete\n");
+        return false;
+    }
+
+    if (content_length >= 0 && body_received < content_length)
+    {
+        printf("HTTPS body truncated: received %lld of %lld bytes\n",
+               static_cast<long long>(body_received),
+               static_cast<long long>(content_length));
+        return false;
+    }
+
+    return got_body;
 }
 
 bool SimConnection::startTelnetSession()

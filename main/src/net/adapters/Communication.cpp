@@ -3,9 +3,10 @@
 #include "SimConnection.hpp"
 #include "EthernetConnection.hpp"
 
-Communication::Communication(ConnectionType type) 
+Communication::Communication(ConnectionType selected_type)
+    : connection_type(selected_type)
 {
-    switch (type) 
+    switch (selected_type)
     {
         case ConnectionType::WIFI:
             connection = std::make_unique<WifiConnection>();
@@ -17,6 +18,11 @@ Communication::Communication(ConnectionType type)
             connection = std::make_unique<EthernetConnection>();
             break;
     }
+}
+
+ConnectionType Communication::getType() const
+{
+    return connection_type;
 }
 
 bool Communication::connect() 
@@ -59,4 +65,10 @@ bool Communication::sendPacketStream(const uint8_t * pkt,
                                      const PacketChunkCallback& onChunk)
 {
     return connection->sendPacketStream(pkt, pkt_len, pkt_config, onChunk);
+}
+
+bool Communication::streamHttpsGet(const std::string& url,
+                                   const PacketChunkCallback& onChunk)
+{
+    return connection->streamHttpsGet(url, onChunk);
 }

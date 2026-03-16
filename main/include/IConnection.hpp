@@ -77,4 +77,12 @@ public:
 
         return onChunk(reinterpret_cast<const uint8_t*>(response.data()), response.size());
     }
+
+    virtual bool streamHttpsGet(const std::string& url,
+                                const PacketChunkCallback& onChunk)
+    {
+        (void)url;
+        (void)onChunk;
+        return false;
+    }
 };

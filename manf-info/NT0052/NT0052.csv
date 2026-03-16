@@ -2,7 +2,7 @@ key,type,encoding,value
 config_ns,namespace,,
 hw_ver,data,string,0.0.1
 hw_var,data,string,A
-fw_ver,data,string,1.0.0
+fw_ver,data,string,0.0.0
 node_id,data,string,NT0052
 sim_mod_sn,data,string,MPY25IH19000252
 sim_card_sn,data,string,XXX

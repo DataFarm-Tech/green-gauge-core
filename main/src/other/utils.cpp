@@ -1,6 +1,9 @@
 #include "Utils.hpp"
+#include "CoapPktAssm.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <cctype>
 #include <limits>
 #include <cstdlib>
 #include <cstdio>
@@ -19,6 +22,113 @@ std::string Utils::bytesToHexString(unsigned char high, unsigned char low)
 	   << std::setw(2) << (int)low;
 
 	return ss.str();
+}
+
+size_t Utils::extractCoapPayloadChunk(const char *src, size_t src_len, std::string &out)
+{
+	out.clear();
+
+	if (!src || src_len == 0)
+	{
+		return 0;
+	}
+
+	size_t payload_start = src_len;
+	for (size_t i = 0; i < src_len; ++i)
+	{
+		if (static_cast<uint8_t>(src[i]) == COAP_PAYLOAD_MARKER)
+		{
+			payload_start = i + 1;
+			break;
+		}
+	}
+
+	if (payload_start >= src_len)
+	{
+		return 0;
+	}
+
+	out.assign(src + payload_start, src_len - payload_start);
+
+	return out.size();
+}
+
+std::string Utils::toLowerAscii(std::string value)
+{
+	std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+		return static_cast<char>(std::tolower(ch));
+	});
+	return value;
+}
+
+bool Utils::parseHttpsUrl(const std::string &url,
+	                      std::string &host,
+	                      uint16_t &port,
+	                      std::string &path)
+{
+	host.clear();
+	path.clear();
+	port = 443;
+
+	static const std::string scheme = "https://";
+	if (url.rfind(scheme, 0) != 0)
+	{
+		return false;
+	}
+
+	const size_t host_start = scheme.size();
+	size_t path_start = url.find('/', host_start);
+
+	std::string host_port;
+	if (path_start == std::string::npos)
+	{
+		host_port = url.substr(host_start);
+		path = "/";
+	}
+	else
+	{
+		host_port = url.substr(host_start, path_start - host_start);
+		path = url.substr(path_start);
+	}
+
+	if (host_port.empty())
+	{
+		return false;
+	}
+
+	const size_t colon_pos = host_port.rfind(':');
+	if (colon_pos != std::string::npos)
+	{
+		const std::string port_text = host_port.substr(colon_pos + 1);
+		char *end_ptr = nullptr;
+		const unsigned long parsed_port = std::strtoul(port_text.c_str(), &end_ptr, 10);
+		if (end_ptr == nullptr || *end_ptr != '\0' || parsed_port == 0 || parsed_port > 65535)
+		{
+			return false;
+		}
+
+		host = host_port.substr(0, colon_pos);
+		port = static_cast<uint16_t>(parsed_port);
+	}
+	else
+	{
+		host = host_port;
+	}
+
+	return !host.empty();
+}
+
+std::string Utils::buildHttpsGetRequest(const std::string &host,
+	                                   const std::string &path,
+	                                   const std::string &userAgent)
+{
+	const std::string request_path = path.empty() ? "/" : path;
+
+	return "GET " + request_path + " HTTP/1.1\r\n"
+	       "Host: " + host + "\r\n"
+	       "User-Agent: " + userAgent + "\r\n"
+	       "Connection: close\r\n"
+	       "Accept: */*\r\n\r\n";
 }
 
 void Utils::trimTrailingWhitespace(std::string &value)
@@ -118,4 +228,24 @@ std::string Utils::parseGPSLine(const std::string &line)
 	char buf[64];
 	snprintf(buf, sizeof(buf), "%.7f, %.7f", lat_dec, lon_dec);
 	return std::string(buf);
+}
+
+void Utils::printDeviceConfig(const DeviceConfig &cfg, const char *source)
+{
+	printf("Device config (%s):\n", (source != nullptr) ? source : "unknown");
+	printf("  activated=%s\n", cfg.has_activated ? "Yes" : "No");
+	printf("  gps_coord=%s\n", cfg.gps_coord.c_str());
+	printf("  main_app_delay=%llu\n", static_cast<unsigned long long>(cfg.main_app_delay));
+	printf("  session_count=%llu\n", static_cast<unsigned long long>(cfg.session_count));
+	printf("  secretKey=%s\n", cfg.secretKey);
+	printf("  manf.hw_ver=%s\n", cfg.manf_info.hw_ver.value);
+	printf("  manf.hw_var=%s\n", cfg.manf_info.hw_var.value);
+	printf("  manf.fw_ver=%s\n", cfg.manf_info.fw_ver.value);
+	printf("  manf.nodeId=%s\n", cfg.manf_info.nodeId.value);
+	printf("  manf.secretkey=%s\n", cfg.manf_info.secretkey.value);
+	printf("  manf.p_code=%s\n", cfg.manf_info.p_code.value);
+	printf("  manf.sim_mod_sn=%s\n", cfg.manf_info.sim_mod_sn.value);
+	printf("  manf.sim_card_sn=%s\n", cfg.manf_info.sim_card_sn.value);
+	printf("  manf.chassis_ver=%s\n", cfg.manf_info.chassis_ver.value);
+	printf("  calib.last_cal_ts=%llu\n", static_cast<unsigned long long>(cfg.calib.last_cal_ts));
 }

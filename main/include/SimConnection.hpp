@@ -66,6 +66,9 @@ public:
                           const PktEntry_t pkt_config,
                           const PacketChunkCallback& onChunk) override;
 
+    bool streamHttpsGet(const std::string& url,
+                        const PacketChunkCallback& onChunk) override;
+
     /**
      * @brief Starts a telnet session over the SIM connection.
      * @return true if the session was successfully started, false otherwise.
