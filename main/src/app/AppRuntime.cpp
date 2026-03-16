@@ -1,41 +1,42 @@
-#include "Communication.hpp"
+#include "AppRuntime.hpp"
+
+#include <cctype>
 #include <stdio.h>
-
-extern "C"
-{
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "nvs_flash.h"
-#include "esp_sleep.h"
-#include "esp_log.h"
-#include "driver/uart.h"
-}
-
-#include "esp_event.h"
-#include "esp_wifi.h"
-#include "esp_system.h"
-#include "lwip/sockets.h"
-#include "lwip/inet.h"
 #include <string.h>
-#include "esp_log.h"
-#include "Config.hpp"
-#include "EEPROMConfig.hpp"
-#include "UARTDriver.hpp"
+
+#include "ActivatePkt.hpp"
 #include "CoapOTAUpdater.hpp"
+#include "CoapPktAssm.hpp"
+#include "Config.hpp"
+#include "HwTypes.hpp"
+#include "Key.hpp"
 #include "Logger.hpp"
 #include "NPK.hpp"
-#include "HwTypes.hpp"
-#include "ActivatePkt.hpp"
 #include "ReadingPkt.hpp"
-#include <memory>
+#include "UARTDriver.hpp"
 #include "GpsUpdatePkt.hpp"
-#include "Key.hpp"
-#include "CoapPktAssm.hpp"
+#include "Utils.hpp"
 
-/**
- * @brief Global device configuration stored in EEPROM.
- */
-DeviceConfig g_device_config = {
+extern "C" {
+    #include "driver/uart.h"
+    #include "esp_event.h"
+    #include "esp_netif.h"
+    #include "esp_log.h"
+    #include "esp_sleep.h"
+    #include "esp_wifi.h"
+    #include "freertos/FreeRTOS.h"
+    #include "freertos/task.h"
+}
+
+DeviceConfig g_device_config;
+uint32_t wakeup_causes = 0;
+esp_reset_reason_t reset_reason;
+
+std::unique_ptr<Communication> g_comm;
+ConnectionType g_hw_var = ConnectionType::SIM;
+GPS m_gps;
+
+static const DeviceConfig k_default_device_config = {
     .has_activated = false,
     .gps_coord = "",
     .main_app_delay = 30,
@@ -54,52 +55,66 @@ DeviceConfig g_device_config = {
     },
     .calib = {.calib_list = {{.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Nitrogen}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Phosphorus}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Potassium}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Moisture}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::PH}, {.offset = 0.0f, .gain = 1.0f, .m_type = MeasurementType::Temperature}}, .last_cal_ts = 0}};
 
-uint32_t wakeup_causes = 0;
-esp_reset_reason_t reset_reason;
+void enter_deep_sleep()
+{
+    const uint64_t sleep_seconds = static_cast<uint64_t>(g_device_config.main_app_delay);
+    const uint64_t safe_sleep_seconds = (sleep_seconds > 0ULL) ? sleep_seconds : 60ULL;
 
-std::unique_ptr<Communication> g_comm;
-ConnectionType g_hw_var = ConnectionType::SIM;
-GPS m_gps;
+    printf("Entering deep sleep for %llu seconds\n",
+           static_cast<unsigned long long>(safe_sleep_seconds));
 
-/**
- * @brief Initialize core system components.
- */
+    if (g_comm)
+    {
+        g_comm->disconnect();
+    }
+
+    g_logger.deinit();
+    esp_sleep_enable_timer_wakeup(safe_sleep_seconds * 1000000ULL);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    esp_deep_sleep_start();
+}
+
 void init_hw()
 {
     g_logger.init();
-    printf("Init Logger\n");
 
-    if (!eeprom.begin())
+    // Required for components that depend on lwIP/tcpip task (e.g. esp_http_client).
+    // Re-initialization returns ESP_ERR_INVALID_STATE, which is safe to ignore.
+    esp_err_t netif_err = esp_netif_init();
+    if (netif_err != ESP_OK && netif_err != ESP_ERR_INVALID_STATE)
     {
-        printf("Failed to initialize EEPROMConfig\n");
-        esp_restart();
+        ESP_ERROR_CHECK(netif_err);
+    }
+
+    esp_err_t event_loop_err = esp_event_loop_create_default();
+    if (event_loop_err != ESP_OK && event_loop_err != ESP_ERR_INVALID_STATE)
+    {
+        ESP_ERROR_CHECK(event_loop_err);
     }
 
     rs485_uart.init(
-        BAUD_4800,          // Baud rate (adjust based on your RS485 device requirements)
-        GPIO_NUM_38,        // TXD0 (IO37) - connects to UART2_TXD
-        GPIO_NUM_37,        // RXD0 (IO36) - connects to UART2_RXD
-        UART_PIN_NO_CHANGE, /* rts_pin */
-        UART_PIN_NO_CHANGE, /* cts_pin */
-        GEN_BUFFER_SIZE,    /* rx_buffer_size */
-        GEN_BUFFER_SIZE     // /* tx_buffer_size */ RS485 benefits from TX buffer
+        BAUD_4800,
+        GPIO_NUM_38,
+        GPIO_NUM_37,
+        UART_PIN_NO_CHANGE,
+        UART_PIN_NO_CHANGE,
+        GEN_BUFFER_SIZE,
+        GEN_BUFFER_SIZE
     );
 
     switch (g_hw_var)
     {
     case ConnectionType::WIFI:
-        ESP_ERROR_CHECK(esp_netif_init());
-        ESP_ERROR_CHECK(esp_event_loop_create_default());
         break;
     case ConnectionType::SIM:
         m_modem_uart.init(
-            BAUD_115200,        // baud rate
-            GPIO_NUM_17,        // TX → Quectel RX
-            GPIO_NUM_18,        // RX → Quectel TX
-            UART_PIN_NO_CHANGE, // RTS (not used)
-            UART_PIN_NO_CHANGE, // CTS (not used)
-            2048,               // RX buffer size (larger for AT responses)
-            0                   // TX buffer size (0 = no buffering)
+            BAUD_115200,
+            GPIO_NUM_17,
+            GPIO_NUM_18,
+            UART_PIN_NO_CHANGE,
+            UART_PIN_NO_CHANGE,
+            2048,
+            0
         );
         break;
 
@@ -108,26 +123,30 @@ void init_hw()
     }
 }
 
-/**
- * @brief Load existing config or create default configuration.
- */
 bool load_create_config()
 {
+    if (!eeprom.begin())
+    {
+        printf("Failed to initialize EEPROMConfig\n");
+        return false;
+    }
+
+    g_device_config = k_default_device_config;
+
     if (eeprom.loadConfig(g_device_config))
     {
-        printf("Loaded config from NVS. Node ID: %s, Activated: %s", 
-            g_device_config.manf_info.nodeId.value,
-            g_device_config.has_activated ? "Yes" : "No");
+        Utils::printDeviceConfig(g_device_config, "loaded from NVS");
         return true;
     }
 
-    printf("Failed to load config from NVS - device may not be provisioned\n");
-    return false;
+    printf("Failed to load valid provisioning from NVS - using runtime defaults (not persisted)\n");
+    g_device_config = k_default_device_config;
+
+    Utils::printDeviceConfig(g_device_config, "defaults");
+
+    return true;
 }
 
-/**
- * @brief The following function selects the network interface.
- */
 void net_select(HwVer_e hw_ver)
 {
     switch (hw_ver)
@@ -140,22 +159,18 @@ void net_select(HwVer_e hw_ver)
         break;
 
     default:
-        g_hw_var = ConnectionType::WIFI;
+        g_hw_var = ConnectionType::SIM;
         break;
     }
 
     g_comm = std::make_unique<Communication>(g_hw_var);
 }
 
-/**
- * @brief The following function finds the current HW_VER.
- * Then initialises network_interface select. Depending on HW.
- */
 void hw_features(void)
 {
     HwVer_e hw_ver = HW_VER_UNKNOWN_E;
 
-    for (const auto &entry : ver)
+    for (const auto& entry : ver)
     {
         if (entry.name == nullptr)
         {
@@ -169,15 +184,11 @@ void hw_features(void)
         }
     }
 
-    hw_ver = HW_VER_0_0_1_E;
-
     net_select(hw_ver);
 }
 
-void read_gps()
+static void read_gps()
 {
-    // GPS Cold Start (first fix) can take 30-60 seconds. Keep this short to avoid blocking
-    // the main cycle too long; retry logic in GPS handler still handles slower acquisitions.
     const int gps_cold_start_delay_ms = 30000;
     printf("Waiting for GPS fix (Cold Start may take 30-60 seconds)...\n");
     vTaskDelay(pdMS_TO_TICKS(gps_cold_start_delay_ms));
@@ -188,16 +199,16 @@ void read_gps()
     }
     else
     {
-        g_device_config.gps_coord = "0.0,0.0"; // Define your default
+        g_device_config.gps_coord = "0.0,0.0";
         printf("Failed to retrieve GPS location, using default coordinates: %s\n", g_device_config.gps_coord.c_str());
     }
 }
 
-void handle_gps_update() {
-
+static void handle_gps_update()
+{
     GpsUpdatePkt gpsupdatePkt(PktType::GpsUpdate, std::string(g_device_config.manf_info.nodeId.value), std::string(GPS_URI), g_device_config.gps_coord);
 
-    const uint8_t * pkt_1 = gpsupdatePkt.toBuffer();
+    const uint8_t* pkt_1 = gpsupdatePkt.toBuffer();
     const size_t buffer_len = gpsupdatePkt.getBufferLength();
 
     if (!pkt_1 || buffer_len == 0)
@@ -213,10 +224,7 @@ void handle_gps_update() {
     }
 }
 
-/**
- * @brief Handle device activation process.
- */
-void handle_activation()
+static void handle_activation()
 {
     Key::computeKey(g_device_config.secretKey, Key::HMAC_SIZE);
     
@@ -225,7 +233,7 @@ void handle_activation()
                             g_device_config.manf_info.sim_mod_sn.value, g_device_config.manf_info.sim_card_sn.value,
                             g_device_config.manf_info.chassis_ver.value);
 
-    const uint8_t *pkt_1 = activatePkt.toBuffer();
+    const uint8_t* pkt_1 = activatePkt.toBuffer();
     const size_t buffer_len = activatePkt.getBufferLength();
 
     if (g_device_config.has_activated)
@@ -234,12 +242,8 @@ void handle_activation()
         return;
     }
 
-
     printf("Sending activation packet for node: %s\n", g_device_config.manf_info.nodeId.value);
 
-    /**
-     * Key is needed for activation and is computed here before the first packet build and send. This ensures that the secretKey value from the config is used to generate the correct HMAC for activation.
-     */
 
     if (!pkt_1 || buffer_len == 0)
     {
@@ -255,7 +259,6 @@ void handle_activation()
 
     g_device_config.has_activated = true;
 
-
     if (eeprom.saveConfig(g_device_config))
     {
         printf("Activation complete, config saved to EEPROM\n");
@@ -264,15 +267,13 @@ void handle_activation()
     {
         printf("Failed to save activation status to EEPROM\n");
     }
-
-    return;
 }
 
-void collect_reading()
+static void collect_reading()
 {
     uint16_t reading[NPK_COLLECT_SIZE];
 
-    for (const NPK::MeasurementEntry &m_entry : NPK::MEASUREMENT_TABLE)
+    for (const NPK::MeasurementEntry& m_entry : NPK::MEASUREMENT_TABLE)
     {
         memset(reading, 0, sizeof(reading));
 
@@ -296,7 +297,7 @@ void collect_reading()
                               m_entry.type,
                               g_device_config.session_count);
 
-        const uint8_t *cbor_buffer = readingPkt.toBuffer();
+        const uint8_t* cbor_buffer = readingPkt.toBuffer();
         const size_t cbor_buffer_len = readingPkt.getBufferLength();
 
         if (!cbor_buffer || cbor_buffer_len == 0)
@@ -329,13 +330,52 @@ void collect_reading()
     printf("Collection complete\n");
 }
 
+static bool has_required_identity_fields()
+{
+    return (g_device_config.manf_info.nodeId.value[0] != '\0') &&
+           (g_device_config.manf_info.secretkey.value[0] != '\0') &&
+           (g_device_config.manf_info.hw_ver.value[0] != '\0');
+}
 
-/**
- * @brief Background task for waiting provisioning, connecting, activating, OTA, and data collection.
- */
-void start_app(void *arg)
+static bool is_valid_node_id(const char* node_id)
+{
+    if (node_id == nullptr)
+    {
+        return false;
+    }
+
+    const size_t len = strlen(node_id);
+    if (len != 6)
+    {
+        return false;
+    }
+
+    for (size_t i = 0; i < len; ++i)
+    {
+        if (!std::isalnum(static_cast<unsigned char>(node_id[i])))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool activation_payload_ready()
+{
+    return is_valid_node_id(g_device_config.manf_info.nodeId.value) &&
+           (g_device_config.manf_info.secretkey.value[0] != '\0') &&
+           (g_device_config.manf_info.hw_ver.value[0] != '\0') &&
+           (g_device_config.manf_info.fw_ver.value[0] != '\0') &&
+           (g_device_config.manf_info.sim_mod_sn.value[0] != '\0') &&
+           (g_device_config.manf_info.sim_card_sn.value[0] != '\0') &&
+           (g_device_config.manf_info.chassis_ver.value[0] != '\0');
+}
+
+void start_app(void* arg)
 {
     bool connected_for_collection = false;
+    bool identity_ready = false;
 
     if (!g_comm)
     {
@@ -343,17 +383,16 @@ void start_app(void *arg)
         goto cleanup;
     }
 
-    // Initial connection
-    if (!g_comm->connect())
+    if (!g_comm->connect()) //If connection fails, enter deep sleep.
     {
         printf("Unable to connect to network\n");
-        goto reboot;
+        enter_deep_sleep();
+        return;
     }
 
     printf("Device connected to network\n");
 
 #if OTA_EN == 1
-    // OTA check only on power-on
     if (g_comm->isConnected())
     {
         CoapOTAUpdater ota(*g_comm, g_device_config.manf_info.fw_ver.value);
@@ -366,6 +405,19 @@ void start_app(void *arg)
                 printf("OTA image ready, rebooting into updated firmware\n");
                 vTaskDelay(pdMS_TO_TICKS(1500));
                 esp_restart();
+                    if (!activation_payload_ready())
+                    {
+                        printf("Activation skipped: manufacturing identity not fully provisioned or node_id invalid\n");
+                        printf("nodeId='%s' (must be 6 alnum), hw_ver='%s', fw_ver='%s', sim_mod_sn='%s', sim_card_sn='%s', chassis_ver='%s'\n",
+                               g_device_config.manf_info.nodeId.value,
+                               g_device_config.manf_info.hw_ver.value,
+                               g_device_config.manf_info.fw_ver.value,
+                               g_device_config.manf_info.sim_mod_sn.value,
+                               g_device_config.manf_info.sim_card_sn.value,
+                               g_device_config.manf_info.chassis_ver.value);
+                        return;
+                    }
+
             }
             else
             {
@@ -386,7 +438,23 @@ void start_app(void *arg)
         goto cleanup;
     }
 
-    // Handle activation only once
+    identity_ready = has_required_identity_fields();
+    if (g_device_config.has_activated && !identity_ready)
+    {
+        // Recover from inconsistent persisted state (e.g. stale/partial NVS data).
+        printf("Activation state inconsistent (has_activated=true but identity fields missing), forcing re-activation\n");
+        g_device_config.has_activated = false;
+        if (!eeprom.saveConfig(g_device_config))
+        {
+            printf("Warning: failed to persist corrected activation state\n");
+        }
+    }
+
+    printf("Activation gate: has_activated=%s, nodeId='%s', hw_ver='%s'\n",
+           g_device_config.has_activated ? "true" : "false",
+           g_device_config.manf_info.nodeId.value,
+           g_device_config.manf_info.hw_ver.value);
+
     if (!g_device_config.has_activated) {
         handle_activation();
     }
@@ -414,43 +482,7 @@ void start_app(void *arg)
         goto cleanup;
     }
 
-    reboot:
-        printf("Reboooting\n");
-        g_logger.deinit();
-        esp_restart();
-
-    
-    cleanup:
-        if (g_comm)
-        {
-            g_comm->disconnect();
-        }
-        printf("Entering deep sleep for %ld seconds\n", g_device_config.main_app_delay);
-        g_logger.deinit(); // Ensure logs are flushed and filesystem is cleanly unmounted before sleep
-        esp_sleep_enable_timer_wakeup(g_device_config.main_app_delay * 1000000ULL);
-        vTaskDelay(pdMS_TO_TICKS(100));
-        esp_deep_sleep_start();
-        vTaskDelete(nullptr);
-}
-
-/**
- * @brief Main application entry point.
- */
-extern "C" void app_main(void)
-{
-    reset_reason = esp_reset_reason();
-    wakeup_causes = esp_sleep_get_wakeup_causes();
-
-    hw_features();
-
-    init_hw();
-
-    // Step 2: Load or create configuration
-    if (!load_create_config())
-        return;
-
-    // Step 3: Launch provisioning + operational tasks in background
-    xTaskCreate(start_app, "start_app", 8192, nullptr, 5, nullptr);
-
-    return;
+cleanup:
+    enter_deep_sleep();
+    vTaskDelete(nullptr);
 }
