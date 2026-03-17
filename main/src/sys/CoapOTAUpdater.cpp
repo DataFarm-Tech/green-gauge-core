@@ -8,6 +8,7 @@ extern "C" {
 }
 
 #include <cstdio>
+#include <cctype>
 #include <cstring>
 #include "CoapPktAssm.hpp"
 #include "CborDecoder.hpp"
@@ -143,6 +144,54 @@ bool CoapOTAUpdater::streamFirmwareFromHttpsToOta(const std::string& firmware_ur
     return success;
 }
 
+int CoapOTAUpdater::compareVersions(const std::string& v1, const std::string& v2)
+{
+    auto readSegment = [](const std::string& version, size_t& pos) -> int {
+        if (pos >= version.size())
+        {
+            return 0;
+        }
+
+        const size_t next_pos = version.find('.', pos);
+        const size_t end = (next_pos == std::string::npos) ? version.size() : next_pos;
+        const std::string segment = version.substr(pos, end - pos);
+        pos = (next_pos == std::string::npos) ? version.size() : (next_pos + 1);
+
+        int value = 0;
+        bool saw_digit = false;
+        for (char ch : segment)
+        {
+            if (!std::isdigit(static_cast<unsigned char>(ch)))
+            {
+                break;
+            }
+            saw_digit = true;
+            value = (value * 10) + (ch - '0');
+        }
+
+        return saw_digit ? value : 0;
+    };
+
+    size_t pos1 = 0;
+    size_t pos2 = 0;
+    while (pos1 < v1.size() || pos2 < v2.size())
+    {
+        const int seg1 = readSegment(v1, pos1);
+        const int seg2 = readSegment(v2, pos2);
+
+        if (seg1 < seg2)
+        {
+            return -1;
+        }
+        if (seg1 > seg2)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 
 bool CoapOTAUpdater::isFirmwareAvailable()
 {
@@ -189,7 +238,7 @@ bool CoapOTAUpdater::isFirmwareAvailable()
     }
 
     available_version = firmware_version;
-    const bool update_available = available_version.compare(current_version) > 0;
+    const bool update_available = compareVersions(available_version, current_version) > 0;
 
     printf("OTA version check: current='%s', available='%s', update=%s\n",
            current_version.c_str(),

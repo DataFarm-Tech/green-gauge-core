@@ -54,6 +54,14 @@ private:
      */
     bool streamFirmwareFromHttpsToOta(const std::string& firmware_url, esp_ota_handle_t ota_handle, size_t& total_written);
 
+    /**
+     * @brief Compares two semantic version strings.
+     * @param v1 First version string (e.g., "1.2.3")
+     * @param v2 Second version string (e.g., "1.2.4")
+     * @return Negative if v1 < v2, 0 if v1 == v2, positive if v1 > v2
+     */
+    int compareVersions(const std::string& v1, const std::string& v2);
+
     Communication& comm;
     std::string current_version;
     std::string available_version;
