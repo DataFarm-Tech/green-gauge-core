@@ -64,7 +64,7 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
 
 # Default values (can be overridden from command line)
 set(OTA_EN 1 CACHE STRING "Enable OTA")
-set(TELNET_CLI_EN 1 CACHE STRING "Enable Telnet CLI")
+set(TELNET_CLI_EN 0 CACHE STRING "Enable Telnet CLI")
 set(DEEP_SLEEP_EN 1 CACHE STRING "Enable Deep Sleep")
 set(PROJECT_VER "unknown" CACHE STRING "Firmware version")
 
