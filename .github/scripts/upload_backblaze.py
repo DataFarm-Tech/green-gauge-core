@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Upload firmware.bin and version.txt to a Backblaze B2 bucket."""
+"""Upload release artifacts to a Backblaze B2 bucket."""
 
 from __future__ import annotations
 
@@ -91,6 +91,9 @@ def main() -> None:
     build_dir = repo_root / "build"
     app_binary = resolve_app_binary(build_dir)
     app_hash = sha256_file(app_binary)
+    release_notes_file = repo_root / ".github" / "RELEASE.md"
+    if not release_notes_file.is_file():
+        fail(f"Release notes file not found: {release_notes_file}")
 
     archive_prefix = f"archive/{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
 
@@ -106,6 +109,7 @@ def main() -> None:
         temp_dir = Path(tmpdir)
         try_archive_existing_file(bucket, "firmware.bin", archive_prefix, temp_dir)
         try_archive_existing_file(bucket, "version.txt", archive_prefix, temp_dir)
+        try_archive_existing_file(bucket, "RELEASE.md", archive_prefix, temp_dir)
 
     bucket.upload_local_file(local_file=str(app_binary), file_name="firmware.bin")
     bucket.upload_local_file(
@@ -113,8 +117,16 @@ def main() -> None:
         file_name="version.txt",
         content_type="text/plain",
     )
+    bucket.upload_local_file(
+        local_file=str(release_notes_file),
+        file_name="RELEASE.md",
+        content_type="text/markdown",
+    )
 
-    print(f"Uploaded firmware.bin from {app_binary} and version.txt ({VERSION}, sha256={app_hash})")
+    print(
+        "Uploaded firmware.bin from "
+        f"{app_binary}, version.txt ({VERSION}, sha256={app_hash}), and RELEASE.md"
+    )
 
 
 if __name__ == "__main__":

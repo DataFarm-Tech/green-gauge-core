@@ -28,7 +28,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: esp32s3-build
-          path: build/
+          path: |
+            build/
+            .github/RELEASE.md
           retention-days: 30
 
       - name: Install Backblaze B2 SDK
