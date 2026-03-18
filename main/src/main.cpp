@@ -16,8 +16,7 @@ extern "C" void app_main(void)
     reset_reason = esp_reset_reason();
     wakeup_causes = esp_sleep_get_wakeup_causes();
 
-    Utils::printMotd();
-
+    
     // Step 2: Load or create configuration
     if (!load_create_config())
     {
@@ -25,13 +24,15 @@ extern "C" void app_main(void)
         enter_deep_sleep();
         return;
     }
-
+    
     // Step 3: Select communication features based on loaded config
     hw_features();
-
+    
     // Step 4: Initialize hardware for selected communication mode
     init_hw();
-
+    
+    Utils::printMotd();
+    
     // Step 5: Launch provisioning + operational tasks in background
     xTaskCreate(start_app, "start_app", APP_RUNTIME_STACK_SIZE, nullptr, 5, nullptr);
 
