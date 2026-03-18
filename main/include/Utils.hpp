@@ -13,7 +13,8 @@
 class Utils
 {
 public:
-	static unsigned short hexStringToInt(const std::string &hexStr);
+	static void printMotd();
+    static unsigned short hexStringToInt(const std::string &hexStr);
 	static std::string bytesToHexString(unsigned char high, unsigned char low);
 	static size_t extractCoapPayloadChunk(const char *src, size_t src_len, std::string &out);
 	static std::string toLowerAscii(std::string value);

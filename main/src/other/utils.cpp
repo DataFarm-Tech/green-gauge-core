@@ -8,6 +8,20 @@
 #include <cstdlib>
 #include <cstdio>
 
+void Utils::printMotd() {
+    printf("**********************************************************\n");
+    printf("*                                                        *\n");
+    printf("*  ____        _        _____                           *\n");
+    printf("* |  _ \\  __ _| |_ __ _|  ___|_ _ _ __ _ __ ___        *\n");
+    printf("* | | | |/ _` | __/ _` | |_ / _` | '__| '_ ` _ \\       *\n");
+    printf("* | |_| | (_| | || (_| |  _| (_| | |  | | | | | |      *\n");
+    printf("* |____/ \\__,_|\\__\\__,_|_|  \\__,_|_|  |_| |_| |_|      *\n");
+    printf("*                                                        *\n");
+    printf("*        All activity may be monitored.                 *\n");
+    printf("*        Unauthorized access is prohibited.             *\n");
+    printf("**********************************************************\n");
+}
+
 unsigned short Utils::hexStringToInt(const std::string &hexStr)
 {
 	unsigned short result = static_cast<unsigned short>(std::stoul(hexStr, nullptr, 16));

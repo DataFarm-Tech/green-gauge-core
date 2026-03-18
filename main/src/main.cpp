@@ -1,5 +1,5 @@
 #include "AppRuntime.hpp"
-
+#include "Utils.hpp"
 extern "C" {
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -15,6 +15,8 @@ extern "C" void app_main(void)
 {
     reset_reason = esp_reset_reason();
     wakeup_causes = esp_sleep_get_wakeup_causes();
+
+    Utils::printMotd();
 
     // Step 2: Load or create configuration
     if (!load_create_config())
