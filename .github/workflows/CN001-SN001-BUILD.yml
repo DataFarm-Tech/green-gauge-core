@@ -1,21 +1,29 @@
-name: CI/CD ESP-IDF Build
+name: CD ESP-IDF Release Deploy
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     container:
       image: espressif/idf:latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           submodules: true
+
+      - name: Derive release version from tag
+        shell: bash
+        run: |
+          echo "RELEASE_VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
 
       - name: Build ESP-IDF project
         shell: bash
@@ -46,6 +54,7 @@ jobs:
           B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
           B2_BUCKET: ${{ secrets.B2_BUCKET }}
+          RELEASE_VERSION: ${{ env.RELEASE_VERSION }}
         run: |
           export IDF_TARGET=esp32s3
           . /opt/esp/idf/export.sh

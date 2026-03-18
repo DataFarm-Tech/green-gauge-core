@@ -210,7 +210,17 @@ Connect over USB serial to access the interactive CLI:
 
 ## Deployment
 
-Every push to `main` triggers the [CI/CD ESP-IDF Build](.github/workflows/CN001-SN001-BUILD.yml) GitHub Actions workflow, which:
+The GitHub Actions pipeline is split into CI and CD:
+
+1. **CI**: [CI ESP-IDF PR Build](.github/workflows/CI-PR.yml)
+2. **CD**: [CD ESP-IDF Release Deploy](.github/workflows/CN001-SN001-BUILD.yml)
+
+CI runs on pull requests targeting `main` or `release` and performs:
+
+1. **Builds** the firmware inside the `espressif/idf:latest` Docker container targeting `esp32s3`.
+2. **Uploads build artifacts** (`build/` + `RELEASE.md`) as a GitHub Actions artifact retained for 14 days.
+
+CD runs on version tags (for example, `v1.2.3`) and performs:
 
 1. **Builds** the firmware inside the `espressif/idf:latest` Docker container targeting `esp32s3`.
 2. **Uploads build artifacts** (`build/` + `RELEASE.md`) as a GitHub Actions artifact retained for 30 days.

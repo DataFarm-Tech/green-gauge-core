@@ -1,0 +1,38 @@
+name: CI ESP-IDF PR Build
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Build ESP-IDF project
+        shell: bash
+        run: |
+          export IDF_TARGET=esp32s3
+          . /opt/esp/idf/export.sh
+          idf.py fullclean build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32s3-pr-build
+          path: |
+            build/
+            .github/RELEASE.md
+          retention-days: 14

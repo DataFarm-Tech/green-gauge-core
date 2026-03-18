@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-VERSION = "0.0.1"
+DEFAULT_VERSION = "0.0.1"
 
 
 def fail(message: str) -> None:
@@ -86,6 +86,7 @@ def main() -> None:
     b2_key_id = require_env("B2_KEY_ID")
     b2_application_key = require_env("B2_APPLICATION_KEY")
     b2_bucket = require_env("B2_BUCKET")
+    version = os.getenv("RELEASE_VERSION", DEFAULT_VERSION).strip() or DEFAULT_VERSION
 
     repo_root = Path.cwd()
     build_dir = repo_root / "build"
@@ -98,7 +99,7 @@ def main() -> None:
     archive_prefix = f"archive/{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
 
     version_file = repo_root / "version.txt"
-    version_file.write_text(f"{VERSION}\nsha256={app_hash}\n", encoding="utf-8")
+    version_file.write_text(f"{version}\nsha256={app_hash}\n", encoding="utf-8")
 
     info = InMemoryAccountInfo()
     b2_api = B2Api(info)
@@ -125,7 +126,7 @@ def main() -> None:
 
     print(
         "Uploaded firmware.bin from "
-        f"{app_binary}, version.txt ({VERSION}, sha256={app_hash}), and RELEASE.md"
+        f"{app_binary}, version.txt ({version}, sha256={app_hash}), and RELEASE.md"
     )
 
 
