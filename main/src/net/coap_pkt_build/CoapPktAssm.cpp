@@ -1,7 +1,7 @@
 #include "CoapPktAssm.hpp"
 #include <unistd.h>
 #include <cstring>
-#include "Logger.hpp"
+// #include "Logger.hpp"
 
 PktEntry_t firmwareversion_entry = {PktType::FirmwareVersion, CoapMethod::GET, PKT_RESPONSE_WIN_FW_VERSION_MS, PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS};
 PktEntry_t activate_entry = {PktType::Activate, CoapMethod::POST, PKT_RESPONSE_WIN_DEFAULT_MS, PKT_SOCKET_READ_TIMEOUT_DEFAULT_MS};

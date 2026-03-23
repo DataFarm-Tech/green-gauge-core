@@ -1,5 +1,5 @@
 #include "GPS.hpp"
-#include "Logger.hpp"
+// #include "Logger.hpp"
 #include "Utils.hpp"
 
 #include <cstring>

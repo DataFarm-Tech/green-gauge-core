@@ -1,7 +1,7 @@
 #include "ActivatePkt.hpp"
 #include "psa/crypto.h"
 #include "Config.hpp"
-#include "Logger.hpp"
+// #include "Logger.hpp"
 #include "GPS.hpp"
 #include "EEPROMConfig.hpp"
 

@@ -1,6 +1,6 @@
 #include "ATCommandHndlr.hpp"
 #include "UARTDriver.hpp"
-#include "Logger.hpp"
+// #include "Logger.hpp"
 
 extern "C" {
     #include "freertos/FreeRTOS.h"

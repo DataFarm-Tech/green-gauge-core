@@ -3,7 +3,7 @@
 #include "driver/gpio.h"
 #include "Types.hpp"
 #include "ATCommandHndlr.hpp"
-#include "Logger.hpp"
+// #include "Logger.hpp"
 #include "CoapPktAssm.hpp"
 #include "EEPROMConfig.hpp"
 #include "Utils.hpp"

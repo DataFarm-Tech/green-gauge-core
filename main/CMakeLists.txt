@@ -19,7 +19,7 @@ idf_component_register(
         "src/routine/GPS.cpp"
         "src/sys/CborDecoder.cpp"
         "src/sys/CoapOTAUpdater.cpp"
-        "src/sys/Logger.cpp"
+        # "src/sys/Logger.cpp"
         "src/other/utils.cpp"
     INCLUDE_DIRS "include"
     REQUIRES 

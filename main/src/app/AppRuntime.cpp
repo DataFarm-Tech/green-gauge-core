@@ -10,7 +10,7 @@
 #include "Config.hpp"
 #include "HwTypes.hpp"
 #include "Key.hpp"
-#include "Logger.hpp"
+// #include "Logger.hpp"
 #include "NPK.hpp"
 #include "ReadingPkt.hpp"
 #include "UARTDriver.hpp"
@@ -68,7 +68,7 @@ void enter_deep_sleep()
         g_comm->disconnect();
     }
 
-    g_logger.deinit();
+    // g_logger.deinit();
     esp_sleep_enable_timer_wakeup(safe_sleep_seconds * 1000000ULL);
     vTaskDelay(pdMS_TO_TICKS(100));
     esp_deep_sleep_start();
@@ -76,7 +76,7 @@ void enter_deep_sleep()
 
 void init_hw()
 {
-    g_logger.init();
+    // g_logger.init();
 
     // Required for components that depend on lwIP/tcpip task (e.g. esp_http_client).
     // Re-initialization returns ESP_ERR_INVALID_STATE, which is safe to ignore.
@@ -361,16 +361,16 @@ static bool is_valid_node_id(const char* node_id)
     return true;
 }
 
-static bool activation_payload_ready()
-{
-    return is_valid_node_id(g_device_config.manf_info.nodeId.value) &&
-           (g_device_config.manf_info.secretkey.value[0] != '\0') &&
-           (g_device_config.manf_info.hw_ver.value[0] != '\0') &&
-           (g_device_config.manf_info.fw_ver.value[0] != '\0') &&
-           (g_device_config.manf_info.sim_mod_sn.value[0] != '\0') &&
-           (g_device_config.manf_info.sim_card_sn.value[0] != '\0') &&
-           (g_device_config.manf_info.chassis_ver.value[0] != '\0');
-}
+// static bool activation_payload_ready()
+// {
+//     return is_valid_node_id(g_device_config.manf_info.nodeId.value) &&
+//            (g_device_config.manf_info.secretkey.value[0] != '\0') &&
+//            (g_device_config.manf_info.hw_ver.value[0] != '\0') &&
+//            (g_device_config.manf_info.fw_ver.value[0] != '\0') &&
+//            (g_device_config.manf_info.sim_mod_sn.value[0] != '\0') &&
+//            (g_device_config.manf_info.sim_card_sn.value[0] != '\0') &&
+//            (g_device_config.manf_info.chassis_ver.value[0] != '\0');
+// }
 
 void start_app(void* arg)
 {
@@ -405,18 +405,18 @@ void start_app(void* arg)
                 printf("OTA image ready, rebooting into updated firmware\n");
                 vTaskDelay(pdMS_TO_TICKS(1500));
                 esp_restart();
-                    if (!activation_payload_ready())
-                    {
-                        printf("Activation skipped: manufacturing identity not fully provisioned or node_id invalid\n");
-                        printf("nodeId='%s' (must be 6 alnum), hw_ver='%s', fw_ver='%s', sim_mod_sn='%s', sim_card_sn='%s', chassis_ver='%s'\n",
-                               g_device_config.manf_info.nodeId.value,
-                               g_device_config.manf_info.hw_ver.value,
-                               g_device_config.manf_info.fw_ver.value,
-                               g_device_config.manf_info.sim_mod_sn.value,
-                               g_device_config.manf_info.sim_card_sn.value,
-                               g_device_config.manf_info.chassis_ver.value);
-                        return;
-                    }
+                    // if (!activation_payload_ready())
+                    // {
+                    //     printf("Activation skipped: manufacturing identity not fully provisioned or node_id invalid\n");
+                    //     printf("nodeId='%s' (must be 6 alnum), hw_ver='%s', fw_ver='%s', sim_mod_sn='%s', sim_card_sn='%s', chassis_ver='%s'\n",
+                    //            g_device_config.manf_info.nodeId.value,
+                    //            g_device_config.manf_info.hw_ver.value,
+                    //            g_device_config.manf_info.fw_ver.value,
+                    //            g_device_config.manf_info.sim_mod_sn.value,
+                    //            g_device_config.manf_info.sim_card_sn.value,
+                    //            g_device_config.manf_info.chassis_ver.value);
+                    //     return;
+                    // }
 
             }
             else
