@@ -83,19 +83,27 @@ def main() -> None:
     except ImportError as exc:
         fail(f"b2sdk is not installed: {exc}")
 
-    b2_key_id = require_env("B2_KEY_ID")
+    b2_key_id          = require_env("B2_KEY_ID")
     b2_application_key = require_env("B2_APPLICATION_KEY")
-    b2_bucket = require_env("B2_BUCKET")
-    version = os.getenv("RELEASE_VERSION", DEFAULT_VERSION).strip() or DEFAULT_VERSION
+    b2_bucket          = require_env("B2_BUCKET")
+    version            = os.getenv("RELEASE_VERSION", DEFAULT_VERSION).strip() or DEFAULT_VERSION
 
-    repo_root = Path.cwd()
-    build_dir = repo_root / "build"
-    app_binary = resolve_app_binary(build_dir)
-    app_hash = sha256_file(app_binary)
+    repo_root  = Path.cwd()
+    build_dir  = repo_root / "build"
+
+    app_binary        = resolve_app_binary(build_dir)
+    bootloader        = build_dir / "bootloader" / "bootloader.bin"
+    partition_table   = build_dir / "partition_table" / "partition-table.bin"
+    ota_data_initial  = build_dir / "ota_data_initial.bin"
     release_notes_file = repo_root / ".github" / "RELEASE.md"
+
+    for path in (bootloader, partition_table, ota_data_initial):
+        if not path.is_file():
+            fail(f"Required binary not found: {path}")
     if not release_notes_file.is_file():
         fail(f"Release notes file not found: {release_notes_file}")
 
+    app_hash       = sha256_file(app_binary)
     archive_prefix = f"archive/{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
 
     version_file = repo_root / "version.txt"
@@ -106,13 +114,25 @@ def main() -> None:
     b2_api.authorize_account("production", b2_key_id, b2_application_key)
     bucket = b2_api.get_bucket_by_name(b2_bucket)
 
+    # Archive existing files before overwriting
+    files_to_archive = [
+        "firmware.bin",
+        "bootloader.bin",
+        "partition-table.bin",
+        "ota_data_initial.bin",
+        "version.txt",
+        "RELEASE.md",
+    ]
     with tempfile.TemporaryDirectory(prefix="b2-archive-") as tmpdir:
         temp_dir = Path(tmpdir)
-        try_archive_existing_file(bucket, "firmware.bin", archive_prefix, temp_dir)
-        try_archive_existing_file(bucket, "version.txt", archive_prefix, temp_dir)
-        try_archive_existing_file(bucket, "RELEASE.md", archive_prefix, temp_dir)
+        for file_name in files_to_archive:
+            try_archive_existing_file(bucket, file_name, archive_prefix, temp_dir)
 
-    bucket.upload_local_file(local_file=str(app_binary), file_name="firmware.bin")
+    # Upload all artifacts
+    bucket.upload_local_file(local_file=str(app_binary),       file_name="firmware.bin")
+    bucket.upload_local_file(local_file=str(bootloader),       file_name="bootloader.bin")
+    bucket.upload_local_file(local_file=str(partition_table),  file_name="partition-table.bin")
+    bucket.upload_local_file(local_file=str(ota_data_initial), file_name="ota_data_initial.bin")
     bucket.upload_local_file(
         local_file=str(version_file),
         file_name="version.txt",
@@ -125,8 +145,8 @@ def main() -> None:
     )
 
     print(
-        "Uploaded firmware.bin from "
-        f"{app_binary}, version.txt ({version}, sha256={app_hash}), and RELEASE.md"
+        f"Uploaded firmware.bin, bootloader.bin, partition-table.bin, ota_data_initial.bin "
+        f"version.txt ({version}, sha256={app_hash}), and RELEASE.md"
     )
 
 
